@@ -1757,12 +1757,21 @@ import { log } from '@/workers/logger';
 
 const EXPIRY_DAYS = 60;
 
+/**
+ * NormalizedPosting as it round-trips through jsonb: Date fields come back
+ * as ISO strings. Typed explicitly because the Global Constraints forbid
+ * `any` at module boundaries.
+ */
+export type StoredPosting = Omit<NormalizedPosting, 'postedAt' | 'closesAt'> & {
+  postedAt: string;
+  closesAt?: string;
+};
+
 export type RawRow = {
   id: string;
   source_id: string;
   fingerprint: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  normalized: any;
+  normalized: StoredPosting;
 };
 
 export type JobRow = {
@@ -2117,12 +2126,14 @@ export function parseSearchParams(
   const flat = Object.fromEntries(
     Object.entries(input).map(([k, v]) => [k, Array.isArray(v) ? v[0] : v]),
   );
-  const parsed = SearchParamsSchema.safeParse(flat);
-  if (parsed.success) return parsed.data;
-
-  // Salvage the fields that are individually valid; drop the rest.
-  const salvaged = SearchParamsSchema.safeParse({ page: flat.page });
-  return salvaged.success ? salvaged.data : { page: 1 };
+  // Parse field by field so one bad value does not discard the good ones.
+  const shape = SearchParamsSchema.shape;
+  return {
+    q: shape.q.safeParse(flat.q).data,
+    city: shape.city.safeParse(flat.city).data,
+    category: shape.category.safeParse(flat.category).data,
+    page: shape.page.parse(flat.page),
+  };
 }
 ```
 
