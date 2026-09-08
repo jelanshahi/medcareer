@@ -22,4 +22,9 @@ describe('normalizeTitle', () => {
   it('collapses whitespace and punctuation', () => {
     expect(normalizeTitle('  Unit   Secretary,,, Clinics  ')).toBe('unit secretary clinics');
   });
+
+  it('leaves ambiguous two-letter tokens alone, since PT and OT mean part time and overtime in titles', () => {
+    expect(normalizeTitle('RN PT Days')).toBe('registered nurse pt days');
+    expect(normalizeTitle('RPN OT Weekends')).toBe('registered practical nurse ot weekends');
+  });
 });

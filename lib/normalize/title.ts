@@ -1,3 +1,6 @@
+// Clinical role abbreviations. Note: pt, ot, rt are omitted — they are ambiguous
+// in job titles (pt = part time, ot = overtime, rt = route/transport) and observed
+// Workday postings spell these roles out in full (e.g. "Occupational Therapist - ACTT").
 const ALIASES: Record<string, string> = {
   rn: 'registered nurse',
   rpn: 'registered practical nurse',
@@ -5,9 +8,6 @@ const ALIASES: Record<string, string> = {
   np: 'nurse practitioner',
   psw: 'personal support worker',
   hca: 'health care aide',
-  ot: 'occupational therapist',
-  pt: 'physiotherapist',
-  rt: 'respiratory therapist',
   mlt: 'medical laboratory technologist',
   mrt: 'medical radiation technologist',
   slp: 'speech language pathologist',
