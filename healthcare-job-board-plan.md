@@ -249,7 +249,7 @@ create table ingest_runs (
 The same posting will arrive from Job Bank, Adzuna, and the hospital's own Workday feed. Getting this right is what makes the site feel trustworthy.
 
 **Fingerprint** = `sha256(normalizedTitle | employerKey | city | province)` where:
-- `normalizedTitle` is lowercased, accent-stripped, punctuation-stripped, with seniority/req-number noise removed (`"RN - Emergency (Req #12345)"` → `"rn emergency"`), and common abbreviations expanded (`rn` → `registered nurse`, `psw` → `personal support worker`, `lpn`, `rpn`, `np`, and so on via a shared alias map).
+- `normalizedTitle` is lowercased, accent-stripped, punctuation-stripped, with req-number noise removed (`"RN - Emergency (Req #12345)"` → `"rn emergency"`), and common abbreviations expanded (`rn` → `registered nurse`, `psw` → `personal support worker`, `lpn`, `rpn`, `np`, and so on via a shared alias map). Do **not** strip seniority — see the Phase 1 design spec: seniority distinguishes real jobs at different pay grades, and removing it causes wrong merges. Ambiguous two-letter abbreviations (`pt`, `ot`, `rt`) are excluded from the alias map because they collide with shift language.
 - `employerKey` is the employer slug when it resolves to an `employers` row, otherwise a normalized employer name.
 
 Exact fingerprint match groups postings. Then apply a **source priority** to pick the canonical row: `direct ATS > Job Bank > Adzuna`. The canonical `apply_url` always points at the employer's own posting when one exists — that's the single highest-value thing this site does for a user.

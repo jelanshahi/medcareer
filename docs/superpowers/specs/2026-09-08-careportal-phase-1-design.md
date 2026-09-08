@@ -168,7 +168,14 @@ Handled by the existing `employers.facility_type` plus `is_active`. Agencies sim
 
 Fingerprint = `sha256(normalizedTitle | employerKey | city | province)` where:
 
-- `normalizedTitle` is lowercased, accent-stripped, punctuation-stripped, seniority and requisition noise removed (`"RN - Emergency (Req #12345)"` becomes `"registered nurse emergency"`), abbreviations expanded via a shared alias map in `lib/taxonomy/` (`rn`, `rpn`, `lpn`, `np`, `psw`, and so on).
+- `normalizedTitle` is lowercased, accent-stripped, punctuation-stripped, **requisition** noise removed (`"RN - Emergency (Req #12345)"` becomes `"registered nurse emergency"`), abbreviations expanded via a shared alias map in `lib/normalize/title.ts` (`rn`, `rpn`, `lpn`, `np`, `psw`, and so on).
+
+  **Amended 2026-09-08, after the Task 2 review.** The original text also called for stripping *seniority*. That was wrong and is now removed:
+
+  - A requisition number is noise. **Seniority is data.** "Senior RN" and "RN" at the same hospital are different jobs at different pay grades, and collapsing them makes one genuine posting vanish — precisely the wrong-merge failure this same section calls worse than duplicates.
+  - Phase 1 has exactly one source per employer, so there are no cross-source title variants for seniority-stripping to reconcile. The rule carried no upside and a real downside.
+
+  **The alias map expands only unambiguous abbreviations:** `rn`, `rpn`, `lpn`, `np`, `psw`, `hca`, `mlt`, `mrt`, `slp`. The two-letter clinical abbreviations `pt`, `ot`, and `rt` are **deliberately excluded** — in job titles they collide with "part time", "overtime", and other shift language, so `"RN PT Days"` would otherwise normalize to `"registered nurse physiotherapist days"`. Observed Workday postings spell these roles out in full (`"Occupational Therapist - ACTT"`), so nothing is lost.
 - `employerKey` is the employer slug when it resolves to an `employers` row, otherwise a normalized employer name.
 
 Exact fingerprint match only. Source priority for picking the canonical row: `direct ATS > Job Bank > Adzuna`. The canonical `apply_url` always points at the employer's own posting when one exists.
