@@ -104,14 +104,19 @@ It is also why the raw layer exists at all even with a single source feeding it.
 
 ### Connector contract
 
+**Amended after Step 0 verification (§12).** Workday's list endpoint returns only a stub — title, path, a *relative* posted string, and the requisition id. Description, real dates, and employment type live behind a per-job detail fetch. The contract therefore needs an explicit hydration step rather than assuming one payload per posting:
+
 ```ts
 interface Connector {
-  readonly id: string;              // 'workday:uhn'
+  readonly id: string;              // 'workday:shn'
   readonly kind: 'feed' | 'api' | 'ats';
-  fetchPage(cursor?: string): Promise<{ items: unknown[]; nextCursor?: string }>;
+  fetchPage(cursor?: string): Promise<{ items: JobStub[]; nextCursor?: string }>;
+  hydrate(stub: JobStub): Promise<unknown>;     // fetch full detail; rate-limited
   normalize(raw: unknown): NormalizedPosting;   // pure, no I/O, throws on invalid
 }
 ```
+
+Connectors whose source returns complete records in one response implement `hydrate` as the identity function. `normalize()` always receives a hydrated payload, so it stays pure and fixture-testable.
 
 ```ts
 type NormalizedPosting = {
@@ -262,7 +267,7 @@ Ingestion is idempotent: running a connector twice changes nothing. Upsert on `(
 
 ## 9. Phase 1 work breakdown
 
-**Step 0 — Employer verification. Timeboxed to roughly two hours, no code.**
+**Step 0 — Employer verification. COMPLETE, see §12.**
 
 Verify six large Ontario hospital networks: open each career site, observe the network requests, record the ATS platform and tenant/site identifiers. Candidates to check: UHN, Sinai Health, Sunnybrook, Unity Health Toronto, SickKids, Trillium Health Partners, Hamilton Health Sciences, The Ottawa Hospital.
 
@@ -306,8 +311,98 @@ Recorded here so they are not lost, in rough order of how much competitive moat 
 
 ## 11. Known risks
 
-1. **The six candidate hospitals may run different ATS platforms**, forcing two connectors in Phase 1 instead of one. Mitigated by verifying six in order to select three.
-2. **An endpoint may sit behind auth or bot protection.** That employer is dropped — hard rule, no workaround.
+1. ~~**The six candidate hospitals may run different ATS platforms**, forcing two connectors in Phase 1 instead of one.~~ **Resolved by Step 0 (§12):** three Ontario hospitals verified on Workday `wd10`, one connector.
+2. ~~**An endpoint may sit behind auth or bot protection.**~~ **Resolved by Step 0:** all three endpoints return 200 to an unauthenticated `curl` with no cookies. The rule still stands for employers added later.
 3. **Ontario-only and hospital-only is a thin catalog at launch.** Accepted: no audience exists yet, and Phase 2 widens it.
 4. **The brand name is unresolved**, mitigated by centralising it in `lib/site.ts`.
 5. **CBN registration timing** gates Job Bank but nothing in Phase 1.
+6. **Structured metadata is an employer convention, not a platform feature** (§12.4). Any parser that reads union, salary, or shift out of a description body is opt-in per employer and must fail soft.
+
+---
+
+## 12. Step 0 results — employer verification (completed 2026-09-08)
+
+Verified by observing live network traffic on the career sites and then calling the endpoints directly from `curl`, outside any browser session.
+
+### 12.1 Platform decision: Workday (`wd10`)
+
+Three Ontario **hospitals** confirmed on one platform, so Phase 1 ships exactly one connector as intended.
+
+| Employer | Tenant | Site | Live jobs |
+|---|---|---|---|
+| Scarborough Health Network | `shn` | `SHN_External_Career_Site` | 111 |
+| CHEO (Children's Hospital of Eastern Ontario, Ottawa) | `cheo` | `External_Site` | 26 |
+| Oak Valley Health (Markham Stouffville) | `oakvalleyhealth` | `OakValleyHealth` | 60 |
+
+**~197 live postings at verification time** — a thin but genuinely useful Phase 1 catalog, and it spans Toronto, Ottawa, and York Region rather than one city.
+
+### 12.2 Confirmed endpoints
+
+```
+List:    POST https://{tenant}.wd10.myworkdayjobs.com/wday/cxs/{tenant}/{site}/jobs
+         body: { "appliedFacets": {}, "limit": 20, "offset": 0, "searchText": "" }
+
+Detail:  GET  https://{tenant}.wd10.myworkdayjobs.com/wday/cxs/{tenant}/{site}{externalPath}
+```
+
+All returned HTTP 200 to plain `curl` with a descriptive User-Agent, no cookies, no auth, no bot challenge, in 0.3–0.5s. `externalPath` from the list response already begins with `/job/`, so it is appended to the site path directly — do not prefix it again.
+
+**robots.txt (`shn`):** `Allow: /SHN_External_Career_Site/`, `Disallow: /refreshFacet/`, plus a published `siteMap.xml`. `/wday/cxs/` is not disallowed. Re-check per tenant before registering each employer.
+
+### 12.3 The list response is a stub — two-phase fetch is mandatory
+
+The list endpoint returns only:
+
+```json
+{ "title": "...", "externalPath": "/job/...", "locationsText": "1940 Eglinton Ave",
+  "postedOn": "Posted 4 Days Ago", "bulletFields": ["JR106772"] }
+```
+
+Consequences, all now designed for:
+
+- **Description, real dates, and employment type require the detail fetch.** ~197 jobs means ~197 detail requests per full run; at the ~1 req/sec/host limit that is roughly 3.5 minutes of ingest. Acceptable, and it is why the connector contract gained `hydrate()` (§4).
+- **`postedOn` is a relative human string.** Never parse it. Use the detail response's `startDate` (ISO `2026-09-04`) as `postedAt`.
+- **`locationsText` can read "5 Locations"** — a single requisition spanning multiple sites. Phase 1 stores one job row and takes the city from the detail response's primary location. Revisit if multi-site postings prove common enough to hurt city filtering.
+- **`timeType`** (`"Full time"` / `"Part time"`) is a genuine Workday field, present for all three employers, and maps directly to `employmentType`.
+
+### 12.4 The important caveat: rich metadata is per-employer, not per-platform
+
+SHN prefixes every description with a structured header:
+
+```
+Job Number: JR106772
+Union: OPSEU
+Job Category: Paramedical
+Job Type: Permanent, Full time
+Minimum - Maximum Hourly Rate: $38.84 - $54.77
+Hours: Days, Weekends
+```
+
+That single block would yield union, category, employment type, **salary range**, and **shift** — for free. Oak Valley Health likewise puts union local in job titles (`"Unit Secretary, ... (CUPE) - Casual"`).
+
+**But CHEO and Oak Valley Health do not use this header.** Their descriptions open as plain HTML. So this is an SHN authoring convention, not a Workday capability.
+
+Design response: description-header parsing is an **opt-in, per-employer parser** driven by `employers.ats_config`, never applied by default, and it must fail soft — a missing header yields nulls, not an error. Where it does apply, the parsed fields are captured into the existing `salary_min`, `salary_max`, `shift_type`, and `employment_type` columns from day one, because they cost nothing extra once the detail payload is already fetched.
+
+**The shift band still does not ship in Phase 1.** Shift data would be present for roughly half the catalog and absent for the rest, and a signature element that is blank on most cards reads as broken. Capture the data now; ship the band when coverage justifies it.
+
+This also **validates the parked wage-transparency idea** (§10.1): union affiliation is present in real payloads today (OPSEU, CUPE), which is the join key that collective-agreement wage grids would need.
+
+### 12.5 Phase 2 pipeline discovered along the way
+
+Additional Ontario healthcare employers found on the **same Workday platform**, i.e. requiring no new connector:
+
+| Employer | Tenant | Site | Segment |
+|---|---|---|---|
+| VHA Home HealthCare | `vhaca` | `VHA` | Home care |
+| Extendicare / ParaMed | `extendicare` | `Paramed2023` | LTC + home care |
+| Public Health Ontario | `publichealthontario` | `PHOCareerSite` | Public health |
+| Ontario Health | `oh` (on `wd3`) | `OH` | Provincial agency |
+
+This is materially good news for Phase 2: the LTC and home-care employers that carry the PSW-heavy postings — the segment hospitals structurally miss — are reachable through the connector Phase 1 already builds. Phase 2 may be registry work rather than connector work.
+
+A separate **Taleo** cluster exists for later (Hamilton Health Sciences at `hhsc.taleo.net`, St. Joseph's Healthcare Hamilton via `tre.tbe.taleo.net?org=STJOSHAM`), and UHN runs SmartRecruiters. All are deferred; none are needed for Phase 1.
+
+### 12.6 Employers checked but not resolved
+
+Sunnybrook, SickKids, Trillium Health Partners, Sinai Health, and Unity Health Toronto did not surface a determinable ATS from public search. They are not needed for Phase 1 and can be verified when the registry expands.
