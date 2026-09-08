@@ -46,3 +46,4 @@ next-env.d.ts
 
 # superpowers (SDD workflow files — never delete or commit)
 .superpowers/
+Thumbs.db
