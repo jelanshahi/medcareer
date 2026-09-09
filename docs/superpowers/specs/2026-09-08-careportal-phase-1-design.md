@@ -164,6 +164,26 @@ Handled by the existing `employers.facility_type` plus `is_active`. Agencies sim
 - `language` — Ontario launches English-only. The awkward part would be the generated `search_vector` hardcoding `'english'`, and rebuilding a generated column on `jobs` is precisely the cheap operation.
 - Monetization and employer-account columns — nullable columns are trivial to add later.
 
+### Classification rules: name a role, not a department
+
+**Added 2026-09-08, after the Task 4 review.** `classify` returns `Category | null` and must never guess, because a wrong category is worse than an absent one — an unclassified job still appears in search, it just misses a filter, whereas a miscategorised job actively misleads.
+
+The first rule set violated that in a systematic way. Its specialty rules matched **department names** (`laboratory`, `pharmacy`, `imaging`, `diagnostic`, `research`), so any title mentioning a department was claimed before the management or clerical rules were reached:
+
+| Title | Classified | Should be |
+|---|---|---|
+| Manager, Diagnostic Imaging | `diagnostics_lab` | management |
+| Secretary, Pharmacy | `pharmacy` | admin_clerical |
+| Manager, Clinical Research | `research` | management |
+| Physician Assistant | `physicians` | allied health — a PA is not an MD |
+| Social Worker, Oncology | `mental_health` | not a mental-health role |
+
+**The governing rule now: a specialty rule must match a role, never a bare department.** `laboratory technologist`, not `laboratory`. `pharmacist` or `pharmacy technician`, not `pharmacy`. `research associate`, `scientist` or `postdoctoral`, not `research`.
+
+Rule order stays first-match-wins with specialties ahead of management, so `Nurse Manager` still reads as nursing — a nurse browsing the nursing category expects to find nursing leadership roles there. Department-qualified administrative titles now fall through to management or admin_clerical as they should.
+
+`social worker` moves to `allied_health`; `mental_health` keeps the genuinely mental-health terms (`mental health`, `psychiatric`, `addiction`, `crisis`), so "Social Worker, Acute Mental Health" still classifies as mental health via the department-independent keyword.
+
 ### Deduplication
 
 Fingerprint = `sha256(normalizedTitle | employerKey | city | province)` where:
