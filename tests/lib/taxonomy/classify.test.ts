@@ -33,4 +33,28 @@ describe('classify', () => {
   it('returns null rather than guessing when nothing matches', () => {
     expect(classify('Weekend Switchboard Operator, Information Services')).toBeNull();
   });
+
+  it('routes department-qualified management titles to management, not the specialty', () => {
+    expect(classify('Manager, Diagnostic Imaging')).toBe('management');
+    expect(classify('Laboratory Manager')).toBe('management');
+    expect(classify('Manager, Clinical Research')).toBe('management');
+  });
+
+  it('routes department-qualified clerical titles to admin, not the specialty', () => {
+    expect(classify('Secretary, Pharmacy')).toBe('admin_clerical');
+    expect(classify('Unit Clerk, Diagnostic Imaging')).toBe('admin_clerical');
+  });
+
+  it('treats a physician assistant as allied health, not a physician', () => {
+    expect(classify('Physician Assistant')).toBe('allied_health');
+  });
+
+  it('routes social workers by context, not by profession alone', () => {
+    expect(classify('Social Worker, Oncology')).toBe('allied_health');
+    expect(classify('Social Worker, Acute Mental Health')).toBe('mental_health');
+  });
+
+  it('keeps nursing leadership in nursing, where nurses look for it', () => {
+    expect(classify('Nurse Manager')).toBe('nursing');
+  });
 });
