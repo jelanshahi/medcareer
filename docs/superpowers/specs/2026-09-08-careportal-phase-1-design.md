@@ -175,6 +175,8 @@ Fingerprint = `sha256(normalizedTitle | employerKey | city | province)` where:
   - A requisition number is noise. **Seniority is data.** "Senior RN" and "RN" at the same hospital are different jobs at different pay grades, and collapsing them makes one genuine posting vanish — precisely the wrong-merge failure this same section calls worse than duplicates.
   - Phase 1 has exactly one source per employer, so there are no cross-source title variants for seniority-stripping to reconcile. The rule carried no upside and a real downside.
 
+  **Parenthesised content is kept, not stripped.** The original rule deleted everything in parentheses to remove site codes like `(GEN)`. But hospitals also write seniority that way, so `"RN - Emergency (Senior)"` collapsed onto `"RN - Emergency"` — the same wrong merge, through a different code path. Site codes now survive into the normalized title (`"...CP2 (GEN)"` becomes `"...cp2 gen"`), which can only ever cause a duplicate, never a disappearance. Requisition numbers are still removed, by a rule that matches them wherever they appear.
+
   **The alias map expands only unambiguous abbreviations:** `rn`, `rpn`, `lpn`, `np`, `psw`, `hca`, `mlt`, `mrt`, `slp`. The two-letter clinical abbreviations `pt`, `ot`, and `rt` are **deliberately excluded** — in job titles they collide with "part time", "overtime", and other shift language, so `"RN PT Days"` would otherwise normalize to `"registered nurse physiotherapist days"`. Observed Workday postings spell these roles out in full (`"Occupational Therapist - ACTT"`), so nothing is lost.
 - `employerKey` is the employer slug when it resolves to an `employers` row, otherwise a normalized employer name.
 
