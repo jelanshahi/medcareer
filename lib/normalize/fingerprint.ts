@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { normalizeTitle } from './title';
+import { normalizeTitle, deaccent } from './title';
 
 export type FingerprintInput = {
   title: string;
@@ -12,7 +12,7 @@ export function fingerprint(input: FingerprintInput): string {
   const parts = [
     normalizeTitle(input.title),
     input.employerKey.trim().toLowerCase(),
-    input.city.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''),
+    deaccent(input.city.trim().toLowerCase()),
     input.province.trim().toUpperCase(),
   ];
   return createHash('sha256').update(parts.join('|')).digest('hex');

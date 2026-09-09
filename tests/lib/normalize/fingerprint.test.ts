@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { describe, it, expect } from 'vitest';
 import { fingerprint } from '@/lib/normalize/fingerprint';
 
@@ -24,5 +25,12 @@ describe('fingerprint', () => {
   it('treats accented and unaccented city spellings as the same city', () => {
     expect(fingerprint({ ...base, city: 'Montréal' }))
       .toBe(fingerprint({ ...base, city: 'Montreal' }));
+  });
+
+  it('hashes the documented preimage: normalizedTitle|employerKey|city|province', () => {
+    const expected = createHash('sha256')
+      .update(['registered nurse emergency', 'shn', 'toronto', 'ON'].join('|'))
+      .digest('hex');
+    expect(fingerprint(base)).toBe(expected);
   });
 });

@@ -33,4 +33,13 @@ describe('normalizeTitle', () => {
     expect(normalizeTitle('RN - Emergency (Senior)'))
       .not.toBe(normalizeTitle('RN - Emergency'));
   });
+
+  it('keeps junior grade markers, which are data rather than requisition noise', () => {
+    expect(normalizeTitle('RN - Emergency Jr2'))
+      .not.toBe(normalizeTitle('RN - Emergency'));
+  });
+
+  it('leaves the full word "Requisition" alone, unlike the "Req #123" token', () => {
+    expect(normalizeTitle('Requisition Coordinator')).toBe('requisition coordinator');
+  });
 });
