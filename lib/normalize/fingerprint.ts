@@ -12,7 +12,7 @@ export function fingerprint(input: FingerprintInput): string {
   const parts = [
     normalizeTitle(input.title),
     input.employerKey.trim().toLowerCase(),
-    input.city.trim().toLowerCase(),
+    input.city.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''),
     input.province.trim().toUpperCase(),
   ];
   return createHash('sha256').update(parts.join('|')).digest('hex');

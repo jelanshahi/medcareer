@@ -6,9 +6,9 @@ describe('normalizeTitle', () => {
     expect(normalizeTitle('RN - Emergency (Req #12345)')).toBe('registered nurse emergency');
   });
 
-  it('strips parenthesised site codes', () => {
+  it('keeps parenthesised content, since parentheses also carry seniority', () => {
     expect(normalizeTitle('Registered Nurse - Hemodialysis Unit - CP2 (GEN)'))
-      .toBe('registered nurse hemodialysis unit cp2');
+      .toBe('registered nurse hemodialysis unit cp2 gen');
   });
 
   it('expands support-care abbreviations', () => {
@@ -26,5 +26,11 @@ describe('normalizeTitle', () => {
   it('leaves ambiguous two-letter tokens alone, since PT and OT mean part time and overtime in titles', () => {
     expect(normalizeTitle('RN PT Days')).toBe('registered nurse pt days');
     expect(normalizeTitle('RPN OT Weekends')).toBe('registered practical nurse ot weekends');
+  });
+
+  it('preserves seniority, which distinguishes real jobs at different pay grades', () => {
+    expect(normalizeTitle('Senior RN - Emergency')).toBe('senior registered nurse emergency');
+    expect(normalizeTitle('RN - Emergency (Senior)'))
+      .not.toBe(normalizeTitle('RN - Emergency'));
   });
 });

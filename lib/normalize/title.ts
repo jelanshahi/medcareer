@@ -14,11 +14,10 @@ const ALIASES: Record<string, string> = {
 };
 
 export function normalizeTitle(raw: string): string {
-  const withoutBrackets = raw.replace(/\([^)]*\)/g, ' ').replace(/\[[^\]]*\]/g, ' ');
   // Escaped codepoints rather than literal combining marks: invisible characters
   // in source get silently mangled by editors, encodings and diff tooling, and
   // this function is the deduplication key for the whole system.
-  const deaccented = withoutBrackets.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const deaccented = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const lowered = deaccented.toLowerCase();
   const withoutReq = lowered.replace(/\breq\s*#?\s*\d+/g, ' ').replace(/\bjr\d+\b/g, ' ');
   const wordsOnly = withoutReq.replace(/[^a-z0-9]+/g, ' ');

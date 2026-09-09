@@ -20,4 +20,9 @@ describe('fingerprint', () => {
   it('differs when the city differs', () => {
     expect(fingerprint({ ...base, city: 'Ottawa' })).not.toBe(fingerprint(base));
   });
+
+  it('treats accented and unaccented city spellings as the same city', () => {
+    expect(fingerprint({ ...base, city: 'Montréal' }))
+      .toBe(fingerprint({ ...base, city: 'Montreal' }));
+  });
 });
