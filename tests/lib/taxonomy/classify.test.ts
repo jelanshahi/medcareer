@@ -57,4 +57,20 @@ describe('classify', () => {
   it('keeps nursing leadership in nursing, where nurses look for it', () => {
     expect(classify('Nurse Manager')).toBe('nursing');
   });
+
+  it('routes department- and institution-qualified titles away from specialties', () => {
+    expect(classify('Medical Laboratory Manager')).toBe('management');
+    expect(classify('Administrative Assistant, CHEO Research Institute')).toBe('admin_clerical');
+    expect(classify('Manager, Emergency Preparedness and Crisis Response')).toBe('management');
+  });
+
+  it('treats "physician" used as a modifier as not a physician role', () => {
+    expect(classify('Physician Recruitment Coordinator')).not.toBe('physicians');
+    expect(classify('Physician Liaison')).not.toBe('physicians');
+    expect(classify('Staff Physician, Emergency')).toBe('physicians');
+  });
+
+  it('returns null rather than guessing for roles outside the taxonomy', () => {
+    expect(classify('Data Scientist, Health Informatics')).toBeNull();
+  });
 });
