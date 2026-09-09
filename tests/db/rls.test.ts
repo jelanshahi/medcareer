@@ -7,7 +7,13 @@ const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 describe.runIf(Boolean(url && anon))('row level security', () => {
-  const client = createClient(url!, anon!, { auth: { persistSession: false } });
+  // Constructed lazily inside each test, not here: Vitest still executes a
+  // skipped describe's body to collect its tests, so building the client at
+  // this scope throws "supabaseUrl is required" and fails the whole file
+  // whenever credentials are absent — CI, or any checkout without .env.local.
+  function client() {
+    return createClient(url!, anon!, { auth: { persistSession: false } });
+  }
 
   // An empty table returns zero rows whether RLS is enforcing or completely
   // disabled, so for a currently-empty table this assertion is necessarily
@@ -17,7 +23,7 @@ describe.runIf(Boolean(url && anon))('row level security', () => {
   it.each(['raw_postings', 'ingest_runs', 'employers', 'job_sources'])(
     'returns no rows to anon from %s',
     async (table) => {
-      const { data, error } = await client.from(table).select('*').limit(1);
+      const { data, error } = await client().from(table).select('*').limit(1);
       // An RLS-denied read is a successful, empty response. An error here means the
       // connection or table name is wrong, and the emptiness below would prove nothing.
       expect(error).toBeNull();
@@ -26,7 +32,7 @@ describe.runIf(Boolean(url && anon))('row level security', () => {
   );
 
   it('hides inactive jobs from anon', async () => {
-    const { data, error } = await client
+    const { data, error } = await client()
       .from('jobs')
       .select('slug,is_active')
       .eq('slug', 'rls-sentinel-inactive-do-not-delete');
@@ -38,7 +44,7 @@ describe.runIf(Boolean(url && anon))('row level security', () => {
   });
 
   it('returns only active rows from jobs', async () => {
-    const { data, error } = await client.from('jobs').select('id,is_active').limit(50);
+    const { data, error } = await client().from('jobs').select('id,is_active').limit(50);
     expect(error).toBeNull();
     for (const row of data ?? []) expect(row.is_active).toBe(true);
   });
