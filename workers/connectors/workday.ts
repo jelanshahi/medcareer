@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { sanitizeDescription } from '@/lib/normalize/sanitize';
 import type { EmploymentType, JobStub, NormalizedPosting, ProvinceCode, ShiftType } from '@/lib/types';
+import { SITE } from '@/lib/site';
+import { createHostLimiter, fetchWithBackoff } from '@/workers/ratelimit';
+import { log, type LogContext } from '@/workers/logger';
+import type { Connector } from './types';
 
 export type WorkdayEmployer = {
   slug: string;
@@ -187,5 +191,43 @@ export function normalizeWorkday(detail: unknown, employer: WorkdayEmployer): No
     salaryMax: header.salaryMax,
     salaryPeriod: header.salaryPeriod,
     applyUrl: info.externalUrl,
+  };
+}
+
+const PAGE_SIZE = 20;
+const limit = createHostLimiter();
+
+export function createWorkdayConnector(employer: WorkdayEmployer, ctx: LogContext): Connector {
+  const { tenant, site, host } = employer.config;
+  const base = `https://${host}/wday/cxs/${tenant}/${site}`;
+  const headers = { 'Content-Type': 'application/json', 'User-Agent': SITE.userAgent };
+
+  return {
+    id: `workday:${tenant}`,
+    kind: 'ats',
+
+    async fetchPage(cursor?: string) {
+      const offset = cursor ? Number(cursor) : 0;
+      const res = await limit(host, () => fetchWithBackoff(`${base}/jobs`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ appliedFacets: {}, limit: PAGE_SIZE, offset, searchText: '' }),
+      }));
+      if (!res.ok) throw new Error(`List fetch failed ${res.status} for ${base}/jobs`);
+      const { total, stubs } = parseWorkdayList(await res.json());
+      const nextOffset = offset + PAGE_SIZE;
+      log(ctx, 'info', 'fetched list page', { offset, returned: stubs.length, total });
+      return { items: stubs, nextCursor: nextOffset < total ? String(nextOffset) : undefined };
+    },
+
+    async hydrate(stub) {
+      const res = await limit(host, () => fetchWithBackoff(`${base}${stub.externalPath}`, { headers }));
+      if (!res.ok) throw new Error(`Detail fetch failed ${res.status} for ${stub.sourceJobId}`);
+      return res.json();
+    },
+
+    normalize(raw: unknown) {
+      return normalizeWorkday(raw, employer);
+    },
   };
 }
