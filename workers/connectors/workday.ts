@@ -48,6 +48,13 @@ export function parseWorkdayList(payload: unknown): { total: number; stubs: JobS
   };
 }
 
+/**
+ * SHN encodes its header-block line breaks as an HTML entity, sometimes double-escaped. Shared by
+ * `parseDescriptionHeader` and `stripDescriptionHeader`, which must agree on the delimiter.
+ * Safe to share despite the `g` flag: both uses are `.replace`, which resets `lastIndex`.
+ */
+const XA_ENTITY = /&amp;#xa;|&#xa;/gi;
+
 export type HeaderFields = {
   union?: string;
   salaryMin?: number;
@@ -59,13 +66,17 @@ export type HeaderFields = {
 
 /** SHN authoring convention only. Must fail soft — a missing header yields {}. */
 export function parseDescriptionHeader(rawDescription: string): HeaderFields {
-  const text = rawDescription.replace(/&amp;#xa;|&#xa;/gi, '\n');
+  const text = rawDescription.replace(XA_ENTITY, '\n');
   const fields: HeaderFields = {};
 
-  // Bounded to [^\n<] so the match cannot cross a newline or run into the HTML body when this
-  // line is the last (unterminated) line of the header block — see the `Hours:` line below,
-  // which butts straight up against `<br />` with no delimiter in the real SHN fixture.
-  const union = text.match(/^Union:\s*([^\n<]+)$/m);
+  // Each capture is bounded to [^\n<], which is the ONLY thing that ends it: the class stops the
+  // match at a newline or at the start of the HTML body. There is deliberately no end anchor.
+  // A trailing `$` is not merely redundant, it is fatal — the header block's last line is
+  // unterminated in the real SHN fixture (`Hours: All Shifts<br />`), so after capturing the
+  // value the next char is `<`, which is neither a newline nor end-of-input; since [^\n<]+ can
+  // only give back characters that are also not `<`, `$` is unsatisfiable and the whole match
+  // fails. `.trim()` because the class retains any whitespace sitting before the `<`.
+  const union = text.match(/^Union:\s*([^\n<]+)/m);
   if (union) fields.union = union[1].trim();
 
   const salary = text.match(/Minimum\s*-\s*Maximum\s+(Hourly|Annual)\s+(?:Rate|Salary):\s*\$?([\d.,]+)\s*-\s*\$?([\d.,]+)/i);
@@ -75,9 +86,9 @@ export function parseDescriptionHeader(rawDescription: string): HeaderFields {
     fields.salaryMax = Number(salary[3].replace(/,/g, ''));
   }
 
-  const hours = text.match(/^Hours:\s*([^\n<]+)$/m);
+  const hours = text.match(/^Hours:\s*([^\n<]+)/m);
   if (hours) {
-    const h = hours[1].toLowerCase();
+    const h = hours[1].trim().toLowerCase();
     // \b before "day" so "Saturday"/"Sunday" don't misclassify as a day shift.
     if (/night/.test(h)) fields.shiftType = 'night';
     else if (/evening/.test(h)) fields.shiftType = 'evening';
@@ -86,9 +97,9 @@ export function parseDescriptionHeader(rawDescription: string): HeaderFields {
     else if (/weekend/.test(h)) fields.shiftType = 'weekend';
   }
 
-  const jobType = text.match(/^Job Type:\s*([^\n<]+)$/m);
+  const jobType = text.match(/^Job Type:\s*([^\n<]+)/m);
   if (jobType) {
-    const t = jobType[1].toLowerCase();
+    const t = jobType[1].trim().toLowerCase();
     if (/casual/.test(t)) fields.employmentType = 'casual';
     else if (/temporary/.test(t)) fields.employmentType = 'temporary';
     else if (/full.?time/.test(t)) fields.employmentType = 'full_time';
@@ -106,8 +117,11 @@ export function parseDescriptionHeader(rawDescription: string): HeaderFields {
  * byte-identical.
  */
 export function stripDescriptionHeader(rawDescription: string): string {
-  const normalized = rawDescription.replace(/&amp;#xa;|&#xa;/gi, '\n');
-  const looksLikeHeader = /^[A-Z][A-Za-z /-]{0,40}:\s/.test(normalized);
+  const normalized = rawDescription.replace(XA_ENTITY, '\n');
+  // Require the known leading key rather than a generic `Key: value` shape. A shape test also
+  // matches real prose ("Position Summary: We are hiring…"), and would then throw away every
+  // character before the first "<" — i.e. the opening sentence of the posting.
+  const looksLikeHeader = /^Job Number:\s/.test(normalized);
   if (!looksLikeHeader) return rawDescription;
 
   // Search the original raw string, not `normalized` — the entity substitution changes the
@@ -133,6 +147,18 @@ export function normalizeWorkday(detail: unknown, employer: WorkdayEmployer): No
   const header = employer.config.parseDescriptionHeader
     ? parseDescriptionHeader(info.jobDescription)
     : {};
+
+  // Outbound URLs are built from the employers registry only, never user input (plan Global
+  // Constraints). The schema pins the scheme to https:, but externalUrl is still external data
+  // that becomes the applyUrl a job seeker clicks, so the host must match the registry too.
+  // Failing hard on one posting is correct: a connector failure never aborts the other sources.
+  const externalHost = new URL(info.externalUrl).host;
+  if (externalHost !== employer.config.host) {
+    throw new Error(
+      `externalUrl host "${externalHost}" does not match registry host ` +
+        `"${employer.config.host}" for ${info.jobReqId}`,
+    );
+  }
 
   const postedAt = new Date(`${info.startDate}T00:00:00Z`);
   if (Number.isNaN(postedAt.getTime())) {

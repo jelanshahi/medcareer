@@ -108,6 +108,22 @@ describe('normalizeWorkday', () => {
     insecure.jobPostingInfo.externalUrl = 'http://shn.wd10.myworkdayjobs.com/job/x';
     expect(() => normalizeWorkday(insecure, shn)).toThrow();
   });
+
+  it('rejects an https externalUrl whose host is not the employer registry host', () => {
+    const foreign = JSON.parse(JSON.stringify(shnDetail));
+    foreign.jobPostingInfo.externalUrl =
+      'https://evil.example.com/SHN_External_Career_Site/job/General-Hospital/x_JR106932-1';
+    // The message must name both hosts and the req id so an operator can diagnose it.
+    expect(() => normalizeWorkday(foreign, shn)).toThrow(/evil\.example\.com/);
+    expect(() => normalizeWorkday(foreign, shn)).toThrow(/shn\.wd10\.myworkdayjobs\.com/);
+    expect(() => normalizeWorkday(foreign, shn)).toThrow(/JR106932/);
+  });
+
+  it('accepts the real fixture hosts, which match their registry hosts', () => {
+    expect(() => normalizeWorkday(shnDetail, shn)).not.toThrow();
+    expect(() => normalizeWorkday(cheoDetail, cheo)).not.toThrow();
+    expect(() => normalizeWorkday(oakvalleyDetail, oakvalley)).not.toThrow();
+  });
 });
 
 describe('stripDescriptionHeader', () => {
@@ -130,6 +146,14 @@ describe('stripDescriptionHeader', () => {
 
   it('does not strip prose that merely starts with a capitalized word and a colon', () => {
     expect(stripDescriptionHeader('<p>Note: this is body prose.</p>')).toBe('<p>Note: this is body prose.</p>');
+  });
+
+  it('does not strip unwrapped prose opening with a "Key: value" shape', () => {
+    // A shape-based `^[A-Z][A-Za-z /-]{0,40}:\s` detector matches this and would truncate
+    // everything before the first "<", losing the opening sentence. Only a real `Job Number:`
+    // block is a header.
+    const raw = 'Position Summary: We are hiring an RPN. <p>Full details below.</p>';
+    expect(stripDescriptionHeader(raw)).toBe(raw);
   });
 });
 
@@ -178,11 +202,33 @@ describe('parseDescriptionHeader', () => {
     expect(parseDescriptionHeader(oakvalleyDetail.jobPostingInfo.jobDescription)).toEqual({});
   });
 
-  it('does not classify weekday names in the Hours line as shiftType "day"', () => {
-    const withWeekday = [
-      'Job Number: JR1',
-      'Hours: Sunday to Thursday, 2300-0700',
-    ].join('&amp;#xa;');
-    expect(parseDescriptionHeader(withWeekday).shiftType).toBeUndefined();
+  // The header block's LAST line is unterminated in the real SHN fixture: it butts straight up
+  // against the HTML body (`Hours: All Shifts<br />`) with no `&amp;#xa;` delimiter and no
+  // trailing newline. Every test below puts the line under test in that position, because a
+  // header line sitting mid-block (terminated by a newline) matches even with a broken end
+  // anchor, and so proves nothing.
+  const unterminated = (lastLine: string) =>
+    ['Job Number: JR1', lastLine].join('&amp;#xa;') + '<br /><p>Day surgery unit, nights available.</p>';
+
+  it('does not classify weekday names in the Hours line as shiftType "day", and still matches that line when it is unterminated', () => {
+    // Weekday names must not be read as a day shift...
+    expect(parseDescriptionHeader(unterminated('Hours: Sunday to Thursday, 2300-0700')).shiftType).toBeUndefined();
+    // ...but the same unterminated line must still match, so the `undefined` above means "no
+    // shift branch matched", not "the Hours regex failed to match at all". Without this second
+    // assertion the test passes even when `shiftType` is entirely unreachable.
+    expect(parseDescriptionHeader(unterminated('Hours: Days')).shiftType).toBe('day');
+    // The body prose after `<br />` contains both "Day" and "nights"; neither may be captured.
+  });
+
+  it('extracts shiftType from an unterminated last Hours line', () => {
+    expect(parseDescriptionHeader(unterminated('Hours: Nights')).shiftType).toBe('night');
+  });
+
+  it('extracts union from an unterminated last Union line, trimmed', () => {
+    expect(parseDescriptionHeader(unterminated('Union: ONA  ')).union).toBe('ONA');
+  });
+
+  it('extracts employmentType from an unterminated last Job Type line', () => {
+    expect(parseDescriptionHeader(unterminated('Job Type: Casual  ')).employmentType).toBe('casual');
   });
 });
