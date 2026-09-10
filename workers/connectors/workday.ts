@@ -27,7 +27,10 @@ const DetailSchema = z.object({
     startDate: z.string(),
     timeType: z.string().optional(),
     jobReqId: z.string(),
-    externalUrl: z.string().url(),
+    // Outbound URLs are built from the employers registry only, never user input, https: only
+    // (plan Global Constraints). z.string().url() is scheme-agnostic and would pass
+    // javascript:/data:/http: — use z.url() with a protocol restriction instead.
+    externalUrl: z.url({ protocol: /^https$/ }),
   }),
   hiringOrganization: z.object({ name: z.string() }).optional(),
 });
@@ -59,7 +62,10 @@ export function parseDescriptionHeader(rawDescription: string): HeaderFields {
   const text = rawDescription.replace(/&amp;#xa;|&#xa;/gi, '\n');
   const fields: HeaderFields = {};
 
-  const union = text.match(/^Union:\s*(.+)$/m);
+  // Bounded to [^\n<] so the match cannot cross a newline or run into the HTML body when this
+  // line is the last (unterminated) line of the header block — see the `Hours:` line below,
+  // which butts straight up against `<br />` with no delimiter in the real SHN fixture.
+  const union = text.match(/^Union:\s*([^\n<]+)$/m);
   if (union) fields.union = union[1].trim();
 
   const salary = text.match(/Minimum\s*-\s*Maximum\s+(Hourly|Annual)\s+(?:Rate|Salary):\s*\$?([\d.,]+)\s*-\s*\$?([\d.,]+)/i);
@@ -69,17 +75,18 @@ export function parseDescriptionHeader(rawDescription: string): HeaderFields {
     fields.salaryMax = Number(salary[3].replace(/,/g, ''));
   }
 
-  const hours = text.match(/^Hours:\s*(.+)$/m);
+  const hours = text.match(/^Hours:\s*([^\n<]+)$/m);
   if (hours) {
     const h = hours[1].toLowerCase();
+    // \b before "day" so "Saturday"/"Sunday" don't misclassify as a day shift.
     if (/night/.test(h)) fields.shiftType = 'night';
     else if (/evening/.test(h)) fields.shiftType = 'evening';
     else if (/rotat/.test(h)) fields.shiftType = 'rotating';
-    else if (/day/.test(h)) fields.shiftType = 'day';
+    else if (/\bday/.test(h)) fields.shiftType = 'day';
     else if (/weekend/.test(h)) fields.shiftType = 'weekend';
   }
 
-  const jobType = text.match(/^Job Type:\s*(.+)$/m);
+  const jobType = text.match(/^Job Type:\s*([^\n<]+)$/m);
   if (jobType) {
     const t = jobType[1].toLowerCase();
     if (/casual/.test(t)) fields.employmentType = 'casual';
@@ -89,6 +96,26 @@ export function parseDescriptionHeader(rawDescription: string): HeaderFields {
   }
 
   return fields;
+}
+
+/**
+ * Strips the SHN-style plaintext metadata block (`Job Number: ...`, `Union: ...`, etc.) from the
+ * front of a raw jobDescription so it doesn't get shown to job seekers as body prose alongside
+ * the structured fields `parseDescriptionHeader` already extracted from it. Fail-soft: anything
+ * that doesn't look like a header block (CHEO, Oak Valley — no header at all) passes through
+ * byte-identical.
+ */
+export function stripDescriptionHeader(rawDescription: string): string {
+  const normalized = rawDescription.replace(/&amp;#xa;|&#xa;/gi, '\n');
+  const looksLikeHeader = /^[A-Z][A-Za-z /-]{0,40}:\s/.test(normalized);
+  if (!looksLikeHeader) return rawDescription;
+
+  // Search the original raw string, not `normalized` — the entity substitution changes the
+  // string length, and the entities themselves never contain "<", so the index of the first "<"
+  // is identical between the two; using `rawDescription` avoids an offset mismatch.
+  const cutIndex = rawDescription.indexOf('<');
+  if (cutIndex === -1) return rawDescription;
+  return rawDescription.slice(cutIndex);
 }
 
 function employmentTypeFromTimeType(timeType?: string): EmploymentType | undefined {
@@ -119,7 +146,11 @@ export function normalizeWorkday(detail: unknown, employer: WorkdayEmployer): No
     title: info.title,
     employerName: employer.name,
     facilityName: info.location,
-    description: sanitizeDescription(info.jobDescription),
+    description: sanitizeDescription(
+      employer.config.parseDescriptionHeader
+        ? stripDescriptionHeader(info.jobDescription)
+        : info.jobDescription,
+    ),
     // Workday exposes no city; location is a facility string. City comes from the registry.
     city: employer.defaultCity,
     province: employer.province,
