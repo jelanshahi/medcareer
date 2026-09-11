@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "ingest": "tsx workers/run.ts",
+    "dedupe": "tsx workers/dedupe.ts",
+    "expire": "tsx workers/expire.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
