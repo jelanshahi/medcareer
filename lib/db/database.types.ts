@@ -270,7 +270,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      expire_stale_jobs: {
+        Args: never
+        Returns: {
+          hard_expired: number
+          unseen_expired: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
