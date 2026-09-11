@@ -1,4 +1,5 @@
 import { pathToFileURL } from 'node:url';
+import { createHash } from 'node:crypto';
 import { createAdminClient } from '@/lib/db/admin';
 import { classify } from '@/lib/taxonomy/classify';
 import { deaccent } from '@/lib/normalize/title';
@@ -28,6 +29,7 @@ export type RawRow = {
 export type JobRow = {
   slug: string;
   fingerprint: string;
+  dedupe_key: string;
   title: string;
   employer_id: string | null;
   employer_name: string;
@@ -62,6 +64,42 @@ export function pickCanonical(rows: RawRow[]): RawRow {
 }
 
 /**
+ * Groups raw postings into the row-sets that back one job each.
+ *
+ * `fingerprint` alone (title + employer + city + province) is too coarse: two
+ * concurrent requisitions for the same role at the same employer legitimately
+ * share one fingerprint (e.g. SHN's three concurrent "Primary Care Physician -
+ * IPCT CEN" postings, JR106052/JR106062/JR106765). Collapsing those hid real
+ * vacancies and dropped apply links. fingerprint's real job is matching the
+ * SAME posting across DIFFERENT sources (Workday and Job Bank in Phase 2).
+ *
+ * So: group by fingerprint, then only treat a fingerprint group as a genuine
+ * duplicate -- and merge it into one job -- when it spans more than one
+ * distinct `source_id`. A fingerprint group where every row shares one
+ * `source_id` is N distinct requisitions, not a duplicate, and is exploded
+ * back into N singleton groups (one job each).
+ */
+export function groupIntoJobs(rows: RawRow[]): RawRow[][] {
+  const byFingerprint = new Map<string, RawRow[]>();
+  for (const row of rows) {
+    const bucket = byFingerprint.get(row.fingerprint) ?? [];
+    bucket.push(row);
+    byFingerprint.set(row.fingerprint, bucket);
+  }
+
+  const jobGroups: RawRow[][] = [];
+  for (const bucket of byFingerprint.values()) {
+    const distinctSources = new Set(bucket.map((r) => r.source_id));
+    if (distinctSources.size > 1) {
+      jobGroups.push(bucket);
+    } else {
+      for (const row of bucket) jobGroups.push([row]);
+    }
+  }
+  return jobGroups;
+}
+
+/**
  * Diacritics are stripped via the shared `deaccent()` (NFD + `/[̀-ͯ]/g`) rather
  * than a hand-rolled combining-mark class — a literal combining-mark class in source is
  * exactly the defect this project hit before (Task 2): the invisible characters get
@@ -74,16 +112,21 @@ function slugify(title: string): string {
     .slice(0, 60);
 }
 
-export function buildJobRow(row: RawRow, employerId: string | null): JobRow {
+export function buildJobRow(row: RawRow, employerId: string | null, dedupeKey: string): JobRow {
   const n = row.normalized;
   const postedAt = new Date(n.postedAt);
   const hardExpiry = new Date(postedAt.getTime() + EXPIRY_DAYS * 86_400_000);
   const closesAt = n.closesAt ? new Date(n.closesAt) : null;
   const expiresAt = closesAt && closesAt < hardExpiry ? closesAt : hardExpiry;
+  // Slug suffix is derived from dedupe_key (not fingerprint) so that N distinct
+  // requisitions sharing one fingerprint get N distinct slugs instead of colliding
+  // on jobs.slug's unique constraint.
+  const slugSuffix = createHash('sha256').update(dedupeKey).digest('hex').slice(0, 8);
 
   return {
-    slug: `${slugify(n.title)}-${row.fingerprint.slice(0, 8)}`,
+    slug: `${slugify(n.title)}-${slugSuffix}`,
     fingerprint: row.fingerprint,
+    dedupe_key: dedupeKey,
     title: n.title,
     employer_id: employerId,
     employer_name: n.employerName,
@@ -135,26 +178,32 @@ async function main() {
   if (employersError) throw employersError;
   const employerIdByName = new Map((employers ?? []).map((e) => [e.name, e.id as string]));
 
-  const groups = new Map<string, RawRow[]>();
-  for (const row of raws) {
-    const bucket = groups.get(row.fingerprint) ?? [];
-    bucket.push(row);
-    groups.set(row.fingerprint, bucket);
-  }
+  const jobGroups = groupIntoJobs(raws);
 
-  let merged = 0;
-  for (const [fp, rows] of groups) {
-    if (rows.length > 1) {
-      merged += 1;
-      log(ctx, 'warn', 'fingerprint collision merged', { fingerprint: fp, count: rows.length });
-    }
+  let crossSourceMerges = 0;
+  for (const rows of jobGroups) {
     const canonical = pickCanonical(rows);
-    const jobRow = buildJobRow(canonical, employerIdByName.get(canonical.normalized.employerName) ?? null);
+    const fp = canonical.fingerprint;
+
+    if (rows.length > 1) {
+      // A genuine cross-source match (same fingerprint, more than one source_id) --
+      // this is the intended, expected outcome of the matcher, not a defect, so it
+      // is logged at `info`.
+      crossSourceMerges += 1;
+      log(ctx, 'info', 'cross-source duplicate merged', { fingerprint: fp, count: rows.length });
+    }
+
+    const dedupeKey = `${fp}:${canonical.normalized.sourceJobId}`;
+    const jobRow = buildJobRow(
+      canonical,
+      employerIdByName.get(canonical.normalized.employerName) ?? null,
+      dedupeKey,
+    );
 
     const { data: job, error: upsertError } = await admin
-      .from('jobs').upsert(jobRow, { onConflict: 'fingerprint' }).select('id').single();
+      .from('jobs').upsert(jobRow, { onConflict: 'dedupe_key' }).select('id').single();
     if (upsertError) {
-      log(ctx, 'error', 'job upsert failed', { fingerprint: fp, error: upsertError.message });
+      log(ctx, 'error', 'job upsert failed', { dedupe_key: dedupeKey, error: upsertError.message });
       continue;
     }
 
@@ -167,13 +216,13 @@ async function main() {
         .upsert({ job_id: job.id, raw_posting_id: row.id }, { onConflict: 'job_id,raw_posting_id' });
       if (sourceError) {
         log(ctx, 'error', 'job_sources upsert failed', {
-          fingerprint: fp, raw_posting_id: row.id, error: sourceError.message,
+          dedupe_key: dedupeKey, raw_posting_id: row.id, error: sourceError.message,
         });
       }
     }
   }
 
-  log(ctx, 'info', 'dedupe complete', { groups: groups.size, merged });
+  log(ctx, 'info', 'dedupe complete', { jobs: jobGroups.length, crossSourceMerges });
 }
 
 // The Step 1 unit test imports sourcePriority/pickCanonical/buildJobRow directly from this
