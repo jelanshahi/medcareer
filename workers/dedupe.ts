@@ -100,7 +100,7 @@ export function groupIntoJobs(rows: RawRow[]): RawRow[][] {
 }
 
 /**
- * Diacritics are stripped via the shared `deaccent()` (NFD + `/[̀-ͯ]/g`) rather
+ * Diacritics are stripped via the shared `deaccent()` (NFD + /[\u0300-\u036f]/g) rather
  * than a hand-rolled combining-mark class — a literal combining-mark class in source is
  * exactly the defect this project hit before (Task 2): the invisible characters get
  * silently mangled by editors, encodings and diff tooling.
@@ -193,7 +193,19 @@ async function main() {
       log(ctx, 'info', 'cross-source duplicate merged', { fingerprint: fp, count: rows.length });
     }
 
-    const dedupeKey = `${fp}:${canonical.normalized.sourceJobId}`;
+    // `normalized` is jsonb, so the compiler's `sourceJobId: string` is a belief about
+    // stored data, not a guarantee. Without this guard a row missing it yields the key
+    // "<fp>:undefined", and a second such row would upsert straight over the first --
+    // silent data loss. Skip instead; every current row has one (verified: 0 of 216).
+    const sourceJobId = canonical.normalized.sourceJobId;
+    if (!sourceJobId) {
+      log(ctx, 'error', 'skipped group: canonical row has no sourceJobId', {
+        fingerprint: fp, raw_posting_id: canonical.id,
+      });
+      continue;
+    }
+
+    const dedupeKey = `${fp}:${sourceJobId}`;
     const jobRow = buildJobRow(
       canonical,
       employerIdByName.get(canonical.normalized.employerName) ?? null,
