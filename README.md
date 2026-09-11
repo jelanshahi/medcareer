@@ -1,36 +1,79 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MedCareer
 
-## Getting Started
+A job search site for healthcare work in Ontario. Every listing links directly to the
+employer's own application page — MedCareer never takes applications itself, and there is
+no account or login wall anywhere in the product.
 
-First, run the development server:
+Phase 1 ingests three hospital Workday tenants: Scarborough Health Network, CHEO, and
+Oak Valley Health.
+
+## Stack
+
+Next.js 16 (App Router, server components) · React 19 · Tailwind v4 · Supabase (Postgres
+with RLS) · Vitest · TypeScript strict.
+
+## Setup
 
 ```bash
+npm install
+cp .env.local.example .env.local   # then fill it in
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`.env.local`:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Variable | Purpose |
+|---|---|
+| `NEXT_PUBLIC_SITE_URL` | Public base URL. Also forms the crawler's contact URL. |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon key. Subject to RLS; safe in the browser. |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Workers only.** Bypasses RLS. Never in `app/`, never in a `NEXT_PUBLIC_*` var. |
+| `CONTACT_EMAIL` | Reachable contact advertised in the crawler's User-Agent. |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+`tests/db/key-isolation.test.ts` fails the build if the service-role key ever leaks into
+`app/`.
 
-## Learn More
+## The ingestion pipeline
 
-To learn more about Next.js, take a look at the following resources:
+Run in this order — it is order-dependent, and the scheduled workflow enforces that with
+a concurrency group:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run ingest   # fetch postings from employer ATS feeds -> raw_postings
+npm run dedupe   # project raw_postings -> the canonical jobs table
+npm run expire   # deactivate stale and past-expiry jobs
+npm run purge    # delete delisted jobs past the retention window
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Each stage loads `.env.local`:
 
-## Deploy on Vercel
+```bash
+set -a && . ./.env.local && set +a && npm run ingest
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+`.github/workflows/ingest.yml` runs all four every six hours.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### How the pipeline treats duplicates
+
+`fingerprint` (title + employer + city + province) identifies the *same posting across
+different sources*. It deliberately does **not** identify a job on its own: a hospital can
+have several concurrent openings for one role, and collapsing those would hide real
+vacancies. Identity is `dedupe_key` = `fingerprint:requisition_id`. Rows only merge when a
+fingerprint group spans more than one source.
+
+## Crawling conduct
+
+Every outbound request identifies itself as `MedCareerBot/0.1` with a reachable contact
+URL and email, is rate-limited to one request per second per host, and uses exponential
+backoff on 429 and 5xx. Requests go only to URLs built from the `employers` registry, over
+https. Nothing logs in or submits anything. Employers can email the contact address to be
+removed, no justification needed — see `/about`.
+
+## Tests
+
+```bash
+set -a && . ./.env.local && set +a && npx vitest run
+```
+
+The RLS suite runs against the live database and skips without credentials, so load the
+env or it will quietly test less than you think.
