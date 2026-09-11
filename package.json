@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "ingest": "tsx workers/run.ts",
     "dedupe": "tsx workers/dedupe.ts",
-    "expire": "tsx workers/expire.ts"
+    "expire": "tsx workers/expire.ts",
+    "purge": "tsx workers/purge.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

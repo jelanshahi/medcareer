@@ -56,6 +56,21 @@ export type Database = {
         }
         Relationships: []
       }
+      expired_slugs: {
+        Row: {
+          expired_at: string
+          slug: string
+        }
+        Insert: {
+          expired_at?: string
+          slug: string
+        }
+        Update: {
+          expired_at?: string
+          slug?: string
+        }
+        Relationships: []
+      }
       ingest_runs: {
         Row: {
           error: string | null
@@ -275,6 +290,13 @@ export type Database = {
         Returns: {
           hard_expired: number
           unseen_expired: number
+        }[]
+      }
+      purge_expired_jobs: {
+        Args: { retention_days?: number }
+        Returns: {
+          jobs_purged: number
+          raw_postings_purged: number
         }[]
       }
     }
