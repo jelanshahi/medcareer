@@ -22,6 +22,27 @@ describe('createHostLimiter', () => {
     await limit('b.test', async () => {});
     expect(Date.now() - t0).toBeLessThan(150);
   });
+
+  // The interval alone serializes SHORT tasks, so the sibling tests above pass even with
+  // the promise chain deleted. This one uses a task LONGER than the interval, where only
+  // the chain can prevent overlap: without it the order is one:start two:start one:end.
+  it('serializes concurrent calls to the same host', async () => {
+    const limit = createHostLimiter(1);
+    const events: string[] = [];
+    const task = (name: string) => async () => {
+      events.push(`${name}:start`);
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      events.push(`${name}:end`);
+    };
+    await Promise.all([limit('a.test', task('one')), limit('a.test', task('two'))]);
+    expect(events).toEqual(['one:start', 'one:end', 'two:start', 'two:end']);
+  });
+
+  it('surfaces a rejection and keeps serializing the host afterwards', async () => {
+    const limit = createHostLimiter(1);
+    await expect(limit('a.test', async () => { throw new Error('boom'); })).rejects.toThrow('boom');
+    await expect(limit('a.test', async () => 'ok')).resolves.toBe('ok');
+  });
 });
 
 describe('fetchWithBackoff', () => {
@@ -43,9 +64,12 @@ describe('fetchWithBackoff', () => {
   });
 
   it('gives up after the attempt budget and throws', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 503 })));
+    const stub = vi.fn(async () => new Response('', { status: 503 }));
+    vi.stubGlobal('fetch', stub);
     await expect(fetchWithBackoff('https://a.test/x', {}, { attempts: 2, baseDelayMs: 1 }))
       .rejects.toThrow(/503/);
+    // Pin the budget this test is named for: /503/ alone passes on a wrong retry count.
+    expect(stub).toHaveBeenCalledTimes(2);
   });
 
   it('refuses non-https URLs', async () => {
