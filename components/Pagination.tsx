@@ -1,25 +1,49 @@
 import Link from 'next/link';
+import { buildJobsQuery, type JobsQuery } from '@/lib/jobs/query-string';
 
 export function Pagination({
-  page, total, pageSize, query,
-}: { page: number; total: number; pageSize: number; query: Record<string, string | undefined> }) {
+  page,
+  total,
+  pageSize,
+  query,
+}: {
+  page: number;
+  total: number;
+  pageSize: number;
+  query: JobsQuery;
+}) {
   const lastPage = Math.max(1, Math.ceil(total / pageSize));
-  const href = (p: number) => {
-    const sp = new URLSearchParams();
-    for (const [k, v] of Object.entries(query)) if (v) sp.set(k, v);
-    sp.set('page', String(p));
-    return `/?${sp.toString()}`;
-  };
+  const href = (p: number) => buildJobsQuery({ ...query, page: p });
 
   return (
-    <nav aria-label="Pagination" className="flex items-center justify-between px-4 py-6">
-      {page > 1
-        ? <Link href={href(page - 1)} className="text-[var(--color-signal)] underline">Previous</Link>
-        : <span className="text-[var(--color-slate)]">Previous</span>}
-      <span className="text-sm text-[var(--color-slate)]">Page {page} of {lastPage}</span>
-      {page < lastPage
-        ? <Link href={href(page + 1)} className="text-[var(--color-signal)] underline">Next</Link>
-        : <span className="text-[var(--color-slate)]">Next</span>}
+    <nav aria-label="Pagination" className="flex items-center justify-between gap-3 py-[22px]">
+      {page > 1 ? (
+        <Link
+          href={href(page - 1)}
+          className="border border-[var(--color-rule)] bg-white px-4 py-2 font-semibold text-[var(--color-ink)] no-underline hover:border-[var(--color-ink)]"
+        >
+          Previous
+        </Link>
+      ) : (
+        <span className="border border-[var(--color-rule)] px-4 py-2 font-semibold text-[var(--color-meta)]">
+          Previous
+        </span>
+      )}
+      <span className="text-[15px] text-[var(--color-slate)]">
+        Page {page} of {lastPage}
+      </span>
+      {page < lastPage ? (
+        <Link
+          href={href(page + 1)}
+          className="border border-[var(--color-rule)] bg-white px-4 py-2 font-semibold text-[var(--color-ink)] no-underline hover:border-[var(--color-ink)]"
+        >
+          Next
+        </Link>
+      ) : (
+        <span className="border border-[var(--color-rule)] px-4 py-2 font-semibold text-[var(--color-meta)]">
+          Next
+        </span>
+      )}
     </nav>
   );
 }

@@ -9,11 +9,13 @@ export const dynamic = 'force-dynamic';
 
 export default function NotFound() {
   return (
-    <article className="px-4 py-10">
-      <h1 className="text-2xl font-semibold">Page not found</h1>
-      <p className="mt-4">
+    <article className="mx-auto max-w-[760px] px-4 py-16 sm:px-6">
+      <h1 className="font-display text-4xl font-bold uppercase leading-none tracking-wide">
+        Page not found
+      </h1>
+      <p className="mt-4 text-lg text-[var(--color-body)]">
         We couldn&rsquo;t find that page.{' '}
-        <Link href="/" className="text-[var(--color-signal)] underline">
+        <Link href="/jobs" className="font-semibold text-[var(--color-signal)]">
           Back to job search
         </Link>
       </p>

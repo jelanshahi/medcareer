@@ -1,17 +1,24 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import Link from "next/link";
+import { Barlow_Condensed, Source_Sans_3 } from "next/font/google";
 import { SITE } from "@/lib/site";
+import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Display face for headings — matches the design canvas's Barlow Condensed
+// 500/600/700. Loaded via next/font/google rather than the canvas's
+// <helmet> <link> tags, which would have no CSP nonce (see proxy.ts).
+const barlowCondensed = Barlow_Condensed({
+  variable: "--font-barlow-condensed",
   subsets: ["latin"],
+  weight: ["500", "600", "700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+// Body face — matches the design canvas's Source Sans 3 400/600/700.
+const sourceSans = Source_Sans_3({
+  variable: "--font-source-sans",
   subsets: ["latin"],
+  weight: ["400", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -23,18 +30,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${barlowCondensed.variable} ${sourceSans.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col font-sans">
-        <header className="bg-[var(--color-ink)] px-4 py-3">
-          <Link href="/" className="font-semibold tracking-tight text-[var(--color-paper)]">
-            {SITE.name}
-          </Link>
-        </header>
-        <main className="mx-auto w-full max-w-3xl flex-1">{children}</main>
-        <footer className="mx-auto w-full max-w-3xl px-4 py-8 text-sm text-[var(--color-slate)]">
-          <Link href="/about" className="underline">About {SITE.name}</Link>
-        </footer>
+      <body className="flex min-h-full flex-col bg-[var(--color-paper)] font-sans text-[var(--color-ink)]">
+        <Header />
+        <main className="flex-1">{children}</main>
+        <Footer />
       </body>
     </html>
   );
