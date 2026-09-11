@@ -1,0 +1,59 @@
+name: ingest
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+# The pipeline is ORDER-DEPENDENT and nothing in the code enforces it:
+#   ingest  writes raw_postings
+#   dedupe  rebuilds jobs from raw_postings and sets is_active = true unconditionally
+#   expire  deactivates jobs that are stale or past expires_at
+#   purge   deletes delisted jobs whose postings aged past the retention window
+# Two overlapping runs could therefore resurrect jobs expire had just deactivated, so
+# runs queue instead of overlapping. cancel-in-progress stays false: cancelling a
+# half-finished pipeline is worse than waiting for it.
+concurrency:
+  group: ingest
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      # Without this the crawler falls back to the placeholder contact address baked
+      # into lib/site.ts, and every request to a hospital would advertise a contact
+      # nobody can reach -- which is the entire point of identifying the bot.
+      CONTACT_EMAIL: ${{ secrets.CONTACT_EMAIL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # Matches the local development runtime (v24.x). Pinning 22 here would run
+          # the workers on a different major than they are developed and tested on.
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+
+      # Each stage runs even if an earlier one failed: a failed ingest must not stop
+      # expiry from deactivating stale jobs. `!cancelled()` rather than `always()` so
+      # that cancelling a run actually stops it.
+      - name: Fetch postings
+        run: npm run ingest
+      - name: Rebuild canonical jobs
+        if: ${{ !cancelled() }}
+        run: npm run dedupe
+      - name: Expire stale jobs
+        if: ${{ !cancelled() }}
+        run: npm run expire
+      - name: Purge delisted jobs
+        if: ${{ !cancelled() }}
+        run: npm run purge
