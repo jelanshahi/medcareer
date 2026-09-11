@@ -32,11 +32,25 @@ export async function fetchWithBackoff(
   const baseDelayMs = opts.baseDelayMs ?? 1000;
 
   let lastStatus = 0;
+  let lastError: unknown;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const res = await fetch(url, init);
-    if (res.status !== 429 && res.status < 500) return res;
-    lastStatus = res.status;
+    try {
+      const res = await fetch(url, init);
+      if (res.status !== 429 && res.status < 500) return res;
+      lastStatus = res.status;
+      lastError = undefined;
+    } catch (error) {
+      // A DNS failure, connection reset or socket timeout REJECTS rather than returning
+      // a status. Those are precisely the transient conditions backoff exists for, so
+      // retry them too -- previously the first one aborted the whole employer's run.
+      lastError = error;
+      lastStatus = 0;
+    }
     if (attempt < attempts - 1) await sleep(baseDelayMs * 2 ** attempt);
+  }
+  if (lastError !== undefined) {
+    const message = lastError instanceof Error ? lastError.message : String(lastError);
+    throw new Error(`Gave up after ${attempts} attempts, last error "${message}": ${url}`);
   }
   throw new Error(`Gave up after ${attempts} attempts, last status ${lastStatus}: ${url}`);
 }

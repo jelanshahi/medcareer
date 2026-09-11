@@ -27,7 +27,10 @@ const oakvalley: WorkdayEmployer = {
   name: 'Oak Valley Health',
   province: 'ON',
   defaultCity: 'Markham',
-  config: { tenant: 'oakvalley', site: 'OakValleyHealth', host: 'oakvalleyhealth.wd10.myworkdayjobs.com', parseDescriptionHeader: false },
+  // 'oakvalleyhealth' matches supabase/migrations/0003_seed_employers.sql. It was
+  // 'oakvalley' here, so the suite exercised a tenant production will never see --
+  // and sourceId is `workday:${tenant}`, so the real id went untested.
+  config: { tenant: 'oakvalleyhealth', site: 'OakValleyHealth', host: 'oakvalleyhealth.wd10.myworkdayjobs.com', parseDescriptionHeader: false },
 };
 
 describe('parseWorkdayList', () => {
@@ -230,5 +233,29 @@ describe('parseDescriptionHeader', () => {
 
   it('extracts employmentType from an unterminated last Job Type line', () => {
     expect(parseDescriptionHeader(unterminated('Job Type: Casual  ')).employmentType).toBe('casual');
+  });
+});
+
+describe('parseDescriptionHeader salary anchoring', () => {
+  // Regression: the salary pattern was the only one of the four not anchored to a line
+  // start, so a rate quoted anywhere in the BODY was attributed to the job. A posting
+  // whose header carried no rate picked up $99-$199 from surrounding prose.
+  it('ignores a rate that appears only in the body prose', () => {
+    const bodyOnly =
+      'Job Number: JR1&amp;#xa;Union: CUPE&amp;#xa;Hours: Days<br /><p>Other postings: Minimum - Maximum Hourly Rate: $99.00 - $199.00</p>';
+    const fields = parseDescriptionHeader(bodyOnly);
+    expect(fields.salaryMin).toBeUndefined();
+    expect(fields.salaryMax).toBeUndefined();
+    expect(fields.salaryPeriod).toBeUndefined();
+    // The header fields it SHOULD find are still found, so this is not passing vacuously.
+    expect(fields.union).toBe('CUPE');
+    expect(fields.shiftType).toBe('day');
+  });
+
+  it('still reads the rate from a real header line', () => {
+    const fields = parseDescriptionHeader(shnDetail.jobPostingInfo.jobDescription);
+    expect(fields.salaryMin).toBe(35.753);
+    expect(fields.salaryMax).toBe(39.019);
+    expect(fields.salaryPeriod).toBe('hour');
   });
 });

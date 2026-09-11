@@ -75,4 +75,30 @@ describe('fetchWithBackoff', () => {
   it('refuses non-https URLs', async () => {
     await expect(fetchWithBackoff('http://a.test/x', {})).rejects.toThrow(/https/i);
   });
+
+  // A DNS failure, connection reset or socket timeout REJECTS rather than returning a
+  // status. Those are exactly what backoff exists for, but they used to propagate on the
+  // first attempt and abort the whole employer's run.
+  it('retries a thrown fetch rejection and then succeeds', async () => {
+    let calls = 0;
+    const stub = vi.fn(async () => {
+      calls += 1;
+      if (calls === 1) throw new TypeError('fetch failed: ENOTFOUND');
+      return new Response('{"ok":true}', { status: 200 });
+    });
+    vi.stubGlobal('fetch', stub);
+
+    const res = await fetchWithBackoff('https://a.test/x', {}, { baseDelayMs: 1 });
+    expect(res.status).toBe(200);
+    expect(stub).toHaveBeenCalledTimes(2);
+  });
+
+  it('gives up after the budget when every attempt throws, naming the cause', async () => {
+    const stub = vi.fn(async () => { throw new TypeError('fetch failed: ECONNRESET'); });
+    vi.stubGlobal('fetch', stub);
+
+    await expect(fetchWithBackoff('https://a.test/x', {}, { attempts: 3, baseDelayMs: 1 }))
+      .rejects.toThrow(/ECONNRESET/);
+    expect(stub).toHaveBeenCalledTimes(3);
+  });
 });

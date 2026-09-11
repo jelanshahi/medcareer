@@ -7,6 +7,9 @@ import { fingerprint } from '@/lib/normalize/fingerprint';
 import { log, type LogContext } from '@/workers/logger';
 import { PROVINCE_CODES, type NormalizedPosting } from '@/lib/types';
 
+/** Matches PostgREST's default max-rows cap on Supabase. */
+const SELECT_PAGE_SIZE = 1000;
+
 const contentHash = (value: unknown) =>
   createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
@@ -73,14 +76,24 @@ async function ingestEmployer(admin: ReturnType<typeof createAdminClient>, emplo
 
     const connector = createWorkdayConnector(employer, ctx);
 
-    const { data: existing, error: existingError } = await admin
-      .from('raw_postings')
-      .select('source_job_id,content_hash')
-      .eq('source_id', sourceId);
-    // Unchecked, a failed select yields an empty `known` map and every posting is
-    // miscounted as newly inserted.
-    if (existingError) throw new Error(`raw_postings select failed: ${existingError.message}`);
-    const known = new Map((existing ?? []).map((r) => [r.source_job_id, r.content_hash]));
+    // PostgREST caps a single response (1000 rows by default on Supabase). Unpaged, every
+    // posting past row 1000 for this source would be missing from `known`, so `previous`
+    // is undefined and it is counted as newly inserted on EVERY run -- quietly breaking
+    // the "a second ingest reports inserted = 0" guarantee. The largest source is at 114
+    // rows today, which is exactly why this would ship unnoticed.
+    const known = new Map<string, string>();
+    for (let from = 0; ; from += SELECT_PAGE_SIZE) {
+      const { data: page, error: existingError } = await admin
+        .from('raw_postings')
+        .select('source_job_id,content_hash')
+        .eq('source_id', sourceId)
+        .range(from, from + SELECT_PAGE_SIZE - 1);
+      // Unchecked, a failed select yields an empty `known` map and every posting is
+      // miscounted as newly inserted.
+      if (existingError) throw new Error(`raw_postings select failed: ${existingError.message}`);
+      for (const r of page ?? []) known.set(r.source_job_id, r.content_hash);
+      if (!page || page.length < SELECT_PAGE_SIZE) break;
+    }
 
     let cursor: string | undefined;
     do {

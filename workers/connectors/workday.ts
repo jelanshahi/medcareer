@@ -83,7 +83,12 @@ export function parseDescriptionHeader(rawDescription: string): HeaderFields {
   const union = text.match(/^Union:\s*([^\n<]+)/m);
   if (union) fields.union = union[1].trim();
 
-  const salary = text.match(/Minimum\s*-\s*Maximum\s+(Hourly|Annual)\s+(?:Rate|Salary):\s*\$?([\d.,]+)\s*-\s*\$?([\d.,]+)/i);
+  // Anchored to a line start like its three siblings. Unanchored it also matched rates
+  // quoted in the BODY prose, so a posting whose header carries no rate at all picked up
+  // an unrelated figure -- verified: a body mentioning "$99.00 - $199.00" yielded
+  // salaryMin 99 / salaryMax 199 for a job the employer never quoted that for. Salary
+  // drives a seeker's decision, so a wrong one is worse than none.
+  const salary = text.match(/^Minimum\s*-\s*Maximum\s+(Hourly|Annual)\s+(?:Rate|Salary):\s*\$?([\d.,]+)\s*-\s*\$?([\d.,]+)/im);
   if (salary) {
     fields.salaryPeriod = salary[1].toLowerCase() === 'hourly' ? 'hour' : 'year';
     fields.salaryMin = Number(salary[2].replace(/,/g, ''));
