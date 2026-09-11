@@ -10,4 +10,9 @@ describe('site config', () => {
     expect(SITE.userAgent).toContain(SITE.contactUrl);
     expect(SITE.userAgent).toMatch(/^\S+\/\d/);
   });
+
+  it('carries a reachable mailto contact, since the site URL may be localhost', () => {
+    expect(SITE.userAgent).toContain(`mailto:${SITE.contactEmail}`);
+    expect(SITE.contactEmail).toMatch(/^[^@\s]+@[^@\s]+\.[^@\s]+$/);
+  });
 });

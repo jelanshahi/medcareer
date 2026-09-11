@@ -195,6 +195,12 @@ export function normalizeWorkday(detail: unknown, employer: WorkdayEmployer): No
 }
 
 const PAGE_SIZE = 20;
+/**
+ * Runaway guard. Pagination stops on a short page rather than on `total` (see fetchPage),
+ * so a tenant that always returned a full page would loop forever. No Ontario hospital
+ * posts anywhere near this many roles at once; hitting it means something is wrong.
+ */
+const MAX_OFFSET = 2000;
 const limit = createHostLimiter();
 
 export function createWorkdayConnector(employer: WorkdayEmployer, ctx: LogContext): Connector {
@@ -217,7 +223,12 @@ export function createWorkdayConnector(employer: WorkdayEmployer, ctx: LogContex
       const { total, stubs } = parseWorkdayList(await res.json());
       const nextOffset = offset + PAGE_SIZE;
       log(ctx, 'info', 'fetched list page', { offset, returned: stubs.length, total });
-      return { items: stubs, nextCursor: nextOffset < total ? String(nextOffset) : undefined };
+      // Paginate on a SHORT PAGE, not on `total`. Observed live on 2026-09-10: shn and
+      // oakvalleyhealth return total:0 on every page after the first (cheo does not), so
+      // `nextOffset < total` stopped both crawls at 40 of 114 and 40 of 70 respectively.
+      // A full page means "ask again"; a short page is the only reliable end-of-list signal.
+      const hasMore = stubs.length === PAGE_SIZE && nextOffset < MAX_OFFSET;
+      return { items: stubs, nextCursor: hasMore ? String(nextOffset) : undefined };
     },
 
     async hydrate(stub) {
