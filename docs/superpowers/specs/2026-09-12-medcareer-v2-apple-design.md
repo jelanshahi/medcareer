@@ -24,6 +24,7 @@ Settled in conversation on 2026-09-12. Do not revisit without asking.
 | 3 | **Hero copy keeps the CANADA line.** `Healthcare jobs across CANADA. One click to apply.` stays verbatim as the aspirational brand line, carried into v2's centred hero. The Ontario qualifier stays visible in the same viewport. |
 | 4 | **Primary action colour is brand green** `#0F5C4A`, hover `#0B4437`. This is also what the canvas renders by default — the header pill, hero pill and Search button are all green in the canvas. Apple blue `#0066cc` is the inline-link colour only. |
 | 5 | **Typeface is a Helvetica/Arial stack**, no webfont. Rationale in §2. |
+| 6 | **The landing view is designed in this spec, not transcribed.** The canvas's `isLanding` screen no longer holds data. Its structure is kept; its copy strategy is §6.3. |
 
 ### Correction on record
 
@@ -187,6 +188,14 @@ Groups are the canvas's set: **Discipline**, **Employment type**, **Employer**.
 `Employer` is new — 3 employers, 100% coverage — and needs a new `employer` search param
 (§6.2). Counts stay live and cross-filtered, as they are today.
 
+> **Known redundancy, accepted.** Employer and city are currently 1:1 — Scarborough Health
+> Network is the only employer in Toronto, Oak Valley Health in Markham, CHEO in Ottawa.
+> So the Employer facet returns exactly what the city control returns, and it will look
+> like a duplicate until a second employer appears in some city. It ships because the
+> canvas has it and because the redundancy is a property of today's data, not of the
+> design — the facet is correct, the data is just narrow. Revisit if a fourth employer is
+> onboarded and the overlap persists.
+
 Two server-side accommodations:
 
 - The canvas filters on client state with no submit control. A no-JS GET form cannot, so
@@ -251,10 +260,10 @@ The canvas's `Closes {x} · apply soon` badge above the `h1` is cut (§8).
 
 ## 6. New: landing pages
 
-> **§6.3 is pending.** The owner is supplying a screenshot of the canvas's `isLanding`
-> view; present mode would not accept clicks or scroll past the hero, so this section is
-> written from the canvas source (lines 330–385) and **must be reconciled against that
-> screenshot before implementation begins**. §6.1 and §6.2 are settled.
+The canvas's `isLanding` view no longer holds data, so its content is **designed here**
+rather than transcribed. The canvas's *structure* — centred white hero, job list, a prose
+band, and a two-card aside of labelled links with counts — is kept; the copy strategy is
+this spec's own (§6.5).
 
 ### 6.1 Routes
 
@@ -288,11 +297,12 @@ Resolution and 404 rules:
 - An unrecognised city, an unrecognised discipline, or a valid pair with **zero** active
   jobs all `notFound()`. No empty landing pages.
 
-Current data yields 3 cities and 6 disciplines each — 18 pairs. Some are thin (Toronto
-physicians = 2, Markham allied health = 1). Every pair with ≥1 active job renders, so no
-link can go stale mid-refresh, but only pairs with **≥3** active jobs are *linked* from
-the hub and from the landing asides. That keeps internal linking useful without parading
-one-job pages.
+Current data yields 3 cities × 6 disciplines each = 18 pairs, of which **14 carry ≥3 jobs**
+(measured 2026-09-12). Every pair with ≥1 active job renders, so no link can go stale
+between refreshes, but only pairs with **≥3** are *linked* from the hub and the landing
+asides. That keeps internal linking useful without parading one-job pages — and keeps
+these clear of being doorway pages, which is the real risk with programmatic landing
+routes.
 
 ### 6.2 `employer` search param
 
@@ -302,35 +312,98 @@ validated like `city`: trimmed, `1..80` chars, deduped, capped at `MAX_FACET_VAL
 `buildJobsQuery` gains matching `employer` handling so chips, facets and pagination all
 round-trip.
 
-### 6.3 Landing page content — PENDING SCREENSHOT
+### 6.3 Copy strategy
 
-From the canvas source, the view is:
+The canvas's landing copy was two paragraphs of hand-written market commentary about
+nursing in Toronto. That does not generalise to 18 pages, and inventing market claims per
+combination is exactly the kind of fabrication §8 exists to prevent. Replaced with two
+ingredients:
 
-- **Hero** — white, centred, `max-width: 800px`. Eyebrow `19px --color-slate`:
-  `Ontario · Toronto · Nursing`. `h1` `clamp(34px,5.6vw,56px)/1.06`: `Nursing jobs in
-  Toronto`. Subhead `clamp(18px,2.2vw,21px) --color-slate`, discipline-specific.
-- **Main** (`flex: 3 1 400px`) — `Open nursing roles` heading
-  `clamp(24px,3.2vw,30px)/600`, then a white radius-18 `<ul>` of matching jobs, rows
-  divided by `--color-divider`: title `20px/600`, employer line `16px`, meta line `15px`.
-- **Prose** — `Nursing in Toronto, in short`, two paragraphs at `17px/1.6`.
-- **Aside** (`flex: 1 1 250px`, `max-width: 330px`) — two white radius-18 cards,
-  `Nearby cities` and `Other disciplines here`. Each row is a link with a label and a
-  right-aligned `--color-meta` count.
+**A. Discipline blurb — written once, ten strings.** One or two sentences per category
+describing what the discipline covers and which Ontario college regulates it. Factual and
+checkable; no pay, demand, or market claims. These live in a single
+`lib/taxonomy/blurbs.ts` so they can be reviewed and corrected in one place. Draft:
 
-Open questions for the reconciliation pass:
+| Category | Blurb |
+|---|---|
+| `nursing` | Registered nurse, registered practical nurse and nurse practitioner roles. All require a certificate of registration with the College of Nurses of Ontario. |
+| `physicians` | Staff physician, hospitalist and specialist appointments. Practice in Ontario requires registration with the College of Physicians and Surgeons of Ontario. |
+| `allied_health` | Occupational therapy, physiotherapy, respiratory therapy, speech-language pathology and related roles. Each is regulated by its own Ontario college. |
+| `mental_health` | Social work, psychology, psychotherapy and addictions roles across inpatient and community programs, regulated by the OCSWSSW, CPO and CRPO respectively. |
+| `support_care` | Personal support worker and health care aide roles. PSW is not a regulated profession in Ontario, so employers set their own certificate requirements. |
+| `diagnostics_lab` | Medical laboratory technologist, medical radiation technologist and sonographer roles, regulated by the CMLTO and the CMRITO. |
+| `pharmacy` | Hospital pharmacist and pharmacy technician roles. Both are regulated by the Ontario College of Pharmacists. |
+| `admin_clerical` | Unit clerk, scheduling, registration and administrative support roles. No college registration required; employers usually ask for medical terminology. |
+| `management` | Program manager, director and clinical leadership roles. Most postings expect a clinical background alongside leadership experience. |
+| `research` | Clinical research coordinator, data and trial support roles, usually attached to a hospital research institute and often on fixed-term contracts. |
 
-1. **The subhead and prose block are hand-written, nursing-and-Toronto specific.** They
-   cannot be derived from data for 18 combinations. Proposal: one conservative,
-   factually checkable paragraph per discipline (10 of them, written once) plus one
-   data-derived paragraph per page covering count, employers, observed pay range and
-   refresh cadence. The canvas's own claim that the ONA provincial hospital agreement sets
-   Ontario RN pay bands is accurate and worth keeping. **These are content claims
-   published under the owner's name and must be read by the owner before release.**
-2. **`Nearby cities`** lists Mississauga, Scarborough, Markham, Oshawa and Hamilton with
-   counts. We hold only Toronto, Markham and Ottawa, and Ottawa is not near Toronto.
-   Proposal: retitle to `Other cities` and list the cities we actually have for that
-   discipline, with real counts.
-3. Whether the job list paginates or caps with a "see all" link into filtered `/jobs`.
+**B. "At a glance" panel — derived per page, never written.** This is what makes each
+landing page genuinely distinct rather than a template with a noun swapped. Rows render
+only when their datum exists:
+
+- `{n} active listings`
+- `{employer names}` — hiring on this page
+- `{employment types present}`
+- `{k} of {n} listings publish a pay band, from {min} to {max}` — **omitted entirely**
+  when `k = 0`
+- `Most recent posting: {postedAgo}`
+- `Refreshed every 6 hours`
+
+Pay needs care. A min/max across a category is a range of ranges, so it is phrased as
+above — "listings publish a pay band, from X to Y" — never as "this job pays X–Y".
+Coverage is lopsided: all 65 Toronto listings publish a band, and **all 88 Markham and
+Ottawa listings publish none**, so two cities in three show no pay row at all. That is the
+honest result and must not be papered over with a placeholder.
+
+### 6.4 `/browse` hub
+
+Centred white hero: eyebrow `MedCareer`, `h1` **Browse healthcare jobs in Ontario**,
+subhead naming the live total. Then three bands in the 1024px container:
+
+1. **By city** — white radius-18 tiles, city name `17px/500` with count `15px
+  --color-meta` → `/browse/{city}`.
+2. **By discipline** — same tile treatment → `/jobs?category={c}`. There is no
+   discipline-only landing route; the filtered search *is* that page.
+3. **Popular combinations** — the 14 pairs with ≥3 jobs, as `{Discipline} in {City}` tiles
+   → `/browse/{city}/{discipline}`. This is the crawl path into the deep pages.
+
+### 6.5 `/browse/[city]` and `/browse/[city]/[discipline]`
+
+One shared layout, differing in scope. Canvas structure throughout: white centred hero,
+then a 1024px two-column body (`main` `flex: 3 1 400px`, `aside` `flex: 1 1 250px;
+max-width: 330px`) that stacks on narrow screens.
+
+| | `/browse/[city]` | `/browse/[city]/[discipline]` |
+|---|---|---|
+| Eyebrow | `Ontario · {City}` | `Ontario · {City} · {Discipline}` |
+| `h1` | `Healthcare jobs in {City}` | `{Discipline} jobs in {City}` |
+| Subhead | employer-led: who posts here | the discipline blurb (§6.3A) |
+| Main heading | `Open roles in {City}` | `Open {discipline} roles in {City}` |
+| Aside card 1 | `Disciplines in {City}` → pair pages | `Other disciplines in {City}` → pair pages |
+| Aside card 2 | `Other cities` → city pages | `{Discipline} in other cities` → pair pages |
+
+Hero type follows the canvas: `h1` `clamp(34px,5.6vw,56px)/1.06` weight 600 tracking
+`-0.025em` balanced; eyebrow `19px --color-slate`; subhead `clamp(18px,2.2vw,21px)/1.4
+--color-slate`.
+
+**Job list** — white radius-18 `<ul>`, rows divided by `--color-divider`, capped at **10**
+rows, followed by `See all {n} jobs ›` into the equivalent filtered `/jobs`. The landing
+pages deliberately do **not** paginate: `/jobs` already owns pagination, filtering and
+sorting, and duplicating it here would mean three more routes carrying that logic for no
+gain. Row treatment matches the canvas: title `20px/600`, employer line `16px`, meta line
+`15px --color-slate`.
+
+**At a glance** (§6.3B) sits directly under the job list as a white radius-18 card.
+
+**Asides** are two white radius-18 cards of label + right-aligned count links, exactly the
+canvas's treatment. The canvas titles its first card `Nearby cities` and lists Mississauga,
+Scarborough, Oshawa and Hamilton — placeholder cities we hold no data for, and Ottawa is
+not near Toronto in any case. Retitled **`Other cities`**, listing only cities we actually
+have, with real counts.
+
+**Metadata** — each landing route exports `generateMetadata` with a title of the form
+`{Discipline} jobs in {City} | MedCareer` and a description built from the same derived
+facts. This is the point of the routes; do not ship them with the default title.
 
 ---
 
@@ -374,6 +447,9 @@ TDD on new pure logic, tests first:
 - `buildJobsQuery` with `employer`, and round-trip through `parseSearchParams`.
 - Landing pair resolution: unknown city, unknown discipline, valid pair with zero active
   jobs — all `notFound()`.
+- "At a glance" derivation: the pay row is **absent** when no listing in the set publishes
+  a band (the Markham and Ottawa case, 88 of 153 rows), present and correctly bounded when
+  some do, and each row is omitted rather than rendered empty when its datum is missing.
 
 Existing suites must stay green; `lib/format.test.ts` and `search-params.test.ts` will
 need updates for the new field and the dropped `closing` sort.
@@ -390,7 +466,8 @@ Then against live data:
 - `/jobs/[slug]` renders facts, description, apply button naming the employer, similar
   jobs, and valid JSON-LD.
 - `/browse`, `/browse/[city]`, `/browse/[city]/[discipline]` render with real counts;
-  unknown slugs 404.
+  unknown slugs 404; each carries its own `generateMetadata` title, not the default; a
+  Toronto pair shows the pay row and a Markham pair shows none.
 - **Every route's inline `<script>` still carries the CSP nonce.** `curl -i` one page and
   compare the nonce in the body against the CSP header **in the same response** —
   separate requests mint different nonces. A regression here breaks hydration silently.
