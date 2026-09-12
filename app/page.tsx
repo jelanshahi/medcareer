@@ -4,9 +4,10 @@ import { CATEGORIES, CATEGORY_LABELS } from '@/lib/taxonomy/categories';
 import { EMPLOYMENT_TYPES, EMPLOYMENT_LABELS } from '@/lib/taxonomy/employment';
 import { tally, type FacetRow } from '@/lib/jobs/facets';
 import { buildJobsQuery } from '@/lib/jobs/query-string';
-import { PostedTodayRow, type PostedTodayJob } from '@/components/PostedTodayRow';
+import { PostedTodayCard, type PostedTodayJob } from '@/components/PostedTodayCard';
 import { Stat } from '@/components/Stat';
 import { DisciplineTile } from '@/components/DisciplineTile';
+import { EYEBROW, FIELD, H2, PILL_OUTLINE, PILL_PRIMARY, SECTION } from '@/lib/ui/styles';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,9 +17,9 @@ export const dynamic = 'force-dynamic';
 const REFRESH_CADENCE = '6 hrs';
 
 const OVERVIEW_COLUMNS = 'employer_name,category,city,employment_type';
-const TODAY_COLUMNS = 'slug,title,employer_name,city,salary_min,salary_max,salary_period';
+const TODAY_COLUMNS = 'slug,title,employer_name,city,category,salary_min,salary_max,salary_period';
 
-type OverviewRow = FacetRow & { employer_name: string };
+type OverviewRow = FacetRow;
 
 export default async function HomePage() {
   const db = createServerClient();
@@ -98,121 +99,98 @@ export default async function HomePage() {
 
   return (
     <>
-      <section className="border-b border-[var(--color-rule)]">
-        <div className="mx-auto flex max-w-[1180px] flex-wrap items-start gap-x-14 gap-y-8 px-4 py-9 sm:px-6 sm:py-14">
-          <div className="min-w-0 flex-1 basis-[460px]">
-            <div className="inline-flex items-center gap-2 border border-[var(--color-rule)] bg-white px-2.5 py-1 text-[13px] font-semibold uppercase tracking-wider text-[var(--color-slate)]">
-              <span className="h-[7px] w-[7px] rounded-full bg-[var(--color-signal)]" aria-hidden="true" />
-              Ontario · updated every 6 hours
-            </div>
+      <section className="bg-[var(--color-surface)] text-center">
+        <div className="mx-auto max-w-[820px] px-[22px] pb-[clamp(40px,6vw,64px)] pt-[clamp(56px,9vw,96px)]">
+          <div className={EYEBROW}>Ontario · updated every 6 hours</div>
+          <h1 className="mt-1.5 text-balance text-[clamp(38px,6.4vw,64px)] font-semibold leading-[1.06] tracking-[-0.025em]">
+            Healthcare jobs across CANADA.
+            <br />
+            One click to apply.
+          </h1>
+          <p className="mx-auto mt-3.5 max-w-[30em] text-pretty text-[clamp(19px,2.4vw,25px)] leading-[1.32] tracking-[-0.015em] text-[var(--color-slate)]">
+            Pulled straight from hospital career systems. Every listing applies on the employer&rsquo;s
+            own page — no account, no résumé upload.
+          </p>
 
-            <h1 className="mt-5 text-balance font-display text-[40px] font-bold uppercase leading-[0.95] tracking-tight sm:text-[64px] lg:text-[74px]">
-              Healthcare jobs
-              <br />
-              across CANADA.
-              <br />
-              <span className="text-[var(--color-signal)]">One click to apply.</span>
-            </h1>
-
-            <form
-              method="get"
-              action="/jobs"
-              className="mt-7 flex flex-wrap border-2 border-[var(--color-ink)] bg-white"
-            >
-              <div className="flex flex-1 basis-[260px] flex-col border-r border-[var(--color-rule)] px-4 py-3">
-                <label htmlFor="hero-q" className="text-xs font-bold uppercase tracking-wider text-[var(--color-slate)]">
-                  Role or keyword
-                </label>
-                <input
-                  id="hero-q"
-                  name="q"
-                  type="search"
-                  placeholder="Registered nurse, PSW, MLT…"
-                  className="mt-1 border-0 bg-transparent p-0 text-lg outline-offset-4"
-                />
-              </div>
-              <div className="flex flex-1 basis-[180px] flex-col border-r border-[var(--color-rule)] px-4 py-3">
-                <label htmlFor="hero-city" className="text-xs font-bold uppercase tracking-wider text-[var(--color-slate)]">
-                  City
-                </label>
-                <select id="hero-city" name="city" className="-ml-0.5 mt-1 border-0 bg-transparent p-0 text-lg">
-                  <option value="">All of Ontario</option>
-                  {cities.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <button
-                type="submit"
-                className="border-0 bg-[var(--color-signal)] px-8 font-display text-xl font-bold uppercase tracking-wide text-white hover:bg-[var(--color-signal-hover)]"
-              >
-                Search
-              </button>
-            </form>
-
-            {popularSearches.length > 0 && (
-              <div className="mt-3.5 flex flex-wrap items-center gap-2">
-                <span className="text-sm text-[var(--color-slate)]">Popular:</span>
-                {popularSearches.map((p) => (
-                  <Link
-                    key={p.label}
-                    href={p.href}
-                    className="rounded-full border border-[var(--color-rule)] bg-white px-3.5 py-1 text-sm text-[var(--color-ink)] no-underline hover:border-[var(--color-ink)]"
-                  >
-                    {p.label}
-                  </Link>
-                ))}
-              </div>
-            )}
+          <div className="mt-5.5 flex flex-wrap items-center justify-center gap-3">
+            <Link href="/jobs" className={PILL_PRIMARY}>Browse {totalActive} open jobs</Link>
           </div>
 
-          <div className="min-w-0 flex-1 basis-[300px] border border-[var(--color-rule)] bg-white">
-            <div className="flex items-baseline justify-between border-b border-[var(--color-rule)] px-[18px] py-3.5">
-              <span className="font-display text-xl font-bold uppercase tracking-wider">Posted today</span>
-              <Link href="/jobs" className="text-sm font-semibold text-[var(--color-signal)]">
-                See all {totalActive} jobs
-              </Link>
+          <form
+            method="get"
+            action="/jobs"
+            className="mx-auto mt-8.5 flex max-w-[660px] flex-wrap gap-2 rounded-[18px] bg-[var(--color-canvas)] p-2.5 text-left"
+          >
+            <div className={`${FIELD} flex basis-full items-center gap-2.5 py-0`}>
+              <span aria-hidden="true" className="text-[15px] text-[var(--color-meta)]">⌕</span>
+              <label htmlFor="hero-q" className="sr-only">Role or keyword</label>
+              <input
+                id="hero-q"
+                name="q"
+                type="search"
+                placeholder="Registered nurse, PSW, MLT…"
+                className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[17px] outline-offset-[6px]"
+              />
             </div>
-            {todayJobs.length > 0 ? (
-              todayJobs.map((job) => <PostedTodayRow key={job.slug} job={job} />)
-            ) : (
-              <p className="px-[18px] py-4 text-[15px] text-[var(--color-slate)]">
-                No new postings yet — check back soon.
-              </p>
-            )}
-            {postedToday === 0 && todayJobs.length > 0 && (
-              <p className="px-[18px] pt-3 text-sm text-[var(--color-slate)]">
-                Nothing new since midnight yet. Here are the most recent postings.
-              </p>
-            )}
-            {employerNames.length > 0 && (
-              <p className="px-[18px] py-3.5 text-sm text-[var(--color-slate)]">
-                Sources: {employerNames.join(', ')}.
-              </p>
-            )}
-          </div>
+            <label htmlFor="hero-city" className="sr-only">City</label>
+            <select id="hero-city" name="city" className={`${FIELD} flex-1 basis-[150px]`}>
+              <option value="">All of Ontario</option>
+              {cities.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <button type="submit" className={`${PILL_PRIMARY} flex-1 basis-[130px] rounded-xl`}>
+              Search
+            </button>
+          </form>
+
+          {popularSearches.length > 0 && (
+            <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2">
+              <span className="text-sm text-[var(--color-meta)]">Popular:</span>
+              {popularSearches.map((p) => (
+                <Link key={p.label} href={p.href} className={PILL_OUTLINE}>{p.label}</Link>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
-      <section className="border-b border-[var(--color-rule)] bg-[var(--color-ink)] text-[var(--color-paper)]">
-        <div className="mx-auto grid max-w-[1180px] grid-cols-[repeat(auto-fit,minmax(150px,1fr))] px-4 sm:px-6">
+      <section className={SECTION}>
+        <div className="flex flex-wrap items-baseline justify-between gap-x-5 gap-y-3.5">
+          <h2 className={`m-0 ${H2}`}>Posted today</h2>
+          <Link href="/jobs" className="text-[17px]">See all {totalActive} jobs ›</Link>
+        </div>
+        {todayJobs.length > 0 ? (
+          <div className="mt-4.5 grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-3.5">
+            {todayJobs.map((job) => <PostedTodayCard key={job.slug} job={job} />)}
+          </div>
+        ) : (
+          <p className="mt-4.5 text-[17px] text-[var(--color-slate)]">
+            No new postings yet — check back soon.
+          </p>
+        )}
+        {postedToday === 0 && todayJobs.length > 0 && (
+          <p className="mt-3.5 text-[15px] text-[var(--color-slate)]">
+            Nothing new since midnight yet. These are the most recent postings.
+          </p>
+        )}
+      </section>
+
+      <section className={SECTION}>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-7 rounded-[18px] bg-[var(--color-ink)] p-[clamp(28px,4vw,44px)] text-[var(--color-canvas)]">
           {stats.map((s) => <Stat key={s.label} value={s.value} label={s.label} />)}
         </div>
       </section>
 
-      <section>
-        <div className="mx-auto max-w-[1180px] px-4 py-9 sm:px-6 sm:py-14">
-          <h2 className="font-display text-[32px] font-bold uppercase tracking-wide sm:text-[38px]">
-            Browse by discipline
-          </h2>
-          <div className="mt-5 grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-px border border-[var(--color-rule)] bg-[var(--color-rule)]">
-            {disciplineTiles.map((tile) => (
-              <DisciplineTile
-                key={tile.category}
-                href={buildJobsQuery({ category: [tile.category] })}
-                label={tile.label}
-                count={tile.count}
-              />
-            ))}
-          </div>
+      <section className={`${SECTION} pb-[clamp(48px,7vw,80px)]`}>
+        <h2 className={`m-0 ${H2}`}>Browse by discipline</h2>
+        <div className="mt-4.5 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
+          {disciplineTiles.map((tile) => (
+            <DisciplineTile
+              key={tile.category}
+              href={buildJobsQuery({ category: [tile.category] })}
+              label={tile.label}
+              count={tile.count}
+            />
+          ))}
         </div>
       </section>
     </>
