@@ -7,6 +7,7 @@ export type JobsQuery = {
   city?: string[];
   category?: Category[];
   employment_type?: EmploymentType[];
+  employer?: string[];
   sort?: Sort;
   page?: number;
 };
@@ -20,6 +21,7 @@ export function buildJobsQuery(params: JobsQuery): string {
   for (const c of params.city ?? []) sp.append('city', c);
   for (const c of params.category ?? []) sp.append('category', c);
   for (const t of params.employment_type ?? []) sp.append('employment_type', t);
+  for (const e of params.employer ?? []) sp.append('employer', e);
   if (params.sort && params.sort !== 'newest') sp.set('sort', params.sort);
   if (params.page && params.page > 1) sp.set('page', String(params.page));
   const qs = sp.toString();

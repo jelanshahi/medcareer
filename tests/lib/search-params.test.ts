@@ -73,4 +73,31 @@ describe('parseSearchParams', () => {
   it('truncates an overlong keyword', () => {
     expect(parseSearchParams({ q: 'x'.repeat(500) }).q).toBeUndefined();
   });
+
+  it('accepts multiple employers and de-duplicates them', () => {
+    expect(
+      parseSearchParams({ employer: ['CHEO', 'Oak Valley Health', 'CHEO'] }).employer,
+    ).toEqual(['CHEO', 'Oak Valley Health']);
+  });
+
+  it('accepts a single employer as a one-element array', () => {
+    expect(parseSearchParams({ employer: 'CHEO' }).employer).toEqual(['CHEO']);
+  });
+
+  it('trims surrounding whitespace on an employer name', () => {
+    expect(parseSearchParams({ employer: '  CHEO  ' }).employer).toEqual(['CHEO']);
+  });
+
+  it('drops an over-long employer name rather than querying with it', () => {
+    expect(parseSearchParams({ employer: 'x'.repeat(200) }).employer).toBeUndefined();
+  });
+
+  it('drops an empty employer value', () => {
+    expect(parseSearchParams({ employer: '   ' }).employer).toBeUndefined();
+  });
+
+  it('caps a flood of employer values at the facet limit', () => {
+    const flood = Array.from({ length: 500 }, (_, i) => `Employer ${i}`);
+    expect(parseSearchParams({ employer: flood }).employer).toHaveLength(20);
+  });
 });

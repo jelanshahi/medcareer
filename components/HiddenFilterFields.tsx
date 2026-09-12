@@ -7,12 +7,14 @@ export function HiddenFilterFields({
   city,
   category,
   employment_type,
+  employer,
   sort,
 }: {
   q?: string;
   city?: string[];
   category?: string[];
   employment_type?: string[];
+  employer?: string[];
   sort?: string;
 }) {
   return (
@@ -24,6 +26,7 @@ export function HiddenFilterFields({
       {employment_type?.map((v) => (
         <input key={`employment_type-${v}`} type="hidden" name="employment_type" value={v} />
       ))}
+      {employer?.map((v) => <input key={`employer-${v}`} type="hidden" name="employer" value={v} />)}
     </>
   );
 }

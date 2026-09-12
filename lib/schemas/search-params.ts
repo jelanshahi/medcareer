@@ -12,18 +12,19 @@ export type Sort = (typeof SORTS)[number];
 // A hostile client could repeat a facet key hundreds of times; bound the
 // array itself as well as each entry so parsing stays cheap either way.
 const MAX_FACET_VALUES = 20;
-const MAX_CITY_LENGTH = 80;
+const MAX_NAME_LENGTH = 80;
 
 const QSchema = z.string().trim().min(1).max(120);
 const SortSchema = z.enum(SORTS).catch('newest');
 const PageSchema = z.coerce.number().int().min(1).max(400).catch(1);
-const CitySchema = z.string().trim().min(1).max(MAX_CITY_LENGTH);
+const NameSchema = z.string().trim().min(1).max(MAX_NAME_LENGTH);
 
 export type SearchParams = {
   q?: string;
   city?: string[];
   category?: Category[];
   employment_type?: EmploymentType[];
+  employer?: string[];
   sort: Sort;
   page: number;
 };
@@ -55,13 +56,16 @@ function parseEnumArray<T extends string>(
   return kept.length ? kept : undefined;
 }
 
-function parseCityArray(value: string | string[] | undefined): string[] | undefined {
+/** Validates a free-text facet (city, employer) whose values are data rather
+ * than a fixed enum: trims, drops empty and over-long entries individually,
+ * and de-duplicates. One hostile value must not clear a good one. */
+function parseNameArray(value: string | string[] | undefined): string[] | undefined {
   const arr = toArray(value);
   if (!arr) return undefined;
   const kept = [
     ...new Set(
       arr
-        .map((v) => CitySchema.safeParse(v))
+        .map((v) => NameSchema.safeParse(v))
         .filter((r) => r.success)
         .map((r) => r.data),
     ),
@@ -75,9 +79,10 @@ export function parseSearchParams(
 ): SearchParams {
   return {
     q: QSchema.safeParse(toScalar(input.q)).data,
-    city: parseCityArray(input.city),
+    city: parseNameArray(input.city),
     category: parseEnumArray(input.category, CATEGORIES),
     employment_type: parseEnumArray(input.employment_type, EMPLOYMENT_TYPES),
+    employer: parseNameArray(input.employer),
     sort: SortSchema.parse(toScalar(input.sort)),
     page: PageSchema.parse(toScalar(input.page)),
   };
