@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { postedAgo, formatSalary } from '@/lib/format';
+import { postedAgo, formatSalary, employerLine } from '@/lib/format';
 import { EMPLOYMENT_LABELS, type EmploymentType } from '@/lib/taxonomy/employment';
 import { LIST, LIST_ROW } from '@/lib/ui/styles';
 
@@ -25,10 +25,15 @@ function isEmploymentType(value: string | null): value is EmploymentType {
  * the equivalent filtered search instead. */
 export function LandingJobList({
   jobs,
+  city,
   seeAllHref,
   seeAllLabel,
 }: {
   jobs: LandingJob[];
+  /** The city these listings are scoped to. Not on LandingJob itself — the
+   * rows are already filtered to one city — but employerLine needs it to
+   * suppress a facility_name that merely repeats the city. */
+  city: string;
   seeAllHref: string;
   seeAllLabel: string;
 }) {
@@ -52,8 +57,7 @@ export function LandingJobList({
                   {job.title}
                 </h3>
                 <p className="mt-1 text-base">
-                  {job.employer_name}
-                  {job.facility_name ? ` · ${job.facility_name}` : ''}
+                  {employerLine(job.employer_name, job.facility_name, city)}
                 </p>
                 <p className="mt-1.5 text-[15px] tabular-nums text-[var(--color-slate)]">{meta}</p>
               </Link>

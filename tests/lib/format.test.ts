@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { postedAgo, formatSalary } from '@/lib/format';
+import { postedAgo, formatSalary, employerLine } from '@/lib/format';
 
 describe('postedAgo', () => {
   const now = new Date('2026-09-08T12:00:00Z');
@@ -23,5 +23,39 @@ describe('formatSalary', () => {
   });
   it('returns null when no salary is known', () => {
     expect(formatSalary(null, null, null)).toBeNull();
+  });
+});
+
+describe('employerLine', () => {
+  it('returns the employer alone when there is no facility', () => {
+    expect(employerLine('CHEO', null, 'Ottawa')).toBe('CHEO');
+  });
+
+  it('drops an empty-string facility rather than leaving a dangling separator', () => {
+    expect(employerLine('CHEO', '   ', 'Ottawa')).toBe('CHEO');
+  });
+
+  it('keeps a real facility name', () => {
+    expect(employerLine('Scarborough Health Network', 'Centenary Hospital', 'Toronto')).toBe(
+      'Scarborough Health Network · Centenary Hospital',
+    );
+  });
+
+  // The live data's dominant case: facility_name repeats the city.
+  it('drops a facility that merely repeats the city', () => {
+    expect(employerLine('CHEO', 'Ottawa, ON', 'Ottawa')).toBe('CHEO');
+    expect(employerLine('Oak Valley Health', 'Markham, Ontario', 'Markham')).toBe(
+      'Oak Valley Health',
+    );
+  });
+
+  it('ignores case when comparing the facility to the city', () => {
+    expect(employerLine('CHEO', 'ottawa, on', 'Ottawa')).toBe('CHEO');
+  });
+
+  it('keeps a facility naming a genuinely different place', () => {
+    expect(employerLine('Oak Valley Health', 'Uxbridge, Ontario', 'Markham')).toBe(
+      'Oak Valley Health · Uxbridge, Ontario',
+    );
   });
 });

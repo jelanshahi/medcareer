@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { createServerClient } from '@/lib/db/server';
-import { postedAgo, formatSalary } from '@/lib/format';
+import { postedAgo, formatSalary, employerLine } from '@/lib/format';
 import { CATEGORY_LABELS, type Category } from '@/lib/taxonomy/categories';
 import { EMPLOYMENT_LABELS, type EmploymentType } from '@/lib/taxonomy/employment';
 import { SITE } from '@/lib/site';
@@ -161,8 +161,7 @@ export default async function JobPage(props: PageProps<'/jobs/[slug]'>) {
             {job.title}
           </h1>
           <p className="mt-3 text-[19px]">
-            {job.employer_name}
-            {job.facility_name ? ` · ${job.facility_name}` : ''}
+            {employerLine(job.employer_name, job.facility_name, job.city)}
           </p>
           <p className="mt-0.5 text-[19px] text-[var(--color-slate)]">{job.city}, {job.province}</p>
 

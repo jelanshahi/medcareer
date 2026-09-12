@@ -101,6 +101,7 @@ export default async function CityLandingPage(props: PageProps<'/browse/[city]'>
           <h2 className={`m-0 ${H2}`}>Open roles in {city}</h2>
           <LandingJobList
             jobs={jobs}
+            city={city}
             seeAllHref={buildJobsQuery({ city: [city] })}
             seeAllLabel={`See all ${total} ${total === 1 ? 'job' : 'jobs'} in ${city}`}
           />

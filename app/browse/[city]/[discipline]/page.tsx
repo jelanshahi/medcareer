@@ -110,6 +110,7 @@ export default async function PairLandingPage(props: PageProps<'/browse/[city]/[
           <h2 className={`m-0 ${H2}`}>Open {label.toLowerCase()} roles in {city}</h2>
           <LandingJobList
             jobs={jobs}
+            city={city}
             seeAllHref={buildJobsQuery({ city: [city], category: [category] })}
             seeAllLabel={`See all ${count} ${count === 1 ? 'job' : 'jobs'}`}
           />
