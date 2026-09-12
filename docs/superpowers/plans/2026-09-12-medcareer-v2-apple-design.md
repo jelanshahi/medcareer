@@ -1289,9 +1289,11 @@ Expected: clean. An error naming `PostedTodayRow` means an import was missed.
 
 - [ ] **Step 8: Commit**
 
+The deletion of `components/PostedTodayRow.tsx` was already staged by the `git rm` in
+Step 1, so it does not need re-adding here.
+
 ```bash
 git add app/page.tsx components/PostedTodayCard.tsx components/Stat.tsx components/DisciplineTile.tsx
-git rm --cached components/PostedTodayRow.tsx 2>/dev/null || true
 git commit -m "feat(home): v2 home re-skin"
 ```
 
@@ -2707,8 +2709,12 @@ a cut feature was reintroduced.
 
 - [ ] **Step 8: Commit any fixes**
 
+List what actually changed and stage those paths explicitly — the Global Constraints
+forbid blanket staging, and this sweep runs across the whole tree:
+
 ```bash
-git add -u
+git status --short
+git add <the exact paths listed above>
 git commit -m "fix: verification sweep corrections"
 ```
 
