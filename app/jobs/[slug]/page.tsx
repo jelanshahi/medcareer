@@ -5,6 +5,9 @@ import { createServerClient } from '@/lib/db/server';
 import { postedAgo, formatSalary } from '@/lib/format';
 import { CATEGORY_LABELS, type Category } from '@/lib/taxonomy/categories';
 import { EMPLOYMENT_LABELS, type EmploymentType } from '@/lib/taxonomy/employment';
+import { SITE } from '@/lib/site';
+import { buildJobsQuery } from '@/lib/jobs/query-string';
+import { CARD, CONTAINER, H3, PILL_PRIMARY } from '@/lib/ui/styles';
 
 export const dynamic = 'force-dynamic';
 
@@ -138,62 +141,60 @@ export default async function JobPage(props: PageProps<'/jobs/[slug]'>) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <div className="border-b border-[var(--color-rule)] bg-[var(--color-band)]">
-        <div className="mx-auto max-w-[1180px] px-4 py-3 text-[15px] text-[var(--color-slate)] sm:px-6">
-          <Link href="/jobs" className="font-semibold text-[var(--color-signal)]">All jobs</Link>
+      <div className="border-b border-[var(--color-rule)] bg-[var(--color-surface)]">
+        <div className={`${CONTAINER} flex flex-wrap items-center py-[11px] text-sm text-[var(--color-slate)]`}>
+          <Link href="/jobs">All jobs</Link>
           {categoryLabel && (
             <>
-              <span className="px-2">/</span>
-              <Link href={`/jobs?category=${job.category}`} className="font-semibold text-[var(--color-signal)]">
-                {categoryLabel}
-              </Link>
+              <span className="px-[7px]">›</span>
+              <Link href={buildJobsQuery({ category: [job.category as Category] })}>{categoryLabel}</Link>
             </>
           )}
-          <span className="px-2">/</span>
+          <span className="px-[7px]">›</span>
           <span className="text-[var(--color-ink)]">{job.title}</span>
         </div>
       </div>
 
-      <div className="mx-auto flex max-w-[1180px] flex-wrap items-start gap-10 px-4 py-9 sm:px-6 sm:py-12">
-        <article className="min-w-0 flex-[3_1_420px]">
-          <h1 className="text-balance font-display text-[32px] font-bold uppercase leading-[1.03] sm:text-[42px] lg:text-[48px]">
+      <div className={`${CONTAINER} flex flex-wrap items-start gap-8 pb-20 pt-8`}>
+        <article className="min-w-0 flex-[3_1_400px]">
+          <h1 className="m-0 text-balance text-[clamp(30px,4.6vw,46px)] font-semibold leading-[1.08] tracking-[-0.025em]">
             {job.title}
           </h1>
-          <p className="mt-3 text-lg text-[var(--color-body)]">
+          <p className="mt-3 text-[19px]">
             {job.employer_name}
             {job.facility_name ? ` · ${job.facility_name}` : ''}
           </p>
-          <p className="mt-0.5 text-lg text-[var(--color-slate)]">{job.city}, {job.province}</p>
+          <p className="mt-0.5 text-[19px] text-[var(--color-slate)]">{job.city}, {job.province}</p>
 
-          <div className="mt-6 grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] border-y border-[var(--color-rule)]">
+          <div className={`${CARD} mt-6 grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] px-5 py-2`}>
             {facts.map((f) => (
               <div key={f.label} className="py-3.5 pr-4">
-                <div className="text-xs font-bold uppercase tracking-wider text-[var(--color-slate)]">{f.label}</div>
-                <div className="mt-0.5 text-[17px] font-semibold tabular-nums">{f.value}</div>
+                <div className="text-[13px] text-[var(--color-slate)]">{f.label}</div>
+                <div className="mt-0.5 text-[17px] font-medium tabular-nums">{f.value}</div>
               </div>
             ))}
           </div>
 
-          {/* Description is sanitized at ingest (allow-list p/br/ul/ol/li/strong/em/h3/h4,
-              no attributes) — that sanitization is the only reason dangerouslySetInnerHTML
-              is acceptable here. The store holds one blob (jobs.description), not the
-              design's separate intro/duties/quals fields, so it renders as a single block
-              rather than fabricated section splits. */}
+          {/* Sanitized at ingest (allow-list p/br/ul/ol/li/strong/em/h3/h4, no
+              attributes) — that sanitization is the only reason
+              dangerouslySetInnerHTML is acceptable here. The store holds one
+              blob, not the canvas's separate intro/duties/quals fields, so it
+              renders as one block rather than fabricated section splits. */}
           <div
-            className="prose mt-7 max-w-none text-[17px] leading-relaxed text-[#22282D] [&_h3]:mt-6 [&_h3]:font-display [&_h3]:text-2xl [&_h3]:font-bold [&_h3]:uppercase [&_h4]:mt-5 [&_h4]:font-display [&_h4]:text-xl [&_h4]:font-bold [&_h4]:uppercase [&_li]:mb-1.5 [&_ul]:pl-6 [&_ol]:pl-6 [&_p]:mb-4"
+            className="mt-7 text-[17px] leading-[1.6] [&_h3]:mt-7 [&_h3]:mb-2 [&_h3]:text-2xl [&_h3]:font-semibold [&_h3]:tracking-[-0.02em] [&_h4]:mt-6 [&_h4]:mb-2 [&_h4]:text-xl [&_h4]:font-semibold [&_li]:mb-[7px] [&_ol]:pl-[22px] [&_p]:mb-4 [&_ul]:pl-[22px]"
             dangerouslySetInnerHTML={{ __html: job.description }}
           />
 
-          <p className="mt-8 border-t border-[var(--color-rule)] pt-3.5 text-sm text-[var(--color-slate)]">
-            Listed by {job.employer_name}. Applications are handled on their site — {'MedCareer'} never takes
-            applications itself.
+          <p className="mt-7 border-t border-[var(--color-rule)] pt-4 text-[15px] text-[var(--color-slate)]">
+            Listed by {job.employer_name}. Applications are handled on their site — {SITE.name} never
+            takes applications itself.
           </p>
         </article>
 
-        <aside className="flex min-w-0 flex-1 basis-[280px] flex-col gap-4 sm:sticky sm:top-4 sm:max-w-[360px]">
-          <div className="border-2 border-[var(--color-ink)] bg-white p-[18px]">
+        <aside className="flex min-w-0 flex-1 basis-[270px] flex-col gap-3.5 md:sticky md:top-16 md:max-w-[340px]">
+          <div className={`${CARD} p-5`}>
             {salary && (
-              <div className="break-words font-display text-[27px] font-bold leading-none tabular-nums sm:text-[34px]">
+              <div className="text-[clamp(24px,3.4vw,30px)] font-semibold leading-[1.1] tracking-[-0.02em] tabular-nums [overflow-wrap:anywhere]">
                 {salary}
               </div>
             )}
@@ -204,28 +205,28 @@ export default async function JobPage(props: PageProps<'/jobs/[slug]'>) {
               href={job.apply_url}
               target="_blank"
               rel="noopener noreferrer nofollow"
-              className="mt-4 block break-words bg-[var(--color-signal)] px-3 py-3.5 text-center font-display text-xl font-bold uppercase tracking-wide text-white no-underline hover:bg-[var(--color-signal-hover)]"
+              className={`${PILL_PRIMARY} mt-4 w-full [overflow-wrap:anywhere]`}
             >
               Apply on {job.employer_name}
             </a>
             {host && (
-              <div className="mt-2 break-words text-center text-sm text-[var(--color-slate)]">
+              <div className="mt-2.5 text-center text-[13px] text-[var(--color-meta)] [overflow-wrap:anywhere]">
                 Opens {host} in a new tab
               </div>
             )}
           </div>
 
           {similar.length > 0 && (
-            <div className="border border-[var(--color-rule)] bg-white p-4">
-              <div className="font-display text-lg font-bold uppercase tracking-wider">Similar openings</div>
-              <div className="mt-2.5 flex flex-col gap-3">
+            <div className={`${CARD} p-5`}>
+              <div className={H3}>Similar openings</div>
+              <div className="mt-3 flex flex-col gap-3.5">
                 {similar.map((s) => (
                   <Link
                     key={s.slug}
                     href={`/jobs/${s.slug}`}
-                    className="block text-[var(--color-ink)] no-underline hover:text-[var(--color-signal)]"
+                    className="block text-[var(--color-ink)] no-underline hover:text-[var(--color-link)] hover:no-underline"
                   >
-                    <div className="text-[16px] font-semibold leading-snug">{s.title}</div>
+                    <div className="text-base font-medium leading-[1.25]">{s.title}</div>
                     <div className="text-sm text-[var(--color-slate)]">{s.employer_name} · {s.city}</div>
                   </Link>
                 ))}
