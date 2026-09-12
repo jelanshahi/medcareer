@@ -29,29 +29,37 @@
   --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
-body {
-  background: var(--color-canvas);
-  color: var(--color-ink);
-  font-size: 17px;
-  line-height: 1.47;
-  letter-spacing: -0.01em;
-  -webkit-font-smoothing: antialiased;
-}
+/* These MUST stay inside @layer base. Unlayered CSS outranks every layered
+   rule, so a bare `a { color }` here would beat Tailwind's utilities — which
+   live in @layer utilities — and repaint every link that a component colours
+   deliberately: the white text on a primary pill, the ink wordmark, the card
+   titles. Keeping them in the base layer lets utilities win, which is the
+   whole point of having them. */
+@layer base {
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-size: 17px;
+    line-height: 1.47;
+    letter-spacing: -0.01em;
+    -webkit-font-smoothing: antialiased;
+  }
 
-a {
-  color: var(--color-link);
-  text-decoration: none;
-}
-a:hover {
-  text-decoration: underline;
-}
+  a {
+    color: var(--color-link);
+    text-decoration: none;
+  }
+  a:hover {
+    text-decoration: underline;
+  }
 
-input,
-select,
-button {
-  font-family: inherit;
-  font-size: inherit;
-  letter-spacing: inherit;
+  input,
+  select,
+  button {
+    font-family: inherit;
+    font-size: inherit;
+    letter-spacing: inherit;
+  }
 }
 
 :focus-visible {
