@@ -10,6 +10,7 @@ import { SearchForm } from '@/components/SearchForm';
 import { FacetGroup, type FacetItem } from '@/components/FacetGroup';
 import { HiddenFilterFields } from '@/components/HiddenFilterFields';
 import { Pagination } from '@/components/Pagination';
+import { CARD, CHIP, CONTAINER, H2, LIST, PILL_OUTLINE, PILL_PRIMARY } from '@/lib/ui/styles';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,6 +45,13 @@ function buildChips(params: SearchParams): Chip[] {
       href: buildJobsQuery({ ...params, employment_type: (params.employment_type ?? []).filter((x) => x !== t) }),
     });
   }
+  for (const e of params.employer ?? []) {
+    chips.push({
+      key: `employer-${e}`,
+      label: e,
+      href: buildJobsQuery({ ...params, employer: (params.employer ?? []).filter((x) => x !== e) }),
+    });
+  }
   return chips;
 }
 
@@ -69,13 +77,14 @@ export default async function JobsPage(props: PageProps<'/jobs'>) {
   if (params.city?.length) resultsQuery = resultsQuery.in('city', params.city);
   if (params.category?.length) resultsQuery = resultsQuery.in('category', params.category);
   if (params.employment_type?.length) resultsQuery = resultsQuery.in('employment_type', params.employment_type);
+  if (params.employer?.length) resultsQuery = resultsQuery.in('employer_name', params.employer);
 
   // Facet counts: filtered only by q, so each group's live count can be
   // computed against the *other* groups' current selections (standard
   // faceted-search behaviour) without a round trip per facet value. The
   // active data set is small (order of a few hundred rows), so counting in
   // JS here is cheap next to a network round trip per facet.
-  let facetQuery = db.from('jobs').select('category,city,employment_type').eq('is_active', true);
+  let facetQuery = db.from('jobs').select('category,city,employment_type,employer_name').eq('is_active', true);
   if (params.q) facetQuery = facetQuery.textSearch('search_vector', params.q, { type: 'websearch' });
 
   // supabase-js resolves { data, error } rather than rejecting on failure.
@@ -93,14 +102,14 @@ export default async function JobsPage(props: PageProps<'/jobs'>) {
   const matchesCategory = (r: FacetRow) => !params.category?.length || params.category.includes(r.category as Category);
   const matchesType = (r: FacetRow) =>
     !params.employment_type?.length || params.employment_type.includes(r.employment_type as EmploymentType);
+  const matchesEmployer = (r: FacetRow) => !params.employer?.length || params.employer.includes(r.employer_name);
 
   const existingCategories = new Set(rows.map((r) => r.category).filter(Boolean));
-  const existingCities = new Set(rows.map((r) => r.city));
   const existingTypes = new Set(rows.map((r) => r.employment_type).filter(Boolean));
 
-  const categoryCounts = tally(rows.filter((r) => matchesCity(r) && matchesType(r)), 'category');
-  const cityCounts = tally(rows.filter((r) => matchesCategory(r) && matchesType(r)), 'city');
-  const typeCounts = tally(rows.filter((r) => matchesCategory(r) && matchesCity(r)), 'employment_type');
+  const categoryCounts = tally(rows.filter((r) => matchesCity(r) && matchesType(r) && matchesEmployer(r)), 'category');
+  const typeCounts = tally(rows.filter((r) => matchesCategory(r) && matchesCity(r) && matchesEmployer(r)), 'employment_type');
+  const employerCounts = tally(rows.filter((r) => matchesCategory(r) && matchesCity(r) && matchesType(r)), 'employer_name');
 
   const disciplineItems: FacetItem[] = CATEGORIES.filter((c) => existingCategories.has(c)).map((c) => ({
     value: c,
@@ -108,18 +117,20 @@ export default async function JobsPage(props: PageProps<'/jobs'>) {
     count: categoryCounts[c] ?? 0,
     checked: params.category?.includes(c) ?? false,
   }));
-  const cityItems: FacetItem[] = [...existingCities].sort().map((c) => ({
-    value: c,
-    label: c,
-    count: cityCounts[c] ?? 0,
-    checked: params.city?.includes(c) ?? false,
-  }));
   const typeItems: FacetItem[] = EMPLOYMENT_TYPES.filter((t) => existingTypes.has(t)).map((t) => ({
     value: t,
     label: EMPLOYMENT_LABELS[t],
     count: typeCounts[t] ?? 0,
     checked: params.employment_type?.includes(t) ?? false,
   }));
+  const employerItems: FacetItem[] = [...new Set(rows.map((r) => r.employer_name))].sort().map((e) => ({
+    value: e,
+    label: e,
+    count: employerCounts[e] ?? 0,
+    checked: params.employer?.includes(e) ?? false,
+  }));
+
+  const cities = [...new Set(rows.map((r) => r.city))].sort();
 
   const chips = buildChips(params);
   const total = count ?? 0;
@@ -129,52 +140,55 @@ export default async function JobsPage(props: PageProps<'/jobs'>) {
 
   return (
     <>
-      <div className="border-b border-[var(--color-rule)] bg-[var(--color-band)]">
-        <div className="mx-auto max-w-[1180px]">
-          <SearchForm params={params} />
-        </div>
+      <div className="border-b border-[var(--color-rule)] bg-[var(--color-surface)]">
+        <SearchForm params={params} cities={cities} />
       </div>
 
-      <div className="mx-auto flex max-w-[1180px] flex-wrap items-start gap-9 px-4 pb-16 sm:px-6">
-        <aside className="w-full flex-1 basis-[246px] pt-6 sm:sticky sm:top-4 sm:max-w-[340px]">
-          <form method="get" action="/jobs">
-            <HiddenFilterFields q={params.q} sort={params.sort} />
-            <div className="flex items-baseline justify-between border-b-2 border-[var(--color-ink)] pb-2.5">
-              <span className="font-display text-xl font-bold uppercase tracking-wider">Filters</span>
-              <Link href="/jobs" className="text-sm font-semibold text-[var(--color-signal)] underline">
-                Clear all
-              </Link>
-            </div>
-            <FacetGroup label="Discipline" name="category" items={disciplineItems} />
-            <FacetGroup label="City" name="city" items={cityItems} />
-            <FacetGroup label="Employment type" name="employment_type" items={typeItems} />
-            <button
-              type="submit"
-              className="mt-4 w-full border-0 bg-[var(--color-signal)] px-4 py-2.5 font-display text-lg font-bold uppercase tracking-wide text-white hover:bg-[var(--color-signal-hover)]"
-            >
-              Apply filters
-            </button>
+      <div className={`${CONTAINER} flex flex-wrap items-start gap-7 pb-[72px] pt-6`}>
+        <aside className="w-full flex-1 basis-[232px] md:sticky md:top-16 md:max-w-[320px]">
+          <form method="get" action="/jobs" className={`${CARD} px-[18px] pb-3.5 pt-1.5`}>
+            <HiddenFilterFields q={params.q} sort={params.sort} city={params.city} />
+
+            {/* Open by default and collapsible only below md. CSS cannot force a
+                <details> open on wide screens, so the summary is hidden there
+                instead and the panel simply stays open. A JS toggle would break
+                the no-script guarantee. */}
+            <details open className="[&_summary::-webkit-details-marker]:hidden">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-3.5 md:hidden">
+                <span className="text-[17px] font-semibold tracking-[-0.015em]">Filters</span>
+                <span className={PILL_OUTLINE}>Show or hide</span>
+              </summary>
+
+              <div className="hidden items-center justify-between gap-3 py-3.5 md:flex">
+                <span className="text-[17px] font-semibold tracking-[-0.015em]">Filters</span>
+                <Link href="/jobs" className="text-[15px]">Clear all</Link>
+              </div>
+
+              <FacetGroup label="Discipline" name="category" items={disciplineItems} />
+              <FacetGroup label="Employment type" name="employment_type" items={typeItems} />
+              <FacetGroup label="Employer" name="employer" items={employerItems} />
+
+              <button type="submit" className={`${PILL_PRIMARY} mt-3.5 w-full`}>Apply filters</button>
+              <Link href="/jobs" className="mt-3 block text-center text-[15px] md:hidden">Clear all</Link>
+            </details>
           </form>
         </aside>
 
-        <main className="min-w-0 flex-[4_1_440px] pt-6">
-          <div className="flex flex-wrap items-baseline justify-between gap-2.5 pb-2.5">
-            <h1 className="font-display text-[32px] font-bold uppercase leading-none">{resultsHeading}</h1>
+        <main className="min-w-0 flex-[4_1_420px]">
+          <div className="flex flex-wrap items-baseline justify-between gap-2.5">
+            <h1 className={`m-0 ${H2} leading-[1.1]`}>{resultsHeading}</h1>
             <span className="text-[15px] tabular-nums text-[var(--color-slate)]">
               {total} {total === 1 ? 'job' : 'jobs'} · {citySummary}
             </span>
           </div>
 
           {chips.length > 0 && (
-            <ul className="flex flex-wrap gap-1.5 pb-3.5">
+            <ul className="flex list-none flex-wrap gap-2 p-0 pt-3.5">
               {chips.map((chip) => (
                 <li key={chip.key}>
-                  <Link
-                    href={chip.href}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-ink)] bg-[var(--color-ink)] py-1 pl-3 pr-2 text-sm text-[var(--color-paper)] no-underline"
-                  >
+                  <Link href={chip.href} className={CHIP}>
                     <span>{chip.label}</span>
-                    <span aria-hidden="true" className="text-base leading-none opacity-75">×</span>
+                    <span aria-hidden="true" className="text-[15px] leading-none text-[var(--color-slate)]">×</span>
                     <span className="sr-only">Remove filter</span>
                   </Link>
                 </li>
@@ -183,22 +197,21 @@ export default async function JobsPage(props: PageProps<'/jobs'>) {
           )}
 
           {jobs.length === 0 ? (
-            <div className="border-t border-[var(--color-rule)] py-12">
-              <h2 className="font-display text-[28px] font-bold uppercase">Nothing open for that right now</h2>
-              <p className="mt-2 max-w-[40em] text-lg text-[var(--color-body)]">
-                Try a broader keyword, or widen the city filter to all of Ontario. New postings land every six
-                hours.
+            <div className={`${CARD} mt-4 px-7 py-12 text-center`}>
+              <h2 className="m-0 text-[26px] font-semibold tracking-[-0.02em]">
+                Nothing open for that right now
+              </h2>
+              <p className="mx-auto mt-2.5 max-w-[34em] text-[17px] text-[var(--color-slate)]">
+                Try a broader keyword, or widen the city filter to all of Ontario. New postings land
+                every six hours.
               </p>
-              <Link
-                href="/jobs"
-                className="mt-4 inline-block bg-[var(--color-signal)] px-[22px] py-2.5 font-display text-xl font-bold uppercase tracking-wide text-white no-underline hover:bg-[var(--color-signal-hover)]"
-              >
-                Show all Ontario jobs
-              </Link>
+              <Link href="/jobs" className={`${PILL_PRIMARY} mt-4.5`}>Show all Ontario jobs</Link>
             </div>
           ) : (
             <>
-              <ul className="border-t border-[var(--color-rule)] pl-0">{jobs.map((job) => <JobCard key={job.slug} job={job} />)}</ul>
+              <ul className={`${LIST} mt-4`}>
+                {jobs.map((job) => <JobCard key={job.slug} job={job} />)}
+              </ul>
               <Pagination page={params.page} total={total} pageSize={PAGE_SIZE} query={params} />
             </>
           )}

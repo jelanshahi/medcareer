@@ -1,54 +1,55 @@
 import { SORTS, type SearchParams } from '@/lib/schemas/search-params';
 import { HiddenFilterFields } from '@/components/HiddenFilterFields';
+import { CONTAINER, FIELD, PILL_PRIMARY } from '@/lib/ui/styles';
 
 const SORT_LABELS: Record<(typeof SORTS)[number], string> = {
   newest: 'Newest first',
   salary: 'Highest pay',
 };
 
-/** Keyword + sort bar on /jobs. A real GET form: submitting reloads /jobs
- * with the new query string, so results stay linkable and back/forward work
- * with no client-side script. Facet checkboxes live in a separate form
- * (see FacetGroup / the /jobs page); hidden fields here replicate the
- * current facet selections so this form doesn't clear them on submit. */
-export function SearchForm({ params }: { params: SearchParams }) {
+/** Keyword + city + sort bar on /jobs, matching the v2 canvas's three-control
+ * header. A real GET form: submitting reloads /jobs with a new query string,
+ * so results stay linkable and back/forward work with no client-side script.
+ *
+ * The facet checkboxes live in a separate form in the sidebar, so the hidden
+ * fields here replicate the facet selections this form does not render
+ * (category, employment type, employer) and the sidebar form replicates the
+ * ones it does not render (q, sort, city). Without that, submitting either
+ * form would silently clear the other's selections. */
+export function SearchForm({ params, cities }: { params: SearchParams; cities: string[] }) {
   return (
-    <form method="get" action="/jobs" className="flex flex-wrap items-end gap-3 px-4 py-4 sm:px-6">
-      <HiddenFilterFields city={params.city} category={params.category} employment_type={params.employment_type} />
-      <div className="flex min-w-[220px] flex-1 flex-col">
-        <label htmlFor="q" className="text-xs font-bold uppercase tracking-wider text-[var(--color-slate)]">
-          Role or keyword
-        </label>
+    <form method="get" action="/jobs" className={`${CONTAINER} flex flex-wrap items-center gap-2.5 py-4`}>
+      <HiddenFilterFields
+        category={params.category}
+        employment_type={params.employment_type}
+        employer={params.employer}
+      />
+
+      <div className={`${FIELD} flex flex-1 basis-60 items-center gap-2.5 py-0`}>
+        <span aria-hidden="true" className="text-[15px] text-[var(--color-meta)]">⌕</span>
+        <label htmlFor="q" className="sr-only">Role or keyword</label>
         <input
           id="q"
           name="q"
           type="search"
           placeholder="Registered nurse, PSW, MLT…"
           defaultValue={params.q ?? ''}
-          className="mt-1 border border-[var(--color-ink)] bg-white px-3 py-2"
+          className="min-w-0 flex-1 border-0 bg-transparent p-0 outline-offset-[6px]"
         />
       </div>
-      <div className="flex min-w-[180px] flex-col">
-        <label htmlFor="sort" className="text-xs font-bold uppercase tracking-wider text-[var(--color-slate)]">
-          Sort by
-        </label>
-        <select
-          id="sort"
-          name="sort"
-          defaultValue={params.sort}
-          className="mt-1 border border-[var(--color-ink)] bg-white px-2.5 py-2"
-        >
-          {SORTS.map((s) => (
-            <option key={s} value={s}>{SORT_LABELS[s]}</option>
-          ))}
-        </select>
-      </div>
-      <button
-        type="submit"
-        className="bg-[var(--color-signal)] px-6 py-2.5 font-display text-lg font-bold uppercase tracking-wide text-white hover:bg-[var(--color-signal-hover)]"
-      >
-        Search
-      </button>
+
+      <label htmlFor="city" className="sr-only">City</label>
+      <select id="city" name="city" defaultValue={params.city?.[0] ?? ''} className={`${FIELD} flex-1 basis-[150px]`}>
+        <option value="">All of Ontario</option>
+        {cities.map((c) => <option key={c} value={c}>{c}</option>)}
+      </select>
+
+      <label htmlFor="sort" className="sr-only">Sort by</label>
+      <select id="sort" name="sort" defaultValue={params.sort} className={`${FIELD} flex-1 basis-[150px]`}>
+        {SORTS.map((s) => <option key={s} value={s}>{SORT_LABELS[s]}</option>)}
+      </select>
+
+      <button type="submit" className={PILL_PRIMARY}>Search</button>
     </form>
   );
 }

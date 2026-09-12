@@ -2,6 +2,7 @@ export type FacetRow = {
   category: string | null;
   city: string;
   employment_type: string | null;
+  employer_name: string;
 };
 
 /** Counts non-null occurrences of one field across a row set. */
