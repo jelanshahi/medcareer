@@ -1,25 +1,12 @@
 import type { Metadata } from "next";
-import { Barlow_Condensed, Source_Sans_3 } from "next/font/google";
 import { SITE } from "@/lib/site";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import "./globals.css";
 
-// Display face for headings — matches the design canvas's Barlow Condensed
-// 500/600/700. Loaded via next/font/google rather than the canvas's
-// <helmet> <link> tags, which would have no CSP nonce (see proxy.ts).
-const barlowCondensed = Barlow_Condensed({
-  variable: "--font-barlow-condensed",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-});
-
-// Body face — matches the design canvas's Source Sans 3 400/600/700.
-const sourceSans = Source_Sans_3({
-  variable: "--font-source-sans",
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
-});
+// No next/font. The v2 design uses a Helvetica/Arial stack (see globals.css
+// and spec 2.1), so there is no webfont to self-host and nothing for the
+// CSP's font-src 'self' to permit. Do not reintroduce next/font/google here.
 
 export const metadata: Metadata = {
   title: `${SITE.name} — ${SITE.tagline}`,
@@ -28,11 +15,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="en"
-      className={`${barlowCondensed.variable} ${sourceSans.variable} h-full antialiased`}
-    >
-      <body className="flex min-h-full flex-col bg-[var(--color-paper)] font-sans text-[var(--color-ink)]">
+    <html lang="en" className="h-full antialiased">
+      <body className="flex min-h-full flex-col bg-[var(--color-canvas)] font-sans text-[var(--color-ink)]">
         <Header />
         <main className="flex-1">{children}</main>
         <Footer />

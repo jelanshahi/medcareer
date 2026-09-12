@@ -1,32 +1,25 @@
 import Link from 'next/link';
 import { SITE } from '@/lib/site';
+import { CONTAINER } from '@/lib/ui/styles';
 
-// Dark footer shared by every route. "Browse by city" is omitted (no landing
-// pages in scope — see task-15-brief.md §1). "Employer removal requests"
-// links to the real section on /about rather than the design's dead onClick.
+// Light footer from the v2 canvas (v1's was dark). All four destinations are
+// real: "Browse by city" now has landing pages behind it, and "Employer
+// removal requests" goes to the live section on /about rather than the
+// canvas's dead onClick.
 export function Footer() {
+  const link =
+    'text-[var(--color-ink)] no-underline hover:text-[var(--color-ink)] hover:underline';
+
   return (
-    <footer className="mt-auto bg-[var(--color-ink)] text-[var(--color-footer-text)]">
-      <div className="mx-auto flex max-w-[1180px] flex-wrap items-center justify-between gap-6 px-4 py-8 text-[15px] sm:px-6">
-        <div className="flex items-center gap-2 font-display text-xl font-bold uppercase tracking-wide text-[var(--color-paper)]">
-          <span className="inline-block h-[18px] w-[9px] bg-[var(--color-signal)]" aria-hidden="true" />
-          {SITE.name}
-        </div>
-        <nav aria-label="Footer" className="flex flex-wrap gap-5">
-          <Link href="/jobs" className="text-[var(--color-footer-text)] no-underline hover:text-[var(--color-paper)]">
-            Search jobs
-          </Link>
-          <Link href="/about" className="text-[var(--color-footer-text)] no-underline hover:text-[var(--color-paper)]">
-            About
-          </Link>
-          <Link
-            href="/about#employer-removal"
-            className="text-[var(--color-footer-text)] no-underline hover:text-[var(--color-paper)]"
-          >
-            Employer removal requests
-          </Link>
+    <footer className="mt-auto border-t border-[var(--color-rule)] bg-[var(--color-canvas)]">
+      <div className={`${CONTAINER} pb-10 pt-7 text-[13px] text-[var(--color-slate)]`}>
+        <nav aria-label="Footer" className="flex flex-wrap items-center gap-x-[26px] gap-y-1">
+          <Link href="/jobs" className={link}>Search jobs</Link>
+          <Link href="/browse" className={link}>Browse by city</Link>
+          <Link href="/about" className={link}>About</Link>
+          <Link href="/about#employer-removal" className={link}>Employer removal requests</Link>
         </nav>
-        <p className="w-full border-t border-[var(--color-footer-rule)] pt-4 text-sm">
+        <p className="mt-4 border-t border-[var(--color-rule)] pt-4">
           Healthcare jobs across Ontario. Listings belong to the employers who posted them;{' '}
           {SITE.name} links, it does not republish applications.
         </p>

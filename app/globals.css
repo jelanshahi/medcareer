@@ -1,42 +1,63 @@
 @import "tailwindcss";
 
 @theme {
-  /* Palette from the design canvas (medcareer.dc.html) — do not let these drift. */
-  --color-ink: #14181C;
-  --color-paper: #FBFAF7;
-  --color-slate: #5B6670;
-  --color-rule: #E2E1DC;
+  /* Palette from the v2 design canvas ("MedCareer v2 - Apple style.dc.html").
+     Do not let these drift and do not add raw hex to components.
+     --color-signal is the MedCareer brand green, deliberately kept in place of
+     the canvas's Apple blue for primary actions (spec section 1, decision 4). */
+  --color-canvas: #f5f5f7;
+  --color-surface: #ffffff;
+  --color-surface-hover: #fbfbfd;
+  --color-ink: #1d1d1f;
+  --color-slate: #6e6e73;
+  --color-meta: #86868b;
+  --color-rule: #d2d2d7;
+  --color-divider: #ececf0;
+  --color-chip: #e8e8ed;
+  --color-chip-hover: #dcdce1;
   --color-signal: #0F5C4A;
   --color-signal-hover: #0B4437;
-  --color-flag: #C2410C;
-  --color-band: #F4F3EF;
-  --color-body: #3C454C;
-  --color-meta: #8B949B;
-  --color-footer-text: #AEB5BA;
-  --color-hover: #EFEEE9;
-  --color-hover-alt: #F6F5F1;
-  --color-footer-rule: #2A3035;
+  --color-link: #0066cc;
+  --color-dark-muted: #a1a1a6;
+  --color-header-bg: rgba(251, 251, 253, 0.82);
+  --color-header-rule: rgba(0, 0, 0, 0.08);
 
-  --font-sans: var(--font-source-sans);
-  --font-display: var(--font-barlow-condensed);
+  /* The canvas asks for -apple-system/SF Pro. On Windows that chain falls
+     through to Arial, which is what the design was reviewed and approved in,
+     so the approved rendering wins over the canvas's stated intent (spec 2.1).
+     No webfont is loaded; font-src 'self' stays trivially met. */
+  --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 body {
-  background: var(--color-paper);
+  background: var(--color-canvas);
   color: var(--color-ink);
   font-size: 17px;
+  line-height: 1.47;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
 }
 
 a {
-  color: var(--color-signal);
+  color: var(--color-link);
+  text-decoration: none;
 }
 a:hover {
-  color: var(--color-signal-hover);
+  text-decoration: underline;
+}
+
+input,
+select,
+button {
+  font-family: inherit;
+  font-size: inherit;
+  letter-spacing: inherit;
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-signal);
+  outline: 3px solid rgb(15 92 74 / 0.5);
   outline-offset: 2px;
+  border-radius: 4px;
 }
 
 @media (prefers-reduced-motion: reduce) {

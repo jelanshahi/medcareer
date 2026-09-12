@@ -1,27 +1,36 @@
 import Link from 'next/link';
 import { SITE } from '@/lib/site';
+import { CONTAINER } from '@/lib/ui/styles';
 
-// Dark header shared by every route. "Browse by city" and "Get job alerts"
-// from the design are omitted deliberately (see task-15-brief.md §1): there
-// are no landing pages to link to and no auth/email storage in phase 1.
+// Sticky translucent bar from the v2 canvas. Two deliberate departures, both
+// recorded in spec 2.3:
+//
+//  - The canvas's fourth nav item is a green "Get job alerts" pill. There is
+//    no alerts backend and no decision to store email addresses, so the slot
+//    is left EMPTY rather than refilled with a substitute CTA.
+//  - The canvas labels its second item "Save jobs", but that item's handler
+//    opens a landing page — there is no save feature to build. The slot keeps
+//    its position and destination; the label says what it actually does.
 export function Header() {
+  const navLink =
+    'py-[11px] text-[var(--color-ink)] opacity-[.88] no-underline hover:opacity-100 hover:no-underline';
+
   return (
-    <header className="bg-[var(--color-ink)] text-[var(--color-paper)]">
-      <div className="mx-auto flex max-w-[1180px] flex-wrap items-center gap-x-6 gap-y-3 px-4 py-2 sm:px-6">
+    <header className="sticky top-0 z-20 border-b border-[var(--color-header-rule)] bg-[var(--color-header-bg)] backdrop-blur-[20px] backdrop-saturate-[180%]">
+      <div className={`${CONTAINER} flex min-h-[48px] flex-wrap items-center gap-x-[26px] gap-y-1.5`}>
         <Link
           href="/"
-          className="flex items-center gap-2 font-display text-2xl font-bold uppercase tracking-wide text-[var(--color-paper)] no-underline hover:text-[var(--color-paper)]"
+          className="py-[11px] text-[19px] font-semibold tracking-[-0.02em] text-[var(--color-ink)] no-underline hover:text-[var(--color-ink)] hover:no-underline"
         >
-          <span className="inline-block h-[22px] w-[11px] bg-[var(--color-signal)]" aria-hidden="true" />
           {SITE.name}
         </Link>
-        <nav aria-label="Primary" className="ml-auto flex items-center gap-6 text-[15px]">
-          <Link href="/jobs" className="font-semibold text-[var(--color-paper)] no-underline hover:text-[var(--color-paper)]">
-            Search jobs
-          </Link>
-          <Link href="/about" className="text-[#C8CDD1] no-underline hover:text-[var(--color-paper)]">
-            About
-          </Link>
+        <nav
+          aria-label="Primary"
+          className="ml-auto flex flex-wrap items-center gap-x-[26px] gap-y-1.5 text-[13px] tracking-[-0.005em]"
+        >
+          <Link href="/jobs" className={navLink}>Search</Link>
+          <Link href="/browse" className={navLink}>Browse by city</Link>
+          <Link href="/about" className={navLink}>About</Link>
         </nav>
       </div>
     </header>
