@@ -172,6 +172,14 @@ export default async function HomePage() {
             Nothing new since midnight yet. These are the most recent postings.
           </p>
         )}
+        {/* Sourcing attribution. The v2 canvas has no equivalent element, but naming
+            the networks we collect from is close to this product's central claim, so
+            it carries over from v1 rather than being dropped with the canvas's layout. */}
+        {employerNames.length > 0 && (
+          <p className="mt-3.5 text-[15px] text-[var(--color-slate)]">
+            Sources: {employerNames.join(', ')}.
+          </p>
+        )}
       </section>
 
       <section className={SECTION}>
