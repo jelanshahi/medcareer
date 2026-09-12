@@ -1,5 +1,10 @@
 import { createServerClient } from '@/lib/db/server';
 import { SITE } from '@/lib/site';
+import { CARD } from '@/lib/ui/styles';
+
+// The canvas's inline <code> treatment: chip-grey, rounded, monospace.
+const CODE =
+  'rounded-md bg-[var(--color-chip)] px-1.5 py-0.5 font-mono text-[15px]';
 
 // Nonce-based CSP requires dynamic rendering (see proxy.ts): a statically
 // prerendered page bakes its inline/bootstrap <script> tags at build time,
@@ -36,69 +41,56 @@ export default async function AboutPage() {
     .sort((a, b) => b.count - a.count);
 
   return (
-    <article className="mx-auto max-w-[760px] px-4 py-12 sm:px-6 sm:py-16">
-      <h1 className="text-balance font-display text-[36px] font-bold uppercase leading-none sm:text-[52px]">
+    <article className="mx-auto max-w-[720px] px-[22px] pb-20 pt-[clamp(44px,7vw,72px)]">
+      <h1 className="m-0 text-[clamp(34px,5.4vw,52px)] font-semibold leading-[1.06] tracking-[-0.025em]">
         About {SITE.name}
       </h1>
 
-      <p className="mt-4 text-lg leading-relaxed text-[#22282D]">
+      <p className="mt-4 text-[21px] leading-[1.42] text-[var(--color-slate)]">
         {SITE.name} is a job search site for healthcare work in Ontario. Every listing links
         directly to the employer&rsquo;s own application page. We never take applications ourselves,
         and there is no account or login anywhere in the product.
       </p>
 
-      <h2 className="mt-9 font-display text-[28px] font-bold uppercase tracking-wide">
-        How we collect listings
-      </h2>
-      <p className="mt-2 text-[17px] leading-relaxed text-[#22282D]">
+      <h2 className="mt-10 text-[28px] font-semibold tracking-[-0.02em]">How we collect listings</h2>
+      <p className="mt-2.5 text-[17px] leading-[1.6]">
         We read the public job feeds that employers&rsquo; own career sites use. We identify
-        ourselves on every request as{' '}
-        <code className="border border-[var(--color-rule)] bg-[#F0EFEA] px-1.5 py-px font-mono text-[15px]">
-          {SITE.userAgent}
-        </code>
-        , we send no more than one request per second to any single site, and we respect{' '}
-        <code className="border border-[var(--color-rule)] bg-[#F0EFEA] px-1.5 py-px font-mono text-[15px]">
-          robots.txt
-        </code>
-        . We do not log in, submit applications, or attempt to reach anything that requires
-        authentication.
+        ourselves on every request as <code className={CODE}>{SITE.userAgent}</code>, we send no more
+        than one request per second to any single site, and we respect{' '}
+        <code className={CODE}>robots.txt</code>. We do not log in, submit applications, or attempt
+        to reach anything that requires authentication.
       </p>
 
-      <h2 className="mt-9 font-display text-[28px] font-bold uppercase tracking-wide">
-        Where the jobs come from
-      </h2>
+      <h2 className="mt-10 text-[28px] font-semibold tracking-[-0.02em]">Where the jobs come from</h2>
       {employers.length > 0 ? (
-        <div className="mt-3 border border-[var(--color-rule)]">
+        <div className={`${CARD} mt-3.5 overflow-hidden`}>
           {employers.map((e) => (
             <div
               key={e.name}
-              className="flex justify-between gap-4 border-b border-[var(--color-rule)] bg-white px-4 py-3.5 last:border-b-0"
+              className="flex justify-between gap-4 border-t border-[var(--color-divider)] px-5 py-[15px] first:border-t-0"
             >
               <div>
-                <div className="font-semibold">{e.name}</div>
+                <div className="text-[17px] font-medium">{e.name}</div>
                 <div className="text-[15px] text-[var(--color-slate)]">{e.cities.join(', ')}</div>
               </div>
-              <div className="whitespace-nowrap text-[15px] tabular-nums text-[var(--color-slate)]">
+              <div className="whitespace-nowrap text-[15px] tabular-nums text-[var(--color-meta)]">
                 {e.count} {e.count === 1 ? 'job' : 'jobs'}
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <p className="mt-3 text-[17px] text-[var(--color-slate)]">
+        <p className="mt-3.5 text-[17px] text-[var(--color-slate)]">
           No active listings right now — check back after the next refresh.
         </p>
       )}
 
-      <h2 id="employer-removal" className="mt-9 scroll-mt-6 font-display text-[28px] font-bold uppercase tracking-wide">
+      <h2 id="employer-removal" className="mt-10 scroll-mt-16 text-[28px] font-semibold tracking-[-0.02em]">
         Employers: removing your listings
       </h2>
-      <p className="mt-2 text-[17px] leading-relaxed text-[#22282D]">
-        Email{' '}
-        <a className="font-semibold text-[var(--color-signal)]" href={`mailto:${SITE.contactEmail}`}>
-          {SITE.contactEmail}
-        </a>{' '}
-        and we will stop collecting from your site. No justification needed.
+      <p className="mt-2.5 text-[17px] leading-[1.6]">
+        Email <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a> and we will stop
+        collecting from your site. No justification needed.
       </p>
     </article>
   );

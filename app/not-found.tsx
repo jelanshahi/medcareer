@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PILL_PRIMARY } from '@/lib/ui/styles';
 
 // Same reasoning as app/about/page.tsx: without this, Next's built-in
 // /_not-found is statically prerendered, its bootstrap scripts carry no
@@ -9,16 +10,14 @@ export const dynamic = 'force-dynamic';
 
 export default function NotFound() {
   return (
-    <article className="mx-auto max-w-[760px] px-4 py-16 sm:px-6">
-      <h1 className="font-display text-4xl font-bold uppercase leading-none tracking-wide">
+    <article className="mx-auto max-w-[720px] px-[22px] py-16 text-center">
+      <h1 className="m-0 text-[clamp(30px,4.6vw,46px)] font-semibold leading-[1.08] tracking-[-0.025em]">
         Page not found
       </h1>
-      <p className="mt-4 text-lg text-[var(--color-body)]">
-        We couldn&rsquo;t find that page.{' '}
-        <Link href="/jobs" className="font-semibold text-[var(--color-signal)]">
-          Back to job search
-        </Link>
+      <p className="mx-auto mt-3 max-w-[34em] text-[17px] text-[var(--color-slate)]">
+        We couldn&rsquo;t find that page.
       </p>
+      <Link href="/jobs" className={`${PILL_PRIMARY} mt-5`}>Back to job search</Link>
     </article>
   );
 }
