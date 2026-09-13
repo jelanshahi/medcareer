@@ -46,6 +46,7 @@ next-env.d.ts
 
 # superpowers (SDD workflow files — never delete or commit)
 .superpowers/
+.worktrees/
 Thumbs.db
 
 # Supabase CLI scratch (created by `supabase gen types`)
