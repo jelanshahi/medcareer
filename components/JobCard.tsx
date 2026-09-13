@@ -3,6 +3,7 @@ import { postedAgo, formatSalary, employerLine } from '@/lib/format';
 import { CATEGORY_LABELS, type Category } from '@/lib/taxonomy/categories';
 import { EMPLOYMENT_LABELS, type EmploymentType } from '@/lib/taxonomy/employment';
 import { LIST_ROW } from '@/lib/ui/styles';
+import { SaveButton } from '@/components/SaveButton';
 
 export type JobCardData = {
   slug: string;
@@ -37,10 +38,10 @@ export function JobCard({ job }: { job: JobCardData }) {
   const meta = [salary, employment, postedAgo(job.posted_at)].filter(Boolean).join(' · ');
 
   return (
-    <li className={LIST_ROW}>
+    <li className={`${LIST_ROW} flex items-start gap-3 px-5 py-[18px] hover:bg-[var(--color-surface-hover)]`}>
       <Link
         href={`/jobs/${job.slug}`}
-        className="flex flex-wrap items-start gap-3 px-5 py-[18px] text-[var(--color-ink)] no-underline hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-ink)] hover:no-underline"
+        className="flex min-w-0 flex-1 flex-wrap items-start gap-3 text-[var(--color-ink)] no-underline hover:text-[var(--color-ink)] hover:no-underline"
       >
         <div className="min-w-0 flex-1 basis-[300px]">
           <h2 className="m-0 text-[21px] font-semibold leading-[1.22] tracking-[-0.015em]">{job.title}</h2>
@@ -54,6 +55,7 @@ export function JobCard({ job }: { job: JobCardData }) {
           <span className="whitespace-nowrap text-sm text-[var(--color-meta)]">{categoryLabel}</span>
         )}
       </Link>
+      <SaveButton slug={job.slug} />
     </li>
   );
 }
