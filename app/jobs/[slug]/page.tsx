@@ -7,6 +7,7 @@ import { CATEGORY_LABELS, type Category } from '@/lib/taxonomy/categories';
 import { EMPLOYMENT_LABELS, type EmploymentType } from '@/lib/taxonomy/employment';
 import { SITE } from '@/lib/site';
 import { buildJobsQuery } from '@/lib/jobs/query-string';
+import { SaveButton } from '@/components/SaveButton';
 import { CARD, CONTAINER, H3, PILL_PRIMARY } from '@/lib/ui/styles';
 
 export const dynamic = 'force-dynamic';
@@ -157,9 +158,12 @@ export default async function JobPage(props: PageProps<'/jobs/[slug]'>) {
 
       <div className={`${CONTAINER} flex flex-wrap items-start gap-8 pb-20 pt-8`}>
         <article className="min-w-0 flex-[3_1_400px]">
-          <h1 className="m-0 text-balance text-[clamp(30px,4.6vw,46px)] font-semibold leading-[1.08] tracking-[-0.025em]">
-            {job.title}
-          </h1>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <h1 className="m-0 text-balance text-[clamp(30px,4.6vw,46px)] font-semibold leading-[1.08] tracking-[-0.025em]">
+              {job.title}
+            </h1>
+            <SaveButton slug={job.slug} />
+          </div>
           <p className="mt-3 text-[19px]">
             {employerLine(job.employer_name, job.facility_name, job.city)}
           </p>
