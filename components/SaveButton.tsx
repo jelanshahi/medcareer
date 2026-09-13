@@ -1,29 +1,30 @@
 'use client';
 
-import { useEffect, useState, type MouseEvent } from 'react';
+import { useSyncExternalStore, type MouseEvent } from 'react';
 import { SAVED_JOBS_EVENT, isJobSaved, toggleSavedJob } from '@/lib/saved-jobs';
 
-/** Bookmark toggle. Defaults to "not saved" on first render so server and
- * client markup match — localStorage isn't available during SSR — then
- * corrects itself from the real stored value once mounted. Listens for
- * SAVED_JOBS_EVENT so it stays in sync if the same job is toggled from
- * elsewhere on the page (e.g. from /saved while a search-results card for
- * the same job is also open in another tab). */
-export function SaveButton({ slug }: { slug: string }) {
-  const [saved, setSaved] = useState(false);
+function subscribe(onChange: () => void) {
+  window.addEventListener(SAVED_JOBS_EVENT, onChange);
+  return () => window.removeEventListener(SAVED_JOBS_EVENT, onChange);
+}
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSaved(isJobSaved(slug));
-    const onChange = () => setSaved(isJobSaved(slug));
-    window.addEventListener(SAVED_JOBS_EVENT, onChange);
-    return () => window.removeEventListener(SAVED_JOBS_EVENT, onChange);
-  }, [slug]);
+/** Bookmark toggle. `useSyncExternalStore`'s server snapshot always reads
+ * "not saved" (localStorage isn't available during SSR), so server and
+ * client markup match on first paint; the client snapshot then reads the
+ * real stored value, and the store re-renders on every SAVED_JOBS_EVENT —
+ * including one fired by a different SaveButton instance for the same
+ * job elsewhere on the page (e.g. from /saved while a search-results card
+ * for the same job is also open). */
+export function SaveButton({ slug }: { slug: string }) {
+  const saved = useSyncExternalStore(
+    subscribe,
+    () => isJobSaved(slug),
+    () => false,
+  );
 
   const handleClick = (e: MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    e.stopPropagation();
-    setSaved(toggleSavedJob(slug).includes(slug));
+    toggleSavedJob(slug);
   };
 
   return (
