@@ -103,14 +103,9 @@ export default async function HomePage() {
         <div className="mx-auto max-w-[820px] px-[22px] pb-[clamp(40px,6vw,64px)] pt-[clamp(56px,9vw,96px)]">
           <div className={EYEBROW}>Ontario · updated every 6 hours</div>
           <h1 className="mt-1.5 text-balance text-[clamp(38px,6.4vw,64px)] font-semibold leading-[1.06] tracking-[-0.025em]">
-            Healthcare jobs across CANADA.
-            <br />
-            One click to apply.
+            Healthcare jobs across canada.
           </h1>
-          <p className="mx-auto mt-3.5 max-w-[30em] text-pretty text-[clamp(19px,2.4vw,25px)] leading-[1.32] tracking-[-0.015em] text-[var(--color-slate)]">
-            Pulled straight from hospital career systems. Every listing applies on the employer&rsquo;s
-            own page — no account, no résumé upload.
-          </p>
+          
 
           <div className="mt-5.5 flex flex-wrap items-center justify-center gap-3">
             <Link href="/jobs" className={PILL_PRIMARY}>Browse {totalActive} open jobs</Link>
@@ -199,6 +194,48 @@ export default async function HomePage() {
               count={tile.count}
             />
           ))}
+        </div>
+      </section>
+
+      <section id="job-alerts" className="mx-auto w-full max-w-[1240px] px-[22px] pb-[clamp(48px,7vw,80px)] pt-[clamp(36px,5vw,56px)]">
+        <div className="rounded-[26px] border border-[var(--color-rule)] bg-[var(--color-surface)] px-[clamp(20px,4vw,44px)] py-[clamp(24px,4vw,42px)] shadow-[0_1px_0_rgba(15,23,42,0.02)]">
+          <div className="grid items-center gap-[clamp(24px,5vw,64px)] lg:grid-cols-[1.05fr_1.2fr]">
+            <div>
+              <h2 className="m-0 max-w-[560px] text-[clamp(38px,4vw,64px)] font-semibold leading-[0.96] tracking-[-0.04em] text-[var(--color-ink)]">
+                Tell us what you&apos;re
+                <br />
+                looking for.
+                <br />
+              </h2>
+            </div>
+
+            <div className="w-full">
+              <label htmlFor="alert-email" className="mb-2 block text-[17px] text-[var(--color-slate)]">
+                Email address
+              </label>
+
+              <div className={`${FIELD} flex min-h-[62px] w-full items-center border-[2px] border-[var(--color-rule)] bg-[var(--color-canvas)] px-[18px]`}>
+                <input
+                  id="alert-email"
+                  name="alert-email"
+                  type="email"
+                  placeholder="you@example.com"
+                  className="w-full border-0 bg-transparent text-[clamp(18px,2vw,26px)] leading-none tracking-[-0.02em] text-[var(--color-ink)] outline-none placeholder:text-[var(--color-meta)]"
+                />
+              </div>
+
+              <div className="mt-4 text-[17px] text-[var(--color-slate)]">
+                Alerting on: <span className="font-semibold text-[var(--color-ink)]">All healthcare roles · Ontario</span>
+              </div>
+
+              <button
+                type="submit"
+                className={`${PILL_PRIMARY} mt-6 w-full rounded-full text-[clamp(20px,2vw,26px)] font-semibold`}
+              >
+                Create alert
+              </button>
+            </div>
+          </div>
         </div>
       </section>
     </>
