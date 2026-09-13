@@ -10,7 +10,7 @@ import { CARD, LIST, PILL_PRIMARY } from '@/lib/ui/styles';
 const COLUMNS =
   'slug,title,employer_name,facility_name,city,province,category,employment_type,salary_min,salary_max,salary_period,posted_at';
 
-type Status = 'loading' | 'empty' | 'ready';
+type Status = 'loading' | 'empty' | 'ready' | 'error';
 
 /** Client-rendered by design: it needs localStorage, which only exists in
  * the browser. app/saved/page.tsx (the server wrapper) carries the
@@ -40,7 +40,10 @@ export function SavedJobsView() {
         .in('slug', slugs)
         .eq('is_active', true);
       if (cancelled) return;
-      if (error) throw error;
+      if (error) {
+        setStatus('error');
+        return;
+      }
 
       const rows = (data ?? []) as JobCardData[];
       setJobs(rows);
@@ -56,6 +59,19 @@ export function SavedJobsView() {
   }, []);
 
   if (status === 'loading') return null;
+
+  if (status === 'error') {
+    return (
+      <div className={`${CARD} mt-4 px-7 py-12 text-center`}>
+        <h2 className="m-0 text-[26px] font-semibold tracking-[-0.02em]">
+          Couldn&rsquo;t load your saved jobs
+        </h2>
+        <p className="mx-auto mt-2.5 max-w-[34em] text-[17px] text-[var(--color-slate)]">
+          Something went wrong loading your saved jobs. Try refreshing the page.
+        </p>
+      </div>
+    );
+  }
 
   if (status === 'empty') {
     return (
