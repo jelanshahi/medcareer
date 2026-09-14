@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import type { MouseEvent } from 'react';
+import { Logo } from '@/components/Logo';
 import { SITE } from '@/lib/site';
 import { CONTAINER, PILL_PRIMARY } from '@/lib/ui/styles';
 
@@ -33,8 +34,9 @@ export function Header() {
       <div className={`${CONTAINER} flex min-h-[48px] flex-wrap items-center gap-x-[26px] gap-y-1.5`}>
         <Link
           href="/"
-          className="py-[11px] text-[19px] font-semibold tracking-[-0.02em] text-[var(--color-ink)] no-underline hover:text-[var(--color-ink)] hover:no-underline"
+          className="flex items-center gap-2 py-[11px] text-[19px] font-semibold tracking-[-0.02em] text-[var(--color-ink)] no-underline hover:text-[var(--color-ink)] hover:no-underline"
         >
+          <Logo />
           {SITE.name}
         </Link>
         <nav
