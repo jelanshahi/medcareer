@@ -22,11 +22,15 @@ export function SavedJobsView() {
 
   useEffect(() => {
     let cancelled = false;
+    let latestRequestId = 0;
 
     async function load() {
+      const requestId = ++latestRequestId;
+      const isStale = () => cancelled || requestId !== latestRequestId;
+
       const slugs = getSavedSlugs();
       if (slugs.length === 0) {
-        if (!cancelled) {
+        if (!isStale()) {
           setJobs([]);
           setStatus('empty');
         }
@@ -38,8 +42,9 @@ export function SavedJobsView() {
         .from('jobs')
         .select(COLUMNS)
         .in('slug', slugs)
-        .eq('is_active', true);
-      if (cancelled) return;
+        .eq('is_active', true)
+        .order('posted_at', { ascending: false });
+      if (isStale()) return;
       if (error) {
         setStatus('error');
         return;
@@ -50,8 +55,14 @@ export function SavedJobsView() {
       setStatus(rows.length === 0 ? 'empty' : 'ready');
     }
 
-    load();
-    const unsubscribe = subscribeToSavedJobs(load);
+    function loadSafely() {
+      load().catch(() => {
+        if (!cancelled) setStatus('error');
+      });
+    }
+
+    loadSafely();
+    const unsubscribe = subscribeToSavedJobs(loadSafely);
     return () => {
       cancelled = true;
       unsubscribe();
