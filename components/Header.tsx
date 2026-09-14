@@ -5,12 +5,12 @@ import type { MouseEvent } from 'react';
 import { SITE } from '@/lib/site';
 import { CONTAINER, PILL_PRIMARY } from '@/lib/ui/styles';
 
-// Sticky translucent bar from the v2 canvas. One deliberate departure,
-// recorded in spec 2.3:
-//
-//  - The canvas labels its second item "Save jobs", but that item's handler
-//    opens a landing page — there is no save feature to build. The slot keeps
-//    its position and destination; the label says what it actually does.
+// Sticky translucent bar from the v2 canvas. The nav's "Save jobs" slot
+// (spec 2.3) was a stub for a long time — no save feature existed, so it
+// pointed at /browse instead. It now points at the real thing; see
+// docs/superpowers/specs/2026-09-13-saved-jobs-design.md. /browse itself
+// (and its city/discipline sub-pages) is untouched and still reachable
+// directly — it's just no longer in primary nav.
 export function Header() {
   const navLink =
     'py-[11px] text-[var(--color-ink)] opacity-[.88] no-underline hover:opacity-100 hover:no-underline';
@@ -42,7 +42,7 @@ export function Header() {
           className="ml-auto flex flex-wrap items-center gap-x-[26px] gap-y-1.5 text-[13px] tracking-[-0.005em]"
         >
           <Link href="/jobs" className={navLink}>Search</Link>
-          <Link href="/browse" className={navLink}>Browse by city</Link>
+          <Link href="/saved" className={navLink}>Saved jobs</Link>
           <Link href="/about" className={navLink}>About</Link>
           <Link
             href="/#job-alerts"
