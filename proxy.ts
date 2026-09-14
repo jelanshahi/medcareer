@@ -14,15 +14,24 @@ import { NextResponse, type NextRequest } from 'next/server';
  * fallback (see content-security-policy.md, "Development vs Production") —
  * styles are a much smaller XSS vector than scripts, and script-src is not
  * weakened.
+ *
+ * connect-src explicitly allows the Supabase project URL because /saved
+ * (components/SavedJobsView.tsx) fetches from Supabase client-side — the
+ * only client-side Supabase call in this app, since every other call runs
+ * server-side in a Server Component where the browser's CSP never applies.
+ * Without this, connect-src falls back to default-src 'self' and the
+ * browser blocks that fetch outright.
  */
 function buildCsp(nonce: string): string {
   const isDev = process.env.NODE_ENV === 'development';
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const header = `
     default-src 'self';
     script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ''};
     style-src 'self' 'unsafe-inline';
     img-src 'self' data:;
     font-src 'self';
+    connect-src 'self'${supabaseUrl ? ` ${supabaseUrl}` : ''};
     object-src 'none';
     base-uri 'self';
     form-action 'self';

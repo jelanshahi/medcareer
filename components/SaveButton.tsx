@@ -1,23 +1,19 @@
 'use client';
 
 import { useSyncExternalStore, type MouseEvent } from 'react';
-import { SAVED_JOBS_EVENT, isJobSaved, toggleSavedJob } from '@/lib/saved-jobs';
-
-function subscribe(onChange: () => void) {
-  window.addEventListener(SAVED_JOBS_EVENT, onChange);
-  return () => window.removeEventListener(SAVED_JOBS_EVENT, onChange);
-}
+import { isJobSaved, subscribeToSavedJobs, toggleSavedJob } from '@/lib/saved-jobs';
 
 /** Bookmark toggle. `useSyncExternalStore`'s server snapshot always reads
  * "not saved" (localStorage isn't available during SSR), so server and
  * client markup match on first paint; the client snapshot then reads the
- * real stored value, and the store re-renders on every SAVED_JOBS_EVENT —
- * including one fired by a different SaveButton instance for the same
- * job elsewhere on the page (e.g. from /saved while a search-results card
- * for the same job is also open). */
+ * real stored value, and the store re-renders on every save/unsave, in this
+ * tab or another — including one fired by a different SaveButton instance
+ * for the same job elsewhere on the page (e.g. from /saved while a
+ * search-results card for the same job is also open), or from this same job
+ * being toggled in a different browser tab entirely. */
 export function SaveButton({ slug }: { slug: string }) {
   const saved = useSyncExternalStore(
-    subscribe,
+    subscribeToSavedJobs,
     () => isJobSaved(slug),
     () => false,
   );

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createBrowserClient } from '@/lib/db/browser';
-import { getSavedSlugs, SAVED_JOBS_EVENT } from '@/lib/saved-jobs';
+import { getSavedSlugs, subscribeToSavedJobs } from '@/lib/saved-jobs';
 import { JobCard, type JobCardData } from '@/components/JobCard';
 import { CARD, LIST, PILL_PRIMARY } from '@/lib/ui/styles';
 
@@ -51,10 +51,10 @@ export function SavedJobsView() {
     }
 
     load();
-    window.addEventListener(SAVED_JOBS_EVENT, load);
+    const unsubscribe = subscribeToSavedJobs(load);
     return () => {
       cancelled = true;
-      window.removeEventListener(SAVED_JOBS_EVENT, load);
+      unsubscribe();
     };
   }, []);
 

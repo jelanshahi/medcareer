@@ -29,6 +29,26 @@ function writeSlugs(slugs: string[]): void {
   }
 }
 
+/** Subscribes to every saved-jobs change: same-tab (SAVED_JOBS_EVENT, fired
+ * by toggleSavedJob in this tab) and cross-tab (the native `storage` event,
+ * which only fires in *other* tabs when localStorage changes here). A caller
+ * needs both listeners to stay correct regardless of which tab made the
+ * change. Returns an unsubscribe function. */
+export function subscribeToSavedJobs(onChange: () => void): () => void {
+  if (typeof window === 'undefined') return () => {};
+
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === null || event.key === STORAGE_KEY) onChange();
+  };
+
+  window.addEventListener(SAVED_JOBS_EVENT, onChange);
+  window.addEventListener('storage', onStorage);
+  return () => {
+    window.removeEventListener(SAVED_JOBS_EVENT, onChange);
+    window.removeEventListener('storage', onStorage);
+  };
+}
+
 export function getSavedSlugs(): string[] {
   return readSlugs();
 }
