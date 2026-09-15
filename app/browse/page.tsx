@@ -60,7 +60,7 @@ export default async function BrowsePage() {
 
       <section className={SECTION}>
         <h2 className={`m-0 ${H2}`}>By city</h2>
-        <div className="mt-4.5 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
+        <div className="reveal-group mt-4.5 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
           {cities.map((city) => (
             <Link key={city} href={`/browse/${slugifyCity(city)}`} className={TILE}>
               <span className="text-[17px] font-medium tracking-[-0.012em]">{city}</span>
@@ -74,7 +74,7 @@ export default async function BrowsePage() {
 
       <section className={SECTION}>
         <h2 className={`m-0 ${H2}`}>By discipline</h2>
-        <div className="mt-4.5 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
+        <div className="reveal-group mt-4.5 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
           {disciplines.map((c) => (
             <DisciplineTile
               key={c}
@@ -89,7 +89,7 @@ export default async function BrowsePage() {
       {pairs.length > 0 && (
         <section className={`${SECTION} pb-[clamp(48px,7vw,80px)]`}>
           <h2 className={`m-0 ${H2}`}>Popular combinations</h2>
-          <div className="mt-4.5 grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-3">
+          <div className="reveal-group mt-4.5 grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-3">
             {pairs.map((p) => (
               <Link
                 key={`${p.city}-${p.category}`}

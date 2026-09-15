@@ -154,7 +154,7 @@ export default async function HomePage() {
           <Link href="/jobs" className="text-[17px]">See all {totalActive} jobs ›</Link>
         </div>
         {todayJobs.length > 0 ? (
-          <div className="mt-4.5 grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-3.5">
+          <div className="reveal-group mt-4.5 grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-3.5">
             {todayJobs.map((job) => <PostedTodayCard key={job.slug} job={job} />)}
           </div>
         ) : (
@@ -178,14 +178,14 @@ export default async function HomePage() {
       </section>
 
       <section className={SECTION}>
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-7 rounded-[18px] bg-[var(--color-ink)] p-[clamp(28px,4vw,44px)] text-[var(--color-canvas)]">
+        <div className="reveal grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-7 rounded-[18px] bg-[var(--color-ink)] p-[clamp(28px,4vw,44px)] text-[var(--color-canvas)]">
           {stats.map((s) => <Stat key={s.label} value={s.value} label={s.label} />)}
         </div>
       </section>
 
       <section className={`${SECTION} pb-[clamp(48px,7vw,80px)]`}>
         <h2 className={`m-0 ${H2}`}>Browse by discipline</h2>
-        <div className="mt-4.5 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
+        <div className="reveal-group mt-4.5 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
           {disciplineTiles.map((tile) => (
             <DisciplineTile
               key={tile.category}
@@ -198,7 +198,7 @@ export default async function HomePage() {
       </section>
 
       <section id="job-alerts" className="mx-auto w-full max-w-[1240px] px-[22px] pb-[clamp(48px,7vw,80px)] pt-[clamp(36px,5vw,56px)]">
-        <div className="rounded-[26px] border border-[var(--color-rule)] bg-[var(--color-surface)] px-[clamp(20px,4vw,44px)] py-[clamp(24px,4vw,42px)] shadow-[0_1px_0_rgba(15,23,42,0.02)]">
+        <div className="reveal rounded-[26px] border border-[var(--color-rule)] bg-[var(--color-surface)] px-[clamp(20px,4vw,44px)] py-[clamp(24px,4vw,42px)] shadow-[0_1px_0_rgba(15,23,42,0.02)]">
           <div className="grid items-center gap-[clamp(24px,5vw,64px)] lg:grid-cols-[1.05fr_1.2fr]">
             <div>
               <h2 className="m-0 max-w-[560px] text-[clamp(38px,4vw,64px)] font-semibold leading-[0.96] tracking-[-0.04em] text-[var(--color-ink)]">

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { createServerClient } from '@/lib/db/server';
 import { parseSearchParams, PAGE_SIZE, type SearchParams } from '@/lib/schemas/search-params';
 import { CATEGORIES, CATEGORY_LABELS, type Category } from '@/lib/taxonomy/categories';
@@ -11,8 +12,39 @@ import { FacetGroup, type FacetItem } from '@/components/FacetGroup';
 import { HiddenFilterFields } from '@/components/HiddenFilterFields';
 import { Pagination } from '@/components/Pagination';
 import { CARD, CHIP, CONTAINER, H2, LIST, PILL_OUTLINE, PILL_PRIMARY } from '@/lib/ui/styles';
+import { SITE } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';
+
+export async function generateMetadata(props: PageProps<'/jobs'>): Promise<Metadata> {
+  const params = parseSearchParams(await props.searchParams);
+
+  const subject =
+    params.category?.length === 1 ? `${CATEGORY_LABELS[params.category[0]]} jobs` : 'Healthcare jobs';
+  const location = params.city?.length === 1 ? `in ${params.city[0]}, Ontario` : 'in Ontario';
+  const pageSuffix = params.page > 1 ? ` — Page ${params.page}` : '';
+
+  const title = params.q
+    ? `“${params.q}” — healthcare job search | ${SITE.name}`
+    : `${subject.replace(/^./, (c) => c.toUpperCase())} ${location}${pageSuffix} | ${SITE.name}`;
+
+  const description = params.q
+    ? `Search results for “${params.q}” across active healthcare job listings in Ontario, pulled from hospital career systems and refreshed every six hours.`
+    : `Browse ${subject.toLowerCase()} ${location}, pulled from hospital career systems and refreshed every six hours.`;
+
+  // A keyword search or a page past the first produces thin, near-duplicate
+  // content that shouldn't compete with the canonical facet pages (plain
+  // /jobs, /jobs?city=..., /jobs?category=...) for ranking — keep those out
+  // of the index while still letting Google follow the links on them.
+  const noindex = Boolean(params.q) || params.page > 1;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: buildJobsQuery(params) },
+    ...(noindex ? { robots: { index: false, follow: true } } : {}),
+  };
+}
 
 const RESULT_COLUMNS =
   'slug,title,employer_name,facility_name,city,province,category,employment_type,salary_min,salary_max,salary_period,posted_at';
@@ -209,7 +241,7 @@ export default async function JobsPage(props: PageProps<'/jobs'>) {
             </div>
           ) : (
             <>
-              <ul className={`${LIST} mt-4`}>
+              <ul className={`${LIST} reveal-group mt-4`}>
                 {jobs.map((job) => <JobCard key={job.slug} job={job} />)}
               </ul>
               <Pagination page={params.page} total={total} pageSize={PAGE_SIZE} query={params} />
