@@ -6,6 +6,10 @@ import type { NextConfig } from "next";
 // nonce per request and would either block hydration or fall back to
 // 'unsafe-inline', which defeats the point of a script-src allowlist.
 const nextConfig: NextConfig = {
+  // Drops the "X-Powered-By: Next.js" response header — no functional effect,
+  // just stops advertising the framework/version to anyone fingerprinting the
+  // stack.
+  poweredByHeader: false,
   async headers() {
     return [
       {

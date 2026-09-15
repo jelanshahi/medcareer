@@ -76,7 +76,15 @@ async function checkJobGone(request: NextRequest): Promise<NextResponse | null> 
   try {
     res = await fetch(
       `${base}/rest/v1/jobs?slug=eq.${encodeURIComponent(slug)}&select=slug&limit=1`,
-      { headers: { apikey: key, Authorization: `Bearer ${key}` } },
+      {
+        headers: { apikey: key, Authorization: `Bearer ${key}` },
+        // Without a bound, a slow/hanging Supabase response stalls every
+        // /jobs/:slug request indefinitely — this runs in middleware, in
+        // front of the page's own (separately timed) query. A timeout here
+        // is an "ambiguous check" per the comment above and falls through
+        // the same as a network error or non-OK response.
+        signal: AbortSignal.timeout(3000),
+      },
     );
   } catch {
     return null;

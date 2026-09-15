@@ -9,6 +9,12 @@ import "./globals.css";
 // CSP's font-src 'self' to permit. Do not reintroduce next/font/google here.
 
 export const metadata: Metadata = {
+  // Without this, Next.js can't resolve relative OG/Twitter image URLs and
+  // sitemap.ts's absolute URLs (already built from SITE.url) render fine
+  // regardless — but metadataBase is what makes any relative URL a future
+  // page's metadata sets resolve against the real domain instead of
+  // whatever host the request happened to arrive on.
+  metadataBase: new URL(SITE.url),
   title: `${SITE.name} — ${SITE.tagline}`,
   description: SITE.tagline,
 };
