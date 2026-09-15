@@ -177,7 +177,27 @@ export default async function JobsPage(props: PageProps<'/jobs'>) {
       </div>
 
       <div className={`${CONTAINER} flex flex-wrap items-start gap-7 pb-[72px] pt-6`}>
-        <aside className="w-full flex-1 basis-[232px] md:sticky md:top-16 md:max-w-[320px]">
+        {/* From md up this is its own scroll region, independent of the results
+            column. Sticky alone was not enough: with enough facets the panel
+            grows taller than the viewport, and a sticky element cannot be
+            scrolled past, so "Apply filters" at its bottom became unreachable.
+            Capping the height to the viewport (less the 4rem sticky offset plus
+            a gap) and giving it overflow-y makes the overflow reachable.
+            overscroll-contain stops a flick at either end of the list from
+            chaining into the page behind it — that chaining is what makes two
+            adjacent scrollers feel like one. The px-1/-mx-1 pair reserves room
+            for the 3px :focus-visible outline (globals.css) so it is not
+            clipped by the new scroll container, without moving the panel.
+
+            Known and accepted: the 100vh cap assumes the panel is pinned at
+            top-16, which is only true once the page has scrolled. At scrollY 0
+            the panel still sits at its natural offset (~156px on a 900px
+            viewport) so its last ~90px fall below the fold until the page
+            moves at all. Correcting that needs the scroll position, i.e. JS;
+            not worth a client component for one scroll position, since any
+            scroll at all — including the one that reaches for these filters —
+            resolves it. */}
+        <aside className="w-full flex-1 basis-[232px] md:sticky md:top-16 md:max-h-[calc(100vh_-_5rem)] md:max-w-[320px] md:overflow-y-auto md:overscroll-contain md:-mx-1 md:px-1">
           <form method="get" action="/jobs" className={`${CARD} px-[18px] pb-3.5 pt-1.5`}>
             <HiddenFilterFields q={params.q} sort={params.sort} city={params.city} />
 
