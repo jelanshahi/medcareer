@@ -1,0 +1,42 @@
+name: alerts
+
+on:
+  # 13:00 UTC is 09:00 in Toronto on EDT, 08:00 on EST. Once a day on purpose:
+  # this is a digest, and the ingest cron (every 6 hours) means a daily send
+  # still covers everything posted since the last one.
+  schedule:
+    - cron: '0 13 * * *'
+  workflow_dispatch:
+
+# Two overlapping runs would each read the same last_sent_at and mail the same
+# jobs twice. Queue instead, and never cancel a run mid-send: the watermark
+# only moves after a batch is accepted, so a cancelled run would re-send.
+concurrency:
+  group: alerts
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      CONTACT_EMAIL: ${{ secrets.CONTACT_EMAIL }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      # Must be on a domain verified in Resend, or every send is rejected.
+      ALERTS_FROM_EMAIL: ${{ secrets.ALERTS_FROM_EMAIL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Send job alert digests
+        run: npm run send-alerts

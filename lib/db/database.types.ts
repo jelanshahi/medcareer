@@ -111,8 +111,10 @@ export type Database = {
         Row: {
           category: string | null
           city: string | null
+          confirmation_sent_at: string | null
           confirmed_at: string | null
           created_at: string
+          last_sent_at: string | null
           email: string
           id: string
           is_active: boolean
@@ -121,8 +123,10 @@ export type Database = {
         Insert: {
           category?: string | null
           city?: string | null
+          confirmation_sent_at?: string | null
           confirmed_at?: string | null
           created_at?: string
+          last_sent_at?: string | null
           email: string
           id?: string
           is_active?: boolean
@@ -131,8 +135,10 @@ export type Database = {
         Update: {
           category?: string | null
           city?: string | null
+          confirmation_sent_at?: string | null
           confirmed_at?: string | null
           created_at?: string
+          last_sent_at?: string | null
           email?: string
           id?: string
           is_active?: boolean
@@ -318,6 +324,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      confirm_job_alert: {
+        Args: { token: string }
+        Returns: string
+      }
       expire_stale_jobs: {
         Args: never
         Returns: {
@@ -331,6 +341,14 @@ export type Database = {
           jobs_purged: number
           raw_postings_purged: number
         }[]
+      }
+      request_job_alert: {
+        Args: { p_email: string; p_token: string }
+        Returns: string
+      }
+      unsubscribe_job_alert: {
+        Args: { token: string }
+        Returns: string
       }
     }
     Enums: {

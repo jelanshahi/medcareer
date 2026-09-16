@@ -25,3 +25,9 @@ export type JobAlertState =
   | { status: 'error'; message: string };
 
 export const JOB_ALERT_INITIAL: JobAlertState = { status: 'idle' };
+
+/** Result of following a confirm or unsubscribe link.
+ *  'invalid' covers a malformed token, an unknown one, and a confirm link for
+ *  a subscription that has since been cancelled — the page says the same thing
+ *  for all three, since telling them apart would leak whether a token is real. */
+export type AlertLinkState = 'idle' | 'ok' | 'invalid' | 'failed';
