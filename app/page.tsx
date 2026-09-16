@@ -7,6 +7,7 @@ import { buildJobsQuery } from '@/lib/jobs/query-string';
 import { PostedTodayCard, type PostedTodayJob } from '@/components/PostedTodayCard';
 import { Stat } from '@/components/Stat';
 import { DisciplineTile } from '@/components/DisciplineTile';
+import { JobAlertForm } from '@/components/JobAlertForm';
 import { EYEBROW, FIELD, H2, PILL_OUTLINE, PILL_PRIMARY, SECTION } from '@/lib/ui/styles';
 
 export const dynamic = 'force-dynamic';
@@ -209,32 +210,7 @@ export default async function HomePage() {
               </h2>
             </div>
 
-            <div className="w-full">
-              <label htmlFor="alert-email" className="mb-2 block text-[17px] text-[var(--color-slate)]">
-                Email address
-              </label>
-
-              <div className={`${FIELD} flex min-h-[62px] w-full items-center border-[2px] border-[var(--color-rule)] bg-[var(--color-canvas)] px-[18px]`}>
-                <input
-                  id="alert-email"
-                  name="alert-email"
-                  type="email"
-                  placeholder="you@example.com"
-                  className="w-full border-0 bg-transparent text-[clamp(18px,2vw,26px)] leading-none tracking-[-0.02em] text-[var(--color-ink)] outline-none placeholder:text-[var(--color-meta)]"
-                />
-              </div>
-
-              <div className="mt-4 text-[17px] text-[var(--color-slate)]">
-                Alerting on: <span className="font-semibold text-[var(--color-ink)]">All healthcare roles · Ontario</span>
-              </div>
-
-              <button
-                type="submit"
-                className={`${PILL_PRIMARY} mt-6 w-full rounded-full text-[clamp(20px,2vw,26px)] font-semibold`}
-              >
-                Create alert
-              </button>
-            </div>
+            <JobAlertForm />
           </div>
         </div>
       </section>

@@ -107,6 +107,39 @@ export type Database = {
         }
         Relationships: []
       }
+      job_alerts: {
+        Row: {
+          category: string | null
+          city: string | null
+          confirmed_at: string | null
+          created_at: string
+          email: string
+          id: string
+          is_active: boolean
+          unsubscribe_token: string
+        }
+        Insert: {
+          category?: string | null
+          city?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          is_active?: boolean
+          unsubscribe_token?: string
+        }
+        Update: {
+          category?: string | null
+          city?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          is_active?: boolean
+          unsubscribe_token?: string
+        }
+        Relationships: []
+      }
       job_sources: {
         Row: {
           job_id: string
