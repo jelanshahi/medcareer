@@ -153,3 +153,17 @@ html {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Mobile nav panel (components/Header.tsx). Ungated, unlike .reveal above:
+   there is no hidden end state to strand a browser in, and the global
+   prefers-reduced-motion block already collapses the duration. */
+@keyframes nav-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
