@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { createServerClient } from '@/lib/db/server';
@@ -53,8 +54,7 @@ function applyHost(url: string): string | null {
   }
 }
 
-export default async function JobPage(props: PageProps<'/jobs/[slug]'>) {
-  const { slug } = await props.params;
+async function loadJob(slug: string): Promise<JobDetail | null> {
   const db = createServerClient();
 
   // supabase-js resolves { data, error } rather than rejecting on failure. An
@@ -68,7 +68,35 @@ export default async function JobPage(props: PageProps<'/jobs/[slug]'>) {
     .maybeSingle();
   if (error) throw error;
 
-  const job = data as JobDetail | null;
+  return data as JobDetail | null;
+}
+
+export async function generateMetadata(props: PageProps<'/jobs/[slug]'>): Promise<Metadata> {
+  const { slug } = await props.params;
+  const job = await loadJob(slug);
+  if (!job) return { title: `Not found | ${SITE.name}` };
+
+  const salary = formatSalary(job.salary_min, job.salary_max, job.salary_period);
+  const employmentLabel = isEmploymentType(job.employment_type)
+    ? EMPLOYMENT_LABELS[job.employment_type]
+    : null;
+  const detail = [employmentLabel, salary].filter((v): v is string => v !== null).join(' · ');
+
+  return {
+    title: `${job.title} — ${job.employer_name}, ${job.city} | ${SITE.name}`,
+    description:
+      `${job.title} at ${employerLine(job.employer_name, job.facility_name, job.city)} in ` +
+      `${job.city}, ${job.province}.${detail ? ` ${detail}.` : ''} ` +
+      `Apply on the employer's own careers site.`,
+    alternates: { canonical: `/jobs/${job.slug}` },
+  };
+}
+
+export default async function JobPage(props: PageProps<'/jobs/[slug]'>) {
+  const { slug } = await props.params;
+  const db = createServerClient();
+
+  const job = await loadJob(slug);
   if (!job) notFound();
 
   // Similar openings: same discipline first (what the design intends); if the
