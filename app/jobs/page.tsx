@@ -201,16 +201,33 @@ export default async function JobsPage(props: PageProps<'/jobs'>) {
           <form method="get" action="/jobs" className={`${CARD} px-[18px] pb-3.5 pt-1.5`}>
             <HiddenFilterFields q={params.q} sort={params.sort} city={params.city} />
 
-            {/* Open by default and collapsible only below md. CSS cannot force a
-                <details> open on wide screens, so the summary is hidden there
-                instead and the panel simply stays open. A JS toggle would break
-                the no-script guarantee. */}
-            <details open className="[&_summary::-webkit-details-marker]:hidden">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-3.5 md:hidden">
-                <span className="text-[17px] font-semibold tracking-[-0.015em]">Filters</span>
-                <span className={PILL_OUTLINE}>Show or hide</span>
-              </summary>
+            {/* Collapsed by default on a phone, where this rail sits above the
+                results and expanded pushed every job below the fold.
 
+                A checkbox rather than <details>/<summary>, which cannot express
+                this: the panel must start collapsed on a phone yet always be
+                open from md up, and there is no attribute for "open above 768px
+                only". Forcing a closed <details> open with ::details-content
+                works in Chromium and does nothing in WebKit — which reports the
+                selector as supported either way, so @supports cannot even guard
+                it, and desktop Safari would render a rail with no filters in it.
+                A checkbox is plain sibling CSS and behaves the same everywhere.
+
+                No `name`, so it is never submitted with this GET form. The
+                Show/Hide swap and the focus ring hang off :checked in
+                globals.css; nothing here needs script. */}
+            <input id="filters-toggle" type="checkbox" className="filters-toggle peer sr-only" />
+
+            <div className="flex items-center justify-between gap-3 py-3.5 md:hidden">
+              <span className="text-[17px] font-semibold tracking-[-0.015em]">Filters</span>
+              <label htmlFor="filters-toggle" className={`${PILL_OUTLINE} filters-pill`}>
+                <span className="filters-show">Show</span>
+                <span className="filters-hide">Hide</span>
+              </label>
+            </div>
+
+            {/* Sibling of the checkbox, so peer-checked can reach it. */}
+            <div className="hidden peer-checked:block md:block">
               <div className="hidden items-center justify-between gap-3 py-3.5 md:flex">
                 <span className="text-[17px] font-semibold tracking-[-0.015em]">Filters</span>
                 <Link href="/jobs" className="text-[15px]">Clear all</Link>
@@ -222,7 +239,7 @@ export default async function JobsPage(props: PageProps<'/jobs'>) {
 
               <button type="submit" className={`${PILL_PRIMARY} mt-3.5 w-full`}>Apply filters</button>
               <Link href="/jobs" className="mt-3 block text-center text-[15px] md:hidden">Clear all</Link>
-            </details>
+            </div>
           </form>
         </aside>
 

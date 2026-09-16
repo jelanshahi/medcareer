@@ -167,3 +167,33 @@ html {
     transform: none;
   }
 }
+
+/* Jobs filters rail (app/jobs/page.tsx).
+ *
+ * A CSS-only disclosure, so the panel collapses on a phone with no JavaScript.
+ * <details>/<summary> cannot do this job: the panel has to start collapsed on a
+ * phone but always be open from md up, and no attribute says "open above 768px
+ * only". Forcing a closed <details> open via ::details-content works in
+ * Chromium and does nothing in WebKit — which reports the selector as supported
+ * regardless, so @supports cannot distinguish the two and desktop Safari would
+ * show a rail with no filters in it. Verified in both engines before switching.
+ *
+ * The Show/Hide labels sit inside the pill, not beside the checkbox, so these
+ * reach them by descendant rather than by Tailwind's sibling-only peer-*.
+ *
+ * Unlayered on purpose — see the base-layer note above. Each of these has to
+ * beat a display utility Tailwind puts on the very same element, and only
+ * unlayered CSS outranks @layer utilities. */
+.filters-toggle:checked ~ * .filters-show {
+  display: none;
+}
+.filters-toggle:not(:checked) ~ * .filters-hide {
+  display: none;
+}
+
+/* The checkbox itself is sr-only, so its focus ring would be clipped to a 1px
+ * box. Move it onto the pill, matching the global :focus-visible style. */
+.filters-toggle:focus-visible ~ * .filters-pill {
+  outline: 3px solid rgb(15 92 74 / 0.5);
+  outline-offset: 2px;
+}
