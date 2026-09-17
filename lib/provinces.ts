@@ -18,6 +18,16 @@ export const PROVINCE_NAMES: Record<ProvinceCode, string> = {
   YT: 'Yukon',
 };
 
+/** "British Columbia" → "BC". Also accepts a code. Null when it is neither. */
+export function provinceCodeFromName(value: string): ProvinceCode | null {
+  const wanted = value.trim().toLowerCase();
+  const asCode = wanted.toUpperCase() as ProvinceCode;
+  if (PROVINCE_NAMES[asCode]) return asCode;
+  const found = (Object.keys(PROVINCE_NAMES) as ProvinceCode[])
+    .find((code) => PROVINCE_NAMES[code].toLowerCase() === wanted);
+  return found ?? null;
+}
+
 /** "AB" → "Alberta". Unknown codes pass through rather than rendering blank. */
 export function provinceName(code: string): string {
   return PROVINCE_NAMES[code as ProvinceCode] ?? code;

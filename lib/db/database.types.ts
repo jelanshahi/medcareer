@@ -342,6 +342,13 @@ export type Database = {
           raw_postings_purged: number
         }[]
       }
+      purge_jobs: {
+        Args: { max_age_days?: number; retention_days?: number }
+        Returns: {
+          jobs_purged: number
+          raw_postings_purged: number
+        }[]
+      }
       request_job_alert: {
         Args: { p_email: string; p_token: string }
         Returns: string

@@ -1,7 +1,10 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
 import { z } from 'zod';
 import { createAdminClient } from '@/lib/db/admin';
 import type { Json } from '@/lib/db/database.types';
+import { createIcimsConnector, type IcimsEmployer } from '@/workers/connectors/icims';
+import { createJibeConnector, type JibeEmployer } from '@/workers/connectors/jibe';
 import { createTaleoConnector, type TaleoEmployer } from '@/workers/connectors/taleo';
 import type { Connector } from '@/workers/connectors/types';
 import { createWorkdayConnector, type WorkdayEmployer } from '@/workers/connectors/workday';
@@ -35,6 +38,13 @@ const TaleoAtsConfigSchema = z.object({
   host: z.string().min(1),
 });
 
+/** iCIMS and Jibe boards name grouped locations ("Greater Toronto"); the registry maps them. */
+const BoardAtsConfigSchema = z.object({
+  key: z.string().min(1),
+  host: z.string().min(1),
+  cityAliases: z.record(z.string(), z.string()).optional(),
+});
+
 const EmployerBaseSchema = z.object({
   slug: z.string().min(1),
   name: z.string().min(1),
@@ -45,10 +55,31 @@ const EmployerBaseSchema = z.object({
 const EmployerRowSchema = z.discriminatedUnion('ats_platform', [
   EmployerBaseSchema.extend({ ats_platform: z.literal('workday'), ats_config: WorkdayAtsConfigSchema }),
   EmployerBaseSchema.extend({ ats_platform: z.literal('taleo'), ats_config: TaleoAtsConfigSchema }),
+  EmployerBaseSchema.extend({ ats_platform: z.literal('icims'), ats_config: BoardAtsConfigSchema }),
+  EmployerBaseSchema.extend({ ats_platform: z.literal('jibe'), ats_config: BoardAtsConfigSchema }),
 ]);
 
 /** Updates in chunks so a long `in (...)` list stays well under URL length limits. */
 const TOUCH_CHUNK_SIZE = 200;
+
+/**
+ * A posting we have never stored is only ingested if it was posted within this window.
+ * Employers keep evergreen roles ("casual pool") open for months, and storing every one of
+ * them fills the database with rows the site hides anyway — jobs are deleted at 60 days
+ * (supabase/migrations/0011_purge_by_age.sql).
+ *
+ * A posting we ALREADY hold is never dropped for being old: it stays, and keeps being
+ * marked as seen, until the 60-day purge removes it or the employer takes it down. The two
+ * rules together mean a job is stored once, shown for its whole life, then deleted — and a
+ * purged job is never re-ingested, because by then it is past this cutoff.
+ */
+export const MAX_AGE_DAYS = Number(process.env.INGEST_MAX_AGE_DAYS ?? 30);
+
+const DAY_MS = 86_400_000;
+
+export function isTooOld(postedAt: Date, now: Date = new Date()): boolean {
+  return now.getTime() - postedAt.getTime() > MAX_AGE_DAYS * DAY_MS;
+}
 
 /**
  * `raw_postings.normalized` is jsonb (`Json` in the generated types), but `NormalizedPosting`
@@ -78,6 +109,7 @@ async function ingestEmployer(
   let inserted = 0;
   let updated = 0;
   let unchanged = 0;
+  let skippedOld = 0;
 
   // The whole body — including the initial `ingest_runs` insert — lives inside this try.
   // If the insert itself throws (e.g. a transient network failure), the catch below still runs
@@ -122,7 +154,14 @@ async function ingestEmployer(
 
       for (const stub of page.items) {
         fetched += 1;
-        if (!connector.refreshKnown && known.has(stub.sourceJobId)) {
+        const isKnown = known.has(stub.sourceJobId);
+
+        if (!isKnown && stub.postedAt && isTooOld(stub.postedAt)) {
+          // The list said how old it is, so this one costs no detail fetch at all.
+          skippedOld += 1;
+          continue;
+        }
+        if (!connector.refreshKnown && isKnown) {
           seenKnown.push(stub.sourceJobId);
           unchanged += 1;
           continue;
@@ -130,6 +169,14 @@ async function ingestEmployer(
         try {
           const payload = await connector.hydrate(stub);
           const normalized = connector.normalize(payload);
+
+          // Sources whose list carries no date (Taleo) are filtered here instead. Already-stored
+          // postings are kept whatever their age; only new ones are turned away.
+          if (!isKnown && isTooOld(normalized.postedAt)) {
+            skippedOld += 1;
+            continue;
+          }
+
           const hash = contentHash(normalized);
           const previous = known.get(normalized.sourceJobId);
 
@@ -189,7 +236,7 @@ async function ingestEmployer(
     }).eq('id', runId);
     if (successError) throw new Error(`ingest_runs success update failed: ${successError.message}`);
 
-    log(ctx, 'info', 'run complete', { fetched, inserted, updated, unchanged });
+    log(ctx, 'info', 'run complete', { fetched, inserted, updated, unchanged, skippedOld });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     // Deliberately NOT throwing on this one: it runs on the failure path, and throwing would
@@ -210,7 +257,7 @@ async function main() {
     .from('employers')
     .select('slug,name,province,default_city,ats_platform,ats_config')
     .eq('is_active', true)
-    .in('ats_platform', ['workday', 'taleo']);
+    .in('ats_platform', ['workday', 'taleo', 'icims', 'jibe']);
 
   if (error) throw error;
 
@@ -235,10 +282,18 @@ async function main() {
       const employer: WorkdayEmployer = { ...base, config: parsed.data.ats_config };
       sourceId = `workday:${employer.config.tenant}`;
       createConnector = (ctx) => createWorkdayConnector(employer, ctx);
-    } else {
+    } else if (parsed.data.ats_platform === 'taleo') {
       const employer: TaleoEmployer = { ...base, config: parsed.data.ats_config };
       sourceId = `taleo:${employer.config.key}`;
       createConnector = (ctx) => createTaleoConnector(employer, ctx);
+    } else if (parsed.data.ats_platform === 'icims') {
+      const employer: IcimsEmployer = { ...base, config: parsed.data.ats_config };
+      sourceId = `icims:${employer.config.key}`;
+      createConnector = (ctx) => createIcimsConnector(employer, ctx);
+    } else {
+      const employer: JibeEmployer = { ...base, config: parsed.data.ats_config };
+      sourceId = `jibe:${employer.config.key}`;
+      createConnector = (ctx) => createJibeConnector(employer, ctx);
     }
 
     // Sequential on purpose: one connector failing must not affect the others,
@@ -254,7 +309,16 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+// Same guard as workers/dedupe.ts: without it, merely importing MAX_AGE_DAYS/isTooOld from
+// this module runs the whole ingest as a side effect — which throws before a database is
+// configured. `pathToFileURL` (not manual `file://` concatenation) so the comparison holds
+// even though this repo's path contains spaces.
+const isEntryPoint = process.argv[1] !== undefined
+  && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isEntryPoint) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}

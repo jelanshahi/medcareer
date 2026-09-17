@@ -13,6 +13,12 @@ export type JobStub = {
   externalPath: string;
   title: string;
   locationsText: string;
+  /**
+   * When the list endpoint reports how old a posting is. Lets the runner skip a posting
+   * past the age cutoff without fetching its detail page. Sources whose lists carry no
+   * date leave it undefined and are filtered after hydration instead.
+   */
+  postedAt?: Date;
 };
 
 /** The single shape the rest of the system knows about. */

@@ -8,6 +8,8 @@ import type { NormalizedPosting } from '@/lib/types';
 
 const EXPIRY_DAYS = 60;
 const SELECT_PAGE_SIZE = 1000;
+/** Rows per upsert request. Keeps each request well clear of Supabase's payload limits. */
+const WRITE_CHUNK_SIZE = 500;
 
 /**
  * NormalizedPosting as it round-trips through jsonb: Date fields come back
@@ -54,7 +56,7 @@ export type JobRow = {
 
 /** Lower number wins. Direct ATS beats Job Bank beats Adzuna. */
 export function sourcePriority(sourceId: string): number {
-  if (sourceId.startsWith('workday:') || sourceId.startsWith('taleo:')) return 0;
+  if (/^(workday|taleo|icims|jibe):/.test(sourceId)) return 0;
   if (sourceId === 'jobbank') return 1;
   return 2;
 }
@@ -180,6 +182,12 @@ async function main() {
 
   const jobGroups = groupIntoJobs(raws);
 
+  // Built up here, written in chunks below. Row by row this was two round trips per job;
+  // at ~3,500 active jobs that is 7,000 requests, and the run started to crowd the
+  // six-hourly schedule.
+  const jobRows: JobRow[] = [];
+  const sourceIdsByDedupeKey = new Map<string, string[]>();
+
   let crossSourceMerges = 0;
   for (const rows of jobGroups) {
     const canonical = pickCanonical(rows);
@@ -212,29 +220,54 @@ async function main() {
       dedupeKey,
     );
 
-    const { data: job, error: upsertError } = await admin
-      .from('jobs').upsert(jobRow, { onConflict: 'dedupe_key' }).select('id').single();
+    jobRows.push(jobRow);
+    sourceIdsByDedupeKey.set(dedupeKey, rows.map((row) => row.id));
+  }
+
+  // Chunked rather than one statement: a single upsert of every job would be a multi-megabyte
+  // request (descriptions included) and one failure would lose the whole run's writes.
+  let jobsWritten = 0;
+  let linksWritten = 0;
+  for (let i = 0; i < jobRows.length; i += WRITE_CHUNK_SIZE) {
+    const chunk = jobRows.slice(i, i + WRITE_CHUNK_SIZE);
+    const { data: written, error: upsertError } = await admin
+      .from('jobs')
+      .upsert(chunk, { onConflict: 'dedupe_key' })
+      .select('id,dedupe_key');
     if (upsertError) {
-      log(ctx, 'error', 'job upsert failed', { dedupe_key: dedupeKey, error: upsertError.message });
+      // Logged and skipped, like the per-row version before it: one bad chunk must not cost
+      // the rest of the run. The affected jobs keep whatever row they already had.
+      log(ctx, 'error', 'job upsert chunk failed', {
+        first_dedupe_key: chunk[0]?.dedupe_key, size: chunk.length, error: upsertError.message,
+      });
       continue;
     }
+    jobsWritten += written?.length ?? 0;
 
-    for (const row of rows) {
-      // Checked but never abort the loop on failure — same per-group `continue` shape as
-      // the jobs upsert above. A missing job_sources link is a lesser failure than losing
-      // the rest of the run's jobs.
+    const links = (written ?? []).flatMap((job) =>
+      (sourceIdsByDedupeKey.get(job.dedupe_key) ?? []).map((rawPostingId) => ({
+        job_id: job.id as string,
+        raw_posting_id: rawPostingId,
+      })),
+    );
+    for (let j = 0; j < links.length; j += WRITE_CHUNK_SIZE) {
       const { error: sourceError } = await admin
         .from('job_sources')
-        .upsert({ job_id: job.id, raw_posting_id: row.id }, { onConflict: 'job_id,raw_posting_id' });
+        .upsert(links.slice(j, j + WRITE_CHUNK_SIZE), { onConflict: 'job_id,raw_posting_id' });
       if (sourceError) {
-        log(ctx, 'error', 'job_sources upsert failed', {
-          dedupe_key: dedupeKey, raw_posting_id: row.id, error: sourceError.message,
-        });
+        // A missing job_sources link is a lesser failure than losing the rest of the run —
+        // but it does matter: expire_stale_jobs reads these links to tell a live job from a
+        // delisted one, so it is logged at error level.
+        log(ctx, 'error', 'job_sources upsert chunk failed', { size: links.length, error: sourceError.message });
+      } else {
+        linksWritten += links.slice(j, j + WRITE_CHUNK_SIZE).length;
       }
     }
   }
 
-  log(ctx, 'info', 'dedupe complete', { jobs: jobGroups.length, crossSourceMerges });
+  log(ctx, 'info', 'dedupe complete', {
+    jobs: jobGroups.length, crossSourceMerges, jobsWritten, linksWritten,
+  });
 }
 
 // The Step 1 unit test imports sourcePriority/pickCanonical/buildJobRow directly from this

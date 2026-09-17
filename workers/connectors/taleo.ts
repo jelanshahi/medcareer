@@ -1,7 +1,8 @@
 import { parse } from 'node-html-parser';
 import { z } from 'zod';
 import { sanitizeDescription } from '@/lib/normalize/sanitize';
-import type { EmploymentType, JobStub, NormalizedPosting, ProvinceCode, ShiftType } from '@/lib/types';
+import { shiftTypeFromPattern } from '@/lib/normalize/shift';
+import type { EmploymentType, JobStub, NormalizedPosting, ProvinceCode } from '@/lib/types';
 import { SITE } from '@/lib/site';
 import { createHostLimiter, fetchWithBackoff } from '@/workers/ratelimit';
 import { log, type LogContext } from '@/workers/logger';
@@ -145,19 +146,6 @@ export function employmentTypeFromClass(fields: Record<string, string>): Employm
   if (/^temp/.test(cls)) return 'temporary';
   if (/full.?time/.test(cls)) return 'full_time';
   if (/part.?time/.test(cls)) return 'part_time';
-  return undefined;
-}
-
-/** "Days" → day; "Days, Evenings, Nights, Weekends" → rotating. Weekends/On Call qualify, not decide. */
-export function shiftTypeFromPattern(pattern: string | undefined): ShiftType | undefined {
-  if (!pattern) return undefined;
-  const parts = new Set(pattern.toLowerCase().split(',').map((p) => p.trim()));
-  const core = (['days', 'evenings', 'nights'] as const).filter((p) => parts.has(p));
-  if (core.length > 1) return 'rotating';
-  if (core[0] === 'days') return 'day';
-  if (core[0] === 'evenings') return 'evening';
-  if (core[0] === 'nights') return 'night';
-  if (parts.has('weekends')) return 'weekend';
   return undefined;
 }
 

@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
+import { shiftTypeFromPattern } from '@/lib/normalize/shift';
 import {
   extractTaleoDetail,
   normalizeTaleo,
   parsePostDate,
   parseTaleoList,
-  shiftTypeFromPattern,
   employmentTypeFromClass,
   type TaleoEmployer,
 } from '@/workers/connectors/taleo';
