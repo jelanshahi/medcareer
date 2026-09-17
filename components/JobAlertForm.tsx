@@ -11,7 +11,7 @@ import { FIELD, PILL_PRIMARY } from '@/lib/ui/styles';
  *
  *  type="email" + required give the browser's own validation for free, and the
  *  action re-checks server-side regardless — it is reachable by direct POST. */
-export function JobAlertForm() {
+export function JobAlertForm({ region }: { region: string }) {
   const [state, formAction, pending] = useActionState(createJobAlert, JOB_ALERT_INITIAL);
 
   return (
@@ -45,7 +45,7 @@ export function JobAlertForm() {
 
       <div className="mt-4 text-[17px] text-[var(--color-slate)]">
         Alerting on:{' '}
-        <span className="font-semibold text-[var(--color-ink)]">All healthcare roles · Ontario</span>
+        <span className="font-semibold text-[var(--color-ink)]">All healthcare roles · {region}</span>
       </div>
 
       <button

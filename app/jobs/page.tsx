@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { createServerClient } from '@/lib/db/server';
+import { selectAll } from '@/lib/db/select-all';
+import { loadRegion, provinceName } from '@/lib/provinces';
 import { parseSearchParams, PAGE_SIZE, type SearchParams } from '@/lib/schemas/search-params';
 import { CATEGORIES, CATEGORY_LABELS, type Category } from '@/lib/taxonomy/categories';
 import { EMPLOYMENT_TYPES, EMPLOYMENT_LABELS, type EmploymentType } from '@/lib/taxonomy/employment';
@@ -18,10 +20,19 @@ export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(props: PageProps<'/jobs'>): Promise<Metadata> {
   const params = parseSearchParams(await props.searchParams);
+  const db = createServerClient();
+
+  const region = await loadRegion(db);
+  let location = `in ${region}`;
+  if (params.city?.length === 1) {
+    const { data, error } = await db
+      .from('jobs').select('province').eq('is_active', true).eq('city', params.city[0]).limit(1).maybeSingle();
+    if (error) throw error;
+    location = data ? `in ${params.city[0]}, ${provinceName(data.province)}` : `in ${params.city[0]}`;
+  }
 
   const subject =
     params.category?.length === 1 ? `${CATEGORY_LABELS[params.category[0]]} jobs` : 'Healthcare jobs';
-  const location = params.city?.length === 1 ? `in ${params.city[0]}, Ontario` : 'in Ontario';
   const pageSuffix = params.page > 1 ? ` — Page ${params.page}` : '';
 
   const title = params.q
@@ -29,7 +40,7 @@ export async function generateMetadata(props: PageProps<'/jobs'>): Promise<Metad
     : `${subject.replace(/^./, (c) => c.toUpperCase())} ${location}${pageSuffix} | ${SITE.name}`;
 
   const description = params.q
-    ? `Search results for “${params.q}” across active healthcare job listings in Ontario, pulled from hospital career systems and refreshed every six hours.`
+    ? `Search results for “${params.q}” across active healthcare job listings in ${region}, pulled from hospital career systems and refreshed every six hours.`
     : `Browse ${subject.toLowerCase()} ${location}, pulled from hospital career systems and refreshed every six hours.`;
 
   // A keyword search or a page past the first produces thin, near-duplicate
@@ -113,22 +124,23 @@ export default async function JobsPage(props: PageProps<'/jobs'>) {
 
   // Facet counts: filtered only by q, so each group's live count can be
   // computed against the *other* groups' current selections (standard
-  // faceted-search behaviour) without a round trip per facet value. The
-  // active data set is small (order of a few hundred rows), so counting in
-  // JS here is cheap next to a network round trip per facet.
-  let facetQuery = db.from('jobs').select('category,city,employment_type,employer_name').eq('is_active', true);
-  if (params.q) facetQuery = facetQuery.textSearch('search_vector', params.q, { type: 'websearch' });
+  // faceted-search behaviour) without a round trip per facet value. Counting
+  // in JS is cheap next to a round trip per facet, but the active set is past
+  // PostgREST's 1000-row cap, so the read is paged.
+  const facetQuery = selectAll<FacetRow>((from, to) => {
+    let q = db.from('jobs').select('category,city,employment_type,employer_name').eq('is_active', true);
+    if (params.q) q = q.textSearch('search_vector', params.q, { type: 'websearch' });
+    return q.order('id').range(from, to);
+  });
 
   // supabase-js resolves { data, error } rather than rejecting on failure.
-  // Both calls are checked independently — an unchecked error here would
+  // Checked here (selectAll throws on its own) — an unchecked error would
   // render a false "0 jobs" or false-empty facet lists.
-  const [{ data: results, count, error: resultsError }, { data: facetRows, error: facetError }] =
-    await Promise.all([resultsQuery, facetQuery]);
+  const [{ data: results, count, error: resultsError }, rows, region] =
+    await Promise.all([resultsQuery, facetQuery, loadRegion(db)]);
   if (resultsError) throw resultsError;
-  if (facetError) throw facetError;
 
   const jobs = (results ?? []) as JobCardData[];
-  const rows = (facetRows ?? []) as FacetRow[];
 
   const matchesCity = (r: FacetRow) => !params.city?.length || params.city.includes(r.city);
   const matchesCategory = (r: FacetRow) => !params.category?.length || params.category.includes(r.category as Category);
@@ -166,14 +178,14 @@ export default async function JobsPage(props: PageProps<'/jobs'>) {
 
   const chips = buildChips(params);
   const total = count ?? 0;
-  const citySummary = params.city?.length === 1 ? params.city[0] : 'Ontario';
+  const citySummary = params.city?.length === 1 ? params.city[0] : region;
   const resultsHeading =
     params.category?.length === 1 ? `${CATEGORY_LABELS[params.category[0]]} jobs` : 'Healthcare jobs';
 
   return (
     <>
       <div className="border-b border-[var(--color-rule)] bg-[var(--color-surface)]">
-        <SearchForm params={params} cities={cities} />
+        <SearchForm params={params} cities={cities} region={region} />
       </div>
 
       <div className={`${CONTAINER} flex flex-wrap items-start gap-7 pb-[72px] pt-6`}>
@@ -271,10 +283,10 @@ export default async function JobsPage(props: PageProps<'/jobs'>) {
                 Nothing open for that right now
               </h2>
               <p className="mx-auto mt-2.5 max-w-[34em] text-[17px] text-[var(--color-slate)]">
-                Try a broader keyword, or widen the city filter to all of Ontario. New postings land
+                Try a broader keyword, or widen the city filter to all of {region}. New postings land
                 every six hours.
               </p>
-              <Link href="/jobs" className={`${PILL_PRIMARY} mt-4.5`}>Show all Ontario jobs</Link>
+              <Link href="/jobs" className={`${PILL_PRIMARY} mt-4.5`}>Show all {region} jobs</Link>
             </div>
           ) : (
             <>

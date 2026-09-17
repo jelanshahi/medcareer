@@ -12,6 +12,7 @@ import {
 } from '@/lib/jobs/landing';
 import { DisciplineTile } from '@/components/DisciplineTile';
 import { SITE } from '@/lib/site';
+import { regionName } from '@/lib/provinces';
 import { EYEBROW, H2, SECTION, TILE } from '@/lib/ui/styles';
 
 // Nonce-based CSP requires dynamic rendering — a prerendered route bakes its
@@ -19,14 +20,17 @@ import { EYEBROW, H2, SECTION, TILE } from '@/lib/ui/styles';
 // blocks them. Same reasoning as app/about/page.tsx.
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: `Browse healthcare jobs in Ontario | ${SITE.name}`,
-  description:
-    'Every active healthcare listing on MedCareer, grouped by city and by discipline.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const region = regionName((await loadLandingRows()).map((r) => r.province));
+  return {
+    title: `Browse healthcare jobs in ${region} | ${SITE.name}`,
+    description: 'Every active healthcare listing on MedCareer, grouped by city and by discipline.',
+  };
+}
 
 export default async function BrowsePage() {
   const rows = await loadLandingRows();
+  const region = regionName(rows.map((r) => r.province));
   const cityCounts = countsByCity(rows);
   const categoryCounts = countsByCategory(rows);
 
@@ -50,7 +54,7 @@ export default async function BrowsePage() {
         <div className="mx-auto max-w-[800px] px-[22px] pb-[clamp(32px,5vw,52px)] pt-[clamp(44px,7vw,76px)]">
           <div className={EYEBROW}>{SITE.name}</div>
           <h1 className="mt-1.5 text-balance text-[clamp(34px,5.6vw,56px)] font-semibold leading-[1.06] tracking-[-0.025em]">
-            Browse healthcare jobs in Ontario
+            Browse healthcare jobs in {region}
           </h1>
           <p className="mx-auto mt-3.5 max-w-[34em] text-[clamp(18px,2.2vw,21px)] leading-[1.4] text-[var(--color-slate)]">
             {rows.length} active listings, grouped by city and by discipline.

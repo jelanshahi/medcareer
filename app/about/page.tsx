@@ -1,4 +1,6 @@
 import { createServerClient } from '@/lib/db/server';
+import { selectAll } from '@/lib/db/select-all';
+import { regionName } from '@/lib/provinces';
 import { SITE } from '@/lib/site';
 import { CARD } from '@/lib/ui/styles';
 
@@ -20,17 +22,16 @@ export const metadata = { title: `About ${SITE.name}` };
 type Employer = { name: string; count: number; cities: string[] };
 
 export default async function AboutPage() {
-  // supabase-js resolves { data, error } rather than rejecting on failure;
-  // an unchecked error here would silently render an empty employer table
-  // rather than a real failure.
-  const { data, error } = await createServerClient()
-    .from('jobs')
-    .select('employer_name,city')
-    .eq('is_active', true);
-  if (error) throw error;
+  // Paged past PostgREST's 1000-row cap; selectAll throws on a query error, so
+  // a failure never renders as an empty employer table.
+  const db = createServerClient();
+  const rows = await selectAll<{ employer_name: string; city: string; province: string }>((from, to) =>
+    db.from('jobs').select('employer_name,city,province').eq('is_active', true).order('id').range(from, to),
+  );
+  const region = regionName(rows.map((r) => r.province));
 
   const byEmployer = new Map<string, { count: number; cities: Set<string> }>();
-  for (const row of data ?? []) {
+  for (const row of rows) {
     const entry = byEmployer.get(row.employer_name) ?? { count: 0, cities: new Set<string>() };
     entry.count += 1;
     entry.cities.add(row.city);
@@ -47,7 +48,7 @@ export default async function AboutPage() {
       </h1>
 
       <p className="mt-4 text-[21px] leading-[1.42] text-[var(--color-slate)]">
-        {SITE.name} is a job search site for healthcare work in Ontario. Every listing links
+        {SITE.name} is a job search site for healthcare work in {region}. Every listing links
         directly to the employer&rsquo;s own application page. We never take applications ourselves,
         and there is no account or login anywhere in the product.
       </p>

@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { createServerClient } from '@/lib/db/server';
 import { CATEGORIES, CATEGORY_LABELS } from '@/lib/taxonomy/categories';
-import { CATEGORY_BLURBS } from '@/lib/taxonomy/blurbs';
+import { categoryBlurb } from '@/lib/taxonomy/blurbs';
+import { provinceName, provinceOfCity } from '@/lib/provinces';
 import { buildJobsQuery } from '@/lib/jobs/query-string';
 import { resolveCity, slugifyCity, isCategorySlug } from '@/lib/jobs/city-slug';
 import { buildGlance, type GlanceJob } from '@/lib/jobs/glance';
@@ -31,12 +32,13 @@ export async function generateMetadata(
   props: PageProps<'/browse/[city]/[discipline]'>,
 ): Promise<Metadata> {
   const { city: citySlug, discipline } = await props.params;
-  const { city, category, count } = await resolve(citySlug, discipline);
+  const { rows, city, category, count } = await resolve(citySlug, discipline);
   if (!city || !category || count === 0) return { title: `Not found | ${SITE.name}` };
+  const province = provinceOfCity(rows, city);
 
   const label = CATEGORY_LABELS[category];
   return {
-    title: `${label} jobs in ${city}, Ontario | ${SITE.name}`,
+    title: `${label} jobs in ${province ? `${city}, ${provinceName(province)}` : city} | ${SITE.name}`,
     description: `${count} active ${label.toLowerCase()} ${count === 1 ? 'listing' : 'listings'} in ${city}, pulled from hospital career systems and refreshed every six hours.`,
   };
 }
@@ -97,10 +99,10 @@ export default async function PairLandingPage(props: PageProps<'/browse/[city]/[
     <>
       <section className="bg-[var(--color-surface)] text-center">
         <div className="mx-auto max-w-[800px] px-[22px] pb-[clamp(32px,5vw,52px)] pt-[clamp(44px,7vw,76px)]">
-          <div className={EYEBROW}>Ontario · {city} · {label}</div>
+          <div className={EYEBROW}>{provinceName(provinceOfCity(rows, city) ?? '')} · {city} · {label}</div>
           <h1 className={`mt-1.5 ${H1}`}>{label} jobs in {city}</h1>
           <p className="mx-auto mt-3.5 max-w-[34em] text-[clamp(18px,2.2vw,21px)] leading-[1.4] text-[var(--color-slate)]">
-            {CATEGORY_BLURBS[category]}
+            {categoryBlurb(category, provinceOfCity(rows, city))}
           </p>
         </div>
       </section>

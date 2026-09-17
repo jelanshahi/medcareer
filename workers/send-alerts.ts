@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/db/admin';
+import { selectAll } from '@/lib/db/select-all';
 import { alertsFrom, alertsReplyTo, createEmailClient } from '@/lib/email/client';
 import { digestEmail, unsubscribeUrl, type DigestJob } from '@/lib/email/templates';
 import { log } from '@/workers/logger';
@@ -56,18 +57,20 @@ async function main() {
   const cutoffFor = (alert: Alert) => alert.last_sent_at ?? alert.confirmed_at ?? new Date(0).toISOString();
   const earliest = alerts.map(cutoffFor).sort()[0];
 
-  // One query covering the widest window any subscriber needs, then matched per
-  // subscriber in memory. The active set is a few hundred rows, so this is far
-  // cheaper than a round trip each.
-  const { data: jobRows, error: jobError } = await admin
-    .from('jobs')
-    .select(JOB_COLUMNS)
-    .eq('is_active', true)
-    .gt('posted_at', earliest)
-    .order('posted_at', { ascending: false });
-  if (jobError) throw jobError;
-
-  const jobs = (jobRows ?? []) as Job[];
+  // One read covering the widest window any subscriber needs, then matched per
+  // subscriber in memory — far cheaper than a round trip each. Paged: unpaged,
+  // a window holding more than 1000 jobs would silently drop the oldest, and the
+  // watermark would then move past them so they were never sent.
+  const jobs = await selectAll<Job>((from, to) =>
+    admin
+      .from('jobs')
+      .select(JOB_COLUMNS)
+      .eq('is_active', true)
+      .gt('posted_at', earliest)
+      .order('posted_at', { ascending: false })
+      .order('id')
+      .range(from, to),
+  );
   const sentAt = new Date().toISOString();
 
   const matches = (alert: Alert, job: Job) =>

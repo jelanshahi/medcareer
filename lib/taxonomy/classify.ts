@@ -12,11 +12,16 @@ const RULES: ReadonlyArray<{ pattern: RegExp; category: Category }> = [
   // precede the physicians rule, which would otherwise claim it.
   { pattern: /\bphysician assistant\b/, category: 'allied_health' },
   { pattern: /\b(physician(?!\s+(assistant|recruitment|liaison|services|relations|advisor))|surgeon|anesthesiologist|hospitalist|psychiatrist)\b/, category: 'physicians' },
-  { pattern: /\b(mental health|psychiatric|addiction|crisis intervention|crisis worker|crisis counsellor|crisis counselor)\b/, category: 'mental_health' },
+  { pattern: /\b(mental health|psychiatric|addiction|crisis intervention|crisis worker|crisis counsellor|crisis counselor|psychologist)\b/, category: 'mental_health' },
   { pattern: /\b(personal support worker|health care aide|patient attendant|porter|orderly)\b/, category: 'support_care' },
-  { pattern: /\b(laboratory technologist|laboratory assistant|radiation technologist|sonographer|ultrasonographer|phlebotomist|cytotechnologist|imaging technologist)\b/, category: 'diagnostics_lab' },
+  // Ahead of management like every specialty: "Paramedic Supervisor" is still a paramedic role.
+  { pattern: /\b(paramedics?|emergency medical responder|emergency med responder|emergency medical technician)\b/, category: 'paramedics' },
+  // Alberta titles: "Nuclear Medicine Technologist I", "Combined Laboratory / X-Ray Technologist I".
+  { pattern: /\b(laboratory technologist|laboratory assistant|radiation technologist|sonographer|ultrasonographer|phlebotomist|cytotechnologist|imaging technologist|nuclear medicine technologist|x ray technologist)\b/, category: 'diagnostics_lab' },
   { pattern: /\b(pharmacist|pharmacy technician|pharmacy assistant)\b/, category: 'pharmacy' },
-  { pattern: /\b(occupational therapist|physiotherapist|respiratory therapist|speech language pathologist|dietitian|audiologist|social worker|therapist)\b/, category: 'allied_health' },
+  // Alberta says "Speech Pathologist" and "Therapy Assistant" where Ontario says
+  // "Speech-Language Pathologist" and "Rehabilitation Assistant".
+  { pattern: /\b(occupational therapist|physiotherapist|respiratory therapist|speech language pathologist|speech pathologist|dietitian|audiologist|social worker|therapist|therapy assistant|perfusionist|anesthesia assistant)\b/, category: 'allied_health' },
   { pattern: /\b(research associate|research assistant|research coordinator|research scientist|clinical scientist|postdoctoral|clinical trial)\b/, category: 'research' },
   { pattern: /\b(manager|director|chief|supervisor|vice president)\b/, category: 'management' },
   { pattern: /\b(clerk|secretary|administrative|receptionist|scheduler|registration|clerical)\b/, category: 'admin_clerical' },

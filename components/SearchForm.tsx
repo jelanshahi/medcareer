@@ -16,7 +16,7 @@ const SORT_LABELS: Record<(typeof SORTS)[number], string> = {
  * (category, employment type, employer) and the sidebar form replicates the
  * ones it does not render (q, sort, city). Without that, submitting either
  * form would silently clear the other's selections. */
-export function SearchForm({ params, cities }: { params: SearchParams; cities: string[] }) {
+export function SearchForm({ params, cities, region }: { params: SearchParams; cities: string[]; region: string }) {
   return (
     <form method="get" action="/jobs" className={`${CONTAINER} flex flex-wrap items-center gap-2.5 py-4`}>
       <HiddenFilterFields
@@ -40,7 +40,7 @@ export function SearchForm({ params, cities }: { params: SearchParams; cities: s
 
       <label htmlFor="city" className="sr-only">City</label>
       <select id="city" name="city" defaultValue={params.city?.[0] ?? ''} className={`${FIELD} flex-1 basis-[150px]`}>
-        <option value="">All of Ontario</option>
+        <option value="">All of {region}</option>
         {cities.map((c) => <option key={c} value={c}>{c}</option>)}
       </select>
 

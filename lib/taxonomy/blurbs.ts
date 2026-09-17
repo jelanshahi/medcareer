@@ -11,7 +11,7 @@ import type { Category } from '@/lib/taxonomy/categories';
  * lib/jobs/glance.ts instead.
  *
  * Review these before release; they publish under the site owner's name. */
-export const CATEGORY_BLURBS: Record<Category, string> = {
+const ONTARIO_BLURBS: Record<Category, string> = {
   nursing:
     'Registered nurse, registered practical nurse and nurse practitioner roles. All require a certificate of registration with the College of Nurses of Ontario.',
   physicians:
@@ -22,6 +22,8 @@ export const CATEGORY_BLURBS: Record<Category, string> = {
     'Social work, psychology, psychotherapy and addictions roles across inpatient and community programs, regulated by the OCSWSSW, the CPO and the CRPO respectively.',
   support_care:
     'Personal support worker and health care aide roles. PSW is not a regulated profession in Ontario, so employers set their own certificate requirements.',
+  paramedics:
+    'Primary care, advanced care and critical care paramedic and emergency medical responder roles in ground ambulance, air ambulance and community paramedicine. Licensing requirements vary by province.',
   diagnostics_lab:
     'Medical laboratory technologist, medical radiation technologist and sonographer roles, regulated by the CMLTO and the CMRITO.',
   pharmacy:
@@ -33,3 +35,31 @@ export const CATEGORY_BLURBS: Record<Category, string> = {
   research:
     'Clinical research coordinator, data and trial support roles, usually attached to a hospital research institute and often on fixed-term contracts.',
 };
+
+/** For every other province. Deliberately names no regulator: each province has its own
+ * colleges, and a wrong one published under the site owner's name is worse than none. Add a
+ * province-specific set, like Ontario's above, once its regulators have been checked. */
+const GENERIC_BLURBS: Record<Category, string> = {
+  nursing:
+    'Registered nurse, licensed or registered practical nurse and nurse practitioner roles. All require registration with the provincial nursing regulator.',
+  physicians:
+    'Staff physician, hospitalist and specialist appointments. Practice requires registration with the provincial college of physicians and surgeons.',
+  allied_health:
+    'Occupational therapy, physiotherapy, respiratory therapy, speech-language pathology and related roles. Most are regulated by their own provincial college.',
+  mental_health:
+    'Social work, psychology and addictions roles across inpatient and community programs, each regulated by its own provincial body.',
+  support_care:
+    'Health care aide and personal support worker roles in hospitals, long-term care and home care. Certificate and registration requirements vary by province.',
+  diagnostics_lab:
+    'Medical laboratory technologist, medical radiation technologist and sonographer roles, regulated by provincial colleges.',
+  pharmacy:
+    'Hospital pharmacist and pharmacy technician roles, both regulated by the provincial college of pharmacy.',
+  paramedics: ONTARIO_BLURBS.paramedics,
+  admin_clerical: ONTARIO_BLURBS.admin_clerical,
+  management: ONTARIO_BLURBS.management,
+  research: ONTARIO_BLURBS.research,
+};
+
+export function categoryBlurb(category: Category, province: string | null): string {
+  return province === 'ON' ? ONTARIO_BLURBS[category] : GENERIC_BLURBS[category];
+}

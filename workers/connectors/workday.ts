@@ -216,6 +216,7 @@ export function createWorkdayConnector(employer: WorkdayEmployer, ctx: LogContex
   return {
     id: `workday:${tenant}`,
     kind: 'ats',
+    refreshKnown: true,
 
     async fetchPage(cursor?: string) {
       const offset = cursor ? Number(cursor) : 0;

@@ -12,6 +12,22 @@ describe('classify', () => {
     expect(classify('Occupational Therapist - ACTT')).toBe('allied_health');
   });
 
+  it('classifies paramedic and EMS roles, including supervisors', () => {
+    expect(classify('Primary Care Paramedic')).toBe('paramedics');
+    expect(classify('Advanced Care Paramedic - Metro')).toBe('paramedics');
+    expect(classify('Emergency Med Responder')).toBe('paramedics');
+    expect(classify('Paramedic Supervisor')).toBe('paramedics');
+  });
+
+  it('classifies Alberta Health Services title variants', () => {
+    expect(classify('Speech Pathologist II')).toBe('allied_health');
+    expect(classify('Therapy Assistant')).toBe('allied_health');
+    expect(classify('Cardiovascular Perfusionist I')).toBe('allied_health');
+    expect(classify('Psychologist II')).toBe('mental_health');
+    expect(classify('Nuclear Medicine Technologist I')).toBe('diagnostics_lab');
+    expect(classify('Combined Laboratory / X-Ray Technologist I')).toBe('diagnostics_lab');
+  });
+
   it('prefers mental health over allied health for psychiatric roles', () => {
     expect(classify('Social Worker, Acute Mental Health')).toBe('mental_health');
   });

@@ -10,6 +10,7 @@ import { LandingJobList, type LandingJob } from '@/components/LandingJobList';
 import { LinkCountCard, type CountLink } from '@/components/LinkCountCard';
 import { GlancePanel } from '@/components/GlancePanel';
 import { SITE } from '@/lib/site';
+import { provinceName, provinceOfCity } from '@/lib/provinces';
 import { CONTAINER, EYEBROW, H1, H2 } from '@/lib/ui/styles';
 
 export const dynamic = 'force-dynamic';
@@ -17,6 +18,11 @@ export const dynamic = 'force-dynamic';
 const LIST_LIMIT = 10;
 const JOB_COLUMNS =
   'slug,title,employer_name,facility_name,employment_type,salary_min,salary_max,salary_period,posted_at';
+
+function cityWithProvince(rows: Awaited<ReturnType<typeof loadLandingRows>>, city: string) {
+  const province = provinceOfCity(rows, city);
+  return province ? `${city}, ${provinceName(province)}` : city;
+}
 
 async function resolve(citySlug: string) {
   const rows = await loadLandingRows();
@@ -31,7 +37,7 @@ export async function generateMetadata(props: PageProps<'/browse/[city]'>): Prom
 
   const count = countsByCity(rows)[city] ?? 0;
   return {
-    title: `Healthcare jobs in ${city}, Ontario | ${SITE.name}`,
+    title: `Healthcare jobs in ${cityWithProvince(rows, city)} | ${SITE.name}`,
     description: `${count} active healthcare listings in ${city}, pulled from hospital career systems and refreshed every six hours.`,
   };
 }
@@ -86,7 +92,7 @@ export default async function CityLandingPage(props: PageProps<'/browse/[city]'>
     <>
       <section className="bg-[var(--color-surface)] text-center">
         <div className="mx-auto max-w-[800px] px-[22px] pb-[clamp(32px,5vw,52px)] pt-[clamp(44px,7vw,76px)]">
-          <div className={EYEBROW}>Ontario · {city}</div>
+          <div className={EYEBROW}>{provinceName(provinceOfCity(rows, city) ?? '')} · {city}</div>
           <h1 className={`mt-1.5 ${H1}`}>Healthcare jobs in {city}</h1>
           <p className="mx-auto mt-3.5 max-w-[34em] text-[clamp(18px,2.2vw,21px)] leading-[1.4] text-[var(--color-slate)]">
             {total} active {total === 1 ? 'listing' : 'listings'} from{' '}

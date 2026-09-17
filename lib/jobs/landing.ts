@@ -1,21 +1,16 @@
 import { createServerClient } from '@/lib/db/server';
+import { selectAll } from '@/lib/db/select-all';
 
-export type LandingRow = { city: string; category: string | null };
+export type LandingRow = { city: string; province: string; category: string | null };
 
-/** One unfiltered read of every active job's city and category. Every count on
- * every /browse page derives from this, the same approach the home page and
- * the /jobs facets already take. Cheap at current scale (a few hundred rows).
- * If active volume ever nears PostgREST's default 1000-row cap this needs an
- * explicit count query instead. */
+/** Every active job's city, province and category. Every count on every /browse
+ * page derives from this, the same approach the home page and the /jobs facets
+ * take. Paged: with Alberta added, active jobs pass PostgREST's 1000-row cap. */
 export async function loadLandingRows(): Promise<LandingRow[]> {
-  // supabase-js resolves { data, error } rather than rejecting; an unchecked
-  // error here would render every landing page as an empty "0 jobs".
-  const { data, error } = await createServerClient()
-    .from('jobs')
-    .select('city,category')
-    .eq('is_active', true);
-  if (error) throw error;
-  return (data ?? []) as LandingRow[];
+  const db = createServerClient();
+  return selectAll((from, to) =>
+    db.from('jobs').select('city,province,category').eq('is_active', true).order('id').range(from, to),
+  );
 }
 
 export function countsByCity(rows: LandingRow[]): Record<string, number> {

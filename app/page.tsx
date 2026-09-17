@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { createServerClient } from '@/lib/db/server';
+import { selectAll } from '@/lib/db/select-all';
+import { regionName } from '@/lib/provinces';
 import { CATEGORIES, CATEGORY_LABELS } from '@/lib/taxonomy/categories';
 import { EMPLOYMENT_TYPES, EMPLOYMENT_LABELS } from '@/lib/taxonomy/employment';
 import { tally, type FacetRow } from '@/lib/jobs/facets';
@@ -17,21 +19,22 @@ export const dynamic = 'force-dynamic';
 // safe to state as a constant rather than derive it from a query.
 const REFRESH_CADENCE = '6 hrs';
 
-const OVERVIEW_COLUMNS = 'employer_name,category,city,employment_type';
+const OVERVIEW_COLUMNS = 'employer_name,category,city,province,employment_type';
 const TODAY_COLUMNS = 'slug,title,employer_name,city,category,salary_min,salary_max,salary_period';
 
-type OverviewRow = FacetRow;
+type OverviewRow = FacetRow & { province: string };
 
 export default async function HomePage() {
   const db = createServerClient();
   const todayStart = `${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`;
 
   // One unfiltered fetch of every active job's facet columns drives every
-  // stat and tile on this page (employer/category/city breakdowns). Cheap at
-  // the current scale (a few hundred rows) and mirrors the same approach
-  // used for facet counts on /jobs. If active volume ever nears Postgrest's
-  // default 1000-row cap this would need an explicit count query instead.
-  const overview = db.from('jobs').select(OVERVIEW_COLUMNS).eq('is_active', true);
+  // stat and tile on this page (employer/category/city breakdowns), the same
+  // approach used for facet counts on /jobs. Paged: the active set is past
+  // PostgREST's 1000-row cap, and an unpaged read would quietly stop there.
+  const overview = selectAll<OverviewRow>((from, to) =>
+    db.from('jobs').select(OVERVIEW_COLUMNS).eq('is_active', true).order('id').range(from, to),
+  );
   const today = db
     .from('jobs')
     .select(TODAY_COLUMNS, { count: 'exact' })
@@ -42,13 +45,12 @@ export default async function HomePage() {
 
   // supabase-js resolves { data, error } rather than rejecting on failure;
   // both calls are checked so a real database failure never renders as a
-  // quiet "0 jobs" home page.
-  const [{ data: overviewRows, error: overviewError }, { data: todayRows, count: todayCount, error: todayError }] =
+  // quiet "0 jobs" home page. selectAll throws on its own.
+  const [rows, { data: todayRows, count: todayCount, error: todayError }] =
     await Promise.all([overview, today]);
-  if (overviewError) throw overviewError;
   if (todayError) throw todayError;
 
-  const rows = (overviewRows ?? []) as OverviewRow[];
+  const region = regionName(rows.map((r) => r.province));
   const totalActive = rows.length;
   const employerNames = [...new Set(rows.map((r) => r.employer_name))].sort();
   const cities = [...new Set(rows.map((r) => r.city))].sort();
@@ -92,7 +94,7 @@ export default async function HomePage() {
     .map((c) => ({ category: c, label: CATEGORY_LABELS[c], count: categoryCounts[c] ?? 0 }));
 
   const stats = [
-    { value: String(totalActive), label: 'active Ontario listings' },
+    { value: String(totalActive), label: `active ${region} listings` },
     { value: String(employerNames.length), label: 'hospital networks connected' },
     { value: REFRESH_CADENCE, label: 'between refreshes' },
     { value: '0', label: 'accounts required' },
@@ -102,11 +104,11 @@ export default async function HomePage() {
     <>
       <section className="bg-[var(--color-surface)] text-center">
         <div className="mx-auto max-w-[820px] px-[22px] pb-[clamp(40px,6vw,64px)] pt-[clamp(56px,9vw,96px)]">
-          <div className={EYEBROW}>Ontario · updated every 6 hours</div>
+          <div className={EYEBROW}>{region} · updated every 6 hours</div>
           <h1 className="mt-1.5 text-balance text-[clamp(38px,6.4vw,64px)] font-semibold leading-[1.06] tracking-[-0.025em]">
-            Healthcare jobs across canada.
+            Healthcare jobs across Canada.
           </h1>
-          
+
 
           <div className="mt-5.5 flex flex-wrap items-center justify-center gap-3">
             <Link href="/jobs" className={PILL_PRIMARY}>Browse {totalActive} open jobs</Link>
@@ -130,7 +132,7 @@ export default async function HomePage() {
             </div>
             <label htmlFor="hero-city" className="sr-only">City</label>
             <select id="hero-city" name="city" className={`${FIELD} flex-1 basis-[150px]`}>
-              <option value="">All of Ontario</option>
+              <option value="">All of {region}</option>
               {cities.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
             <button type="submit" className={`${PILL_PRIMARY} flex-1 basis-[130px] rounded-xl`}>
@@ -210,7 +212,7 @@ export default async function HomePage() {
               </h2>
             </div>
 
-            <JobAlertForm />
+            <JobAlertForm region={region} />
           </div>
         </div>
       </section>

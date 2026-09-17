@@ -46,13 +46,13 @@ export function confirmationEmail(token: string) {
   return {
     subject: `Confirm your ${SITE.name} job alert`,
     html: SHELL(
-      `<p style="font-size:17px;line-height:1.5;margin:0 0 20px">Confirm this address and we'll email you when new healthcare jobs are posted in Ontario.</p>
+      `<p style="font-size:17px;line-height:1.5;margin:0 0 20px">Confirm this address and we'll email you when new healthcare jobs matching your alert are posted.</p>
        <p style="margin:0 0 24px">${BUTTON(url, 'Confirm my alert')}</p>
        <p style="font-size:13px;line-height:1.5;color:#6e6e73;margin:0">If the button doesn't work, paste this into your browser:<br><span style="word-break:break-all">${url}</span></p>`,
       `You received this because someone entered this address at ${SITE.url}.<br>No alerts are sent until it is confirmed — ignore this email and nothing further happens.`,
     ),
     text: [
-      `Confirm this address and we'll email you when new healthcare jobs are posted in Ontario.`,
+      `Confirm this address and we'll email you when new healthcare jobs matching your alert are posted.`,
       ``,
       url,
       ``,
@@ -81,7 +81,7 @@ export function digestEmail(jobs: DigestJob[], token: string) {
     .join('');
 
   return {
-    subject: `${heading} in Ontario`,
+    subject: heading,
     html: SHELL(
       `<p style="font-size:17px;line-height:1.5;margin:0 0 4px">${heading} since your last alert.</p>
        ${rows}

@@ -11,7 +11,7 @@ type Kind = 'confirm' | 'unsubscribe';
 const COPY: Record<Kind, { heading: string; lead: string; button: string; done: string }> = {
   confirm: {
     heading: 'Confirm your job alert',
-    lead: "One tap and we'll start emailing you when new healthcare jobs are posted in Ontario.",
+    lead: "One tap and we'll start emailing you when new healthcare jobs matching your alert are posted.",
     button: 'Confirm my alert',
     done: "You're all set. We'll email you when new matching jobs are posted.",
   },

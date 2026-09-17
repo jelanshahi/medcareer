@@ -23,7 +23,9 @@ permissions:
 jobs:
   ingest:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # The first Alberta crawl fetches ~1,170 detail pages at one request per second (~20 min)
+    # on top of the Workday hospitals. Later runs only fetch new postings and finish in minutes.
+    timeout-minutes: 60
     env:
       NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}

@@ -2,6 +2,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { createAdminClient } from '@/lib/db/admin';
 import type { Json } from '@/lib/db/database.types';
+import { createTaleoConnector, type TaleoEmployer } from '@/workers/connectors/taleo';
+import type { Connector } from '@/workers/connectors/types';
 import { createWorkdayConnector, type WorkdayEmployer } from '@/workers/connectors/workday';
 import { fingerprint } from '@/lib/normalize/fingerprint';
 import { log, type LogContext } from '@/workers/logger';
@@ -28,13 +30,25 @@ const WorkdayAtsConfigSchema = z.object({
   parseDescriptionHeader: z.boolean(),
 });
 
-const WorkdayEmployerRowSchema = z.object({
+const TaleoAtsConfigSchema = z.object({
+  key: z.string().min(1),
+  host: z.string().min(1),
+});
+
+const EmployerBaseSchema = z.object({
   slug: z.string().min(1),
   name: z.string().min(1),
   province: z.enum(PROVINCE_CODES),
   default_city: z.string().min(1),
-  ats_config: WorkdayAtsConfigSchema,
 });
+
+const EmployerRowSchema = z.discriminatedUnion('ats_platform', [
+  EmployerBaseSchema.extend({ ats_platform: z.literal('workday'), ats_config: WorkdayAtsConfigSchema }),
+  EmployerBaseSchema.extend({ ats_platform: z.literal('taleo'), ats_config: TaleoAtsConfigSchema }),
+]);
+
+/** Updates in chunks so a long `in (...)` list stays well under URL length limits. */
+const TOUCH_CHUNK_SIZE = 200;
 
 /**
  * `raw_postings.normalized` is jsonb (`Json` in the generated types), but `NormalizedPosting`
@@ -51,14 +65,19 @@ function toStorableNormalized(normalized: NormalizedPosting): Json {
   };
 }
 
-async function ingestEmployer(admin: ReturnType<typeof createAdminClient>, employer: WorkdayEmployer) {
+async function ingestEmployer(
+  admin: ReturnType<typeof createAdminClient>,
+  employerSlug: string,
+  createConnector: (ctx: LogContext) => Connector,
+  sourceId: string,
+) {
   const runId = randomUUID();
-  const sourceId = `workday:${employer.config.tenant}`;
   const ctx: LogContext = { sourceId, runId };
 
   let fetched = 0;
   let inserted = 0;
   let updated = 0;
+  let unchanged = 0;
 
   // The whole body — including the initial `ingest_runs` insert — lives inside this try.
   // If the insert itself throws (e.g. a transient network failure), the catch below still runs
@@ -74,7 +93,7 @@ async function ingestEmployer(admin: ReturnType<typeof createAdminClient>, emplo
       .insert({ id: runId, source_id: sourceId, status: 'running' });
     if (runInsertError) throw new Error(`ingest_runs insert failed: ${runInsertError.message}`);
 
-    const connector = createWorkdayConnector(employer, ctx);
+    const connector = createConnector(ctx);
 
     // PostgREST caps a single response (1000 rows by default on Supabase). Unpaged, every
     // posting past row 1000 for this source would be missing from `known`, so `previous`
@@ -95,6 +114,7 @@ async function ingestEmployer(admin: ReturnType<typeof createAdminClient>, emplo
       if (!page || page.length < SELECT_PAGE_SIZE) break;
     }
 
+    const seenKnown: string[] = [];
     let cursor: string | undefined;
     do {
       const page = await connector.fetchPage(cursor);
@@ -102,6 +122,11 @@ async function ingestEmployer(admin: ReturnType<typeof createAdminClient>, emplo
 
       for (const stub of page.items) {
         fetched += 1;
+        if (!connector.refreshKnown && known.has(stub.sourceJobId)) {
+          seenKnown.push(stub.sourceJobId);
+          unchanged += 1;
+          continue;
+        }
         try {
           const payload = await connector.hydrate(stub);
           const normalized = connector.normalize(payload);
@@ -122,7 +147,7 @@ async function ingestEmployer(admin: ReturnType<typeof createAdminClient>, emplo
               content_hash: hash,
               fingerprint: fingerprint({
                 title: normalized.title,
-                employerKey: employer.slug,
+                employerKey: employerSlug,
                 city: normalized.city,
                 province: normalized.province,
               }),
@@ -146,12 +171,25 @@ async function ingestEmployer(admin: ReturnType<typeof createAdminClient>, emplo
       }
     } while (cursor);
 
+    // Known postings that were skipped above still have to count as seen, or expire_stale_jobs
+    // deactivates them after 7 days. Only reached when the whole list was walked: a crawl that
+    // threw part-way must not refresh anything it didn't see.
+    const seenAt = new Date().toISOString();
+    for (let i = 0; i < seenKnown.length; i += TOUCH_CHUNK_SIZE) {
+      const { error: touchError } = await admin
+        .from('raw_postings')
+        .update({ last_seen_at: seenAt })
+        .eq('source_id', sourceId)
+        .in('source_job_id', seenKnown.slice(i, i + TOUCH_CHUNK_SIZE));
+      if (touchError) throw new Error(`raw_postings last_seen_at update failed: ${touchError.message}`);
+    }
+
     const { error: successError } = await admin.from('ingest_runs').update({
       status: 'success', finished_at: new Date().toISOString(), fetched, inserted, updated,
     }).eq('id', runId);
     if (successError) throw new Error(`ingest_runs success update failed: ${successError.message}`);
 
-    log(ctx, 'info', 'run complete', { fetched, inserted, updated });
+    log(ctx, 'info', 'run complete', { fetched, inserted, updated, unchanged });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     // Deliberately NOT throwing on this one: it runs on the failure path, and throwing would
@@ -170,27 +208,38 @@ async function main() {
   const admin = createAdminClient();
   const { data: rows, error } = await admin
     .from('employers')
-    .select('slug,name,province,default_city,ats_config')
+    .select('slug,name,province,default_city,ats_platform,ats_config')
     .eq('is_active', true)
-    .eq('ats_platform', 'workday');
+    .in('ats_platform', ['workday', 'taleo']);
 
   if (error) throw error;
 
   for (const row of rows ?? []) {
-    const parsed = WorkdayEmployerRowSchema.safeParse(row);
+    const parsed = EmployerRowSchema.safeParse(row);
     if (!parsed.success) {
       // A malformed registry row must not take down the other employers either.
-      console.error(`Skipping employer "${String(row.slug)}": invalid registry row`, parsed.error.flatten());
+      console.error(`Skipping employer "${String(row.slug)}": invalid registry row`, z.flattenError(parsed.error));
       continue;
     }
 
-    const employer: WorkdayEmployer = {
+    const base = {
       slug: parsed.data.slug,
       name: parsed.data.name,
       province: parsed.data.province,
       defaultCity: parsed.data.default_city,
-      config: parsed.data.ats_config,
     };
+
+    let sourceId: string;
+    let createConnector: (ctx: LogContext) => Connector;
+    if (parsed.data.ats_platform === 'workday') {
+      const employer: WorkdayEmployer = { ...base, config: parsed.data.ats_config };
+      sourceId = `workday:${employer.config.tenant}`;
+      createConnector = (ctx) => createWorkdayConnector(employer, ctx);
+    } else {
+      const employer: TaleoEmployer = { ...base, config: parsed.data.ats_config };
+      sourceId = `taleo:${employer.config.key}`;
+      createConnector = (ctx) => createTaleoConnector(employer, ctx);
+    }
 
     // Sequential on purpose: one connector failing must not affect the others,
     // and the shared limiter is per-host anyway. The try/catch here is a deliberate backstop —
@@ -198,9 +247,9 @@ async function main() {
     // anticipate (e.g. both the success-path and failure-path `ingest_runs` update throwing in
     // sequence) must still not stop the remaining employers from being ingested.
     try {
-      await ingestEmployer(admin, employer);
+      await ingestEmployer(admin, base.slug, createConnector, sourceId);
     } catch (error) {
-      console.error(`ingestEmployer crashed for employer "${employer.slug}"`, error);
+      console.error(`ingestEmployer crashed for employer "${base.slug}"`, error);
     }
   }
 }

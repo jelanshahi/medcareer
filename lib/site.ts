@@ -7,7 +7,7 @@ const CONTACT_EMAIL = process.env.CONTACT_EMAIL ?? 'hello@medcareer.invalid';
 
 export const SITE = {
   name: 'MedCareer',
-  tagline: 'Healthcare jobs across Ontario',
+  tagline: 'Healthcare jobs across Canada',
   url: SITE_URL,
   contactUrl: `${SITE_URL}/about`,
   contactEmail: CONTACT_EMAIL,

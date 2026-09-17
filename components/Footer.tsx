@@ -22,7 +22,7 @@ export function Footer() {
           <Link href="/about#employer-removal" className={link}>Employer removal requests</Link>
         </nav>
         <p className="mt-4 border-t border-[var(--color-rule)] pt-4">
-          Healthcare jobs across Ontario. Listings belong to the employers who posted them;{' '}
+          Healthcare jobs across Canada. Listings belong to the employers who posted them;{' '}
           {SITE.name} links, it does not republish applications.
         </p>
       </div>
