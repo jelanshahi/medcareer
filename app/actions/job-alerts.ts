@@ -1,6 +1,7 @@
 'use server';
 
 import { randomUUID } from 'node:crypto';
+import { describeAlertCriteria } from '@/lib/alerts/describe';
 import { createServerClient } from '@/lib/db/server';
 import { alertsFrom, alertsReplyTo, createEmailClient } from '@/lib/email/client';
 import { confirmationEmail } from '@/lib/email/templates';
@@ -29,6 +30,8 @@ export async function createJobAlert(
 ): Promise<JobAlertState> {
   const parsed = JobAlertSchema.safeParse({
     email: String(formData.get('email') ?? '').trim().toLowerCase(),
+    city: formData.get('city') ?? '',
+    category: formData.get('category') ?? '',
     company: String(formData.get('company') ?? ''),
   });
 
@@ -43,6 +46,8 @@ export async function createJobAlert(
   const { data: outcome, error } = await createServerClient().rpc('request_job_alert', {
     p_email: parsed.data.email,
     p_token: token,
+    p_city: parsed.data.city,
+    p_category: parsed.data.category,
   });
 
   if (error) {
@@ -63,7 +68,8 @@ export async function createJobAlert(
     return { status: 'success', message: CONFIRMATION };
   }
 
-  const mail = confirmationEmail(token);
+  const criteria = describeAlertCriteria(parsed.data.city ?? null, parsed.data.category ?? null);
+  const mail = confirmationEmail(token, criteria);
   const { error: sendError } = await resend.emails.send({
     from: alertsFrom(),
     replyTo: alertsReplyTo(),

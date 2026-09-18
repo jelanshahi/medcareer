@@ -212,7 +212,7 @@ export default async function HomePage() {
               </h2>
             </div>
 
-            <JobAlertForm region={region} />
+            <JobAlertForm region={region} cities={cities} />
           </div>
         </div>
       </section>

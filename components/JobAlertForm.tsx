@@ -1,8 +1,10 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import { createJobAlert } from '@/app/actions/job-alerts';
+import { describeAlertCriteria } from '@/lib/alerts/describe';
 import { JOB_ALERT_INITIAL, MAX_EMAIL_LENGTH } from '@/lib/schemas/job-alert';
+import { CATEGORIES, CATEGORY_LABELS } from '@/lib/taxonomy/categories';
 import { FIELD, PILL_PRIMARY } from '@/lib/ui/styles';
 
 /** The homepage alert signup. A real <form action={...}> rather than an
@@ -11,11 +13,26 @@ import { FIELD, PILL_PRIMARY } from '@/lib/ui/styles';
  *
  *  type="email" + required give the browser's own validation for free, and the
  *  action re-checks server-side regardless — it is reachable by direct POST. */
-export function JobAlertForm({ region }: { region: string }) {
+export function JobAlertForm({ region, cities }: { region: string; cities: string[] }) {
   const [state, formAction, pending] = useActionState(createJobAlert, JOB_ALERT_INITIAL);
 
+  // Drives the "Alerting on:" preview only — city/category still travel to
+  // the server as plain <select> values in the form post, validated there
+  // regardless of what this state says. Reset to "no preference" after a
+  // successful submission so the preview doesn't keep describing a criteria
+  // set the visible form (browser-reset on submit) no longer reflects.
+  const [city, setCity] = useState('');
+  const [category, setCategory] = useState('');
+
   return (
-    <form action={formAction} className="w-full">
+    <form
+      action={formAction}
+      onSubmit={() => {
+        setCity('');
+        setCategory('');
+      }}
+      className="w-full"
+    >
       <label htmlFor="alert-email" className="mb-2 block text-[17px] text-[var(--color-slate)]">
         Email address
       </label>
@@ -37,6 +54,36 @@ export function JobAlertForm({ region }: { region: string }) {
         />
       </div>
 
+      <div className="mt-3 flex flex-wrap gap-2.5">
+        <label htmlFor="alert-category" className="sr-only">Discipline</label>
+        <select
+          id="alert-category"
+          name="category"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          className={`${FIELD} min-h-[46px] flex-1 basis-[160px] py-[9px]`}
+        >
+          <option value="">All disciplines</option>
+          {CATEGORIES.map((c) => (
+            <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
+          ))}
+        </select>
+
+        <label htmlFor="alert-city" className="sr-only">City</label>
+        <select
+          id="alert-city"
+          name="city"
+          value={city}
+          onChange={(e) => setCity(e.target.value)}
+          className={`${FIELD} min-h-[46px] flex-1 basis-[160px] py-[9px]`}
+        >
+          <option value="">All of {region}</option>
+          {cities.map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+      </div>
+
       {/* Honeypot: off-screen and skipped by tab order, so only a bot filling
           every field will touch it. Not `hidden`, which bots learn to skip. */}
       <div aria-hidden className="absolute left-[-9999px] h-0 w-0 overflow-hidden">
@@ -45,7 +92,9 @@ export function JobAlertForm({ region }: { region: string }) {
 
       <div className="mt-4 text-[17px] text-[var(--color-slate)]">
         Alerting on:{' '}
-        <span className="font-semibold text-[var(--color-ink)]">All healthcare roles · {region}</span>
+        <span className="font-semibold text-[var(--color-ink)]">
+          {describeAlertCriteria(city || null, category || null)}
+        </span>
       </div>
 
       <button

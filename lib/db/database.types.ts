@@ -350,7 +350,7 @@ export type Database = {
         }[]
       }
       request_job_alert: {
-        Args: { p_email: string; p_token: string }
+        Args: { p_email: string; p_token: string; p_city?: string; p_category?: string }
         Returns: string
       }
       unsubscribe_job_alert: {

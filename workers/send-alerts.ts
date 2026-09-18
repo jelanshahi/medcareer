@@ -1,3 +1,4 @@
+import { describeAlertCriteria } from '@/lib/alerts/describe';
 import { createAdminClient } from '@/lib/db/admin';
 import { selectAll } from '@/lib/db/select-all';
 import { alertsFrom, alertsReplyTo, createEmailClient } from '@/lib/email/client';
@@ -93,7 +94,8 @@ async function main() {
   for (let i = 0; i < pending.length; i += BATCH_SIZE) {
     const slice = pending.slice(i, i + BATCH_SIZE);
     const payload = slice.map(({ alert, jobs: theirs }) => {
-      const mail = digestEmail(theirs, alert.unsubscribe_token);
+      const criteria = describeAlertCriteria(alert.city, alert.category);
+      const mail = digestEmail(theirs, alert.unsubscribe_token, criteria);
       return {
         from,
         replyTo,

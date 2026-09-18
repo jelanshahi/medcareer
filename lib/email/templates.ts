@@ -41,18 +41,24 @@ ${body}
 const BUTTON = (href: string, label: string) =>
   `<a href="${href}" style="display:inline-block;background:#0F5C4A;color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:999px;font-size:17px;font-weight:600">${label}</a>`;
 
-export function confirmationEmail(token: string) {
+/** `criteria` is a plain-language description from describeAlertCriteria
+ *  (lib/alerts/describe.ts) — "Nursing jobs in Hamilton", "All new healthcare
+ *  jobs" — so a subscriber sees exactly what they are about to confirm rather
+ *  than generic copy that no longer says what the alert actually covers. */
+export function confirmationEmail(token: string, criteria: string) {
   const url = confirmUrl(token);
   return {
     subject: `Confirm your ${SITE.name} job alert`,
     html: SHELL(
-      `<p style="font-size:17px;line-height:1.5;margin:0 0 20px">Confirm this address and we'll email you when new healthcare jobs matching your alert are posted.</p>
+      `<p style="font-size:17px;line-height:1.5;margin:0 0 4px">Confirm this address and we'll email you when new jobs are posted matching:</p>
+       <p style="font-size:17px;font-weight:600;margin:0 0 20px">${esc(criteria)}</p>
        <p style="margin:0 0 24px">${BUTTON(url, 'Confirm my alert')}</p>
        <p style="font-size:13px;line-height:1.5;color:#6e6e73;margin:0">If the button doesn't work, paste this into your browser:<br><span style="word-break:break-all">${url}</span></p>`,
       `You received this because someone entered this address at ${SITE.url}.<br>No alerts are sent until it is confirmed — ignore this email and nothing further happens.`,
     ),
     text: [
-      `Confirm this address and we'll email you when new healthcare jobs matching your alert are posted.`,
+      `Confirm this address and we'll email you when new jobs are posted matching:`,
+      criteria,
       ``,
       url,
       ``,
@@ -62,10 +68,10 @@ export function confirmationEmail(token: string) {
   };
 }
 
-export function digestEmail(jobs: DigestJob[], token: string) {
+export function digestEmail(jobs: DigestJob[], token: string, criteria: string) {
   const unsubscribe = unsubscribeUrl(token);
   const count = jobs.length;
-  const heading = count === 1 ? '1 new healthcare job' : `${count} new healthcare jobs`;
+  const heading = count === 1 ? '1 new job' : `${count} new jobs`;
 
   const rows = jobs
     .map((job) => {
@@ -81,15 +87,15 @@ export function digestEmail(jobs: DigestJob[], token: string) {
     .join('');
 
   return {
-    subject: heading,
+    subject: `${heading}: ${criteria}`,
     html: SHELL(
-      `<p style="font-size:17px;line-height:1.5;margin:0 0 4px">${heading} since your last alert.</p>
+      `<p style="font-size:17px;line-height:1.5;margin:0 0 4px">${heading} matching <strong>${esc(criteria)}</strong> since your last alert.</p>
        ${rows}
        <p style="margin:24px 0 0">${BUTTON(`${SITE.url}/jobs`, 'See all open jobs')}</p>`,
-      `You're getting this because you created a job alert at ${SITE.url}.<br><a href="${unsubscribe}" style="color:#6e6e73">Unsubscribe</a>`,
+      `You're getting this because you created a job alert for ${esc(criteria)} at ${SITE.url}.<br><a href="${unsubscribe}" style="color:#6e6e73">Unsubscribe</a>`,
     ),
     text: [
-      `${heading} since your last alert.`,
+      `${heading} matching ${criteria} since your last alert.`,
       ``,
       ...jobs.map((job) => {
         const salary = formatSalary(job.salary_min, job.salary_max, job.salary_period);
