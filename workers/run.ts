@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/db/admin';
 import type { Json } from '@/lib/db/database.types';
 import { createIcimsConnector, type IcimsEmployer } from '@/workers/connectors/icims';
 import { createJibeConnector, type JibeEmployer } from '@/workers/connectors/jibe';
+import { createSuccessFactorsConnector, type SuccessFactorsEmployer } from '@/workers/connectors/successfactors';
 import { createTaleoConnector, type TaleoEmployer } from '@/workers/connectors/taleo';
 import type { Connector } from '@/workers/connectors/types';
 import { createWorkdayConnector, type WorkdayEmployer } from '@/workers/connectors/workday';
@@ -45,6 +46,13 @@ const BoardAtsConfigSchema = z.object({
   cityAliases: z.record(z.string(), z.string()).optional(),
 });
 
+/** One SuccessFactors host can carry several career sites, one per employer or job family. */
+const SuccessFactorsAtsConfigSchema = z.object({
+  key: z.string().min(1),
+  host: z.string().min(1),
+  sites: z.array(z.string().min(1)).min(1),
+});
+
 const EmployerBaseSchema = z.object({
   slug: z.string().min(1),
   name: z.string().min(1),
@@ -57,6 +65,7 @@ const EmployerRowSchema = z.discriminatedUnion('ats_platform', [
   EmployerBaseSchema.extend({ ats_platform: z.literal('taleo'), ats_config: TaleoAtsConfigSchema }),
   EmployerBaseSchema.extend({ ats_platform: z.literal('icims'), ats_config: BoardAtsConfigSchema }),
   EmployerBaseSchema.extend({ ats_platform: z.literal('jibe'), ats_config: BoardAtsConfigSchema }),
+  EmployerBaseSchema.extend({ ats_platform: z.literal('successfactors'), ats_config: SuccessFactorsAtsConfigSchema }),
 ]);
 
 /** Updates in chunks so a long `in (...)` list stays well under URL length limits. */
@@ -257,7 +266,7 @@ async function main() {
     .from('employers')
     .select('slug,name,province,default_city,ats_platform,ats_config')
     .eq('is_active', true)
-    .in('ats_platform', ['workday', 'taleo', 'icims', 'jibe']);
+    .in('ats_platform', ['workday', 'taleo', 'icims', 'jibe', 'successfactors']);
 
   if (error) throw error;
 
@@ -290,10 +299,14 @@ async function main() {
       const employer: IcimsEmployer = { ...base, config: parsed.data.ats_config };
       sourceId = `icims:${employer.config.key}`;
       createConnector = (ctx) => createIcimsConnector(employer, ctx);
-    } else {
+    } else if (parsed.data.ats_platform === 'jibe') {
       const employer: JibeEmployer = { ...base, config: parsed.data.ats_config };
       sourceId = `jibe:${employer.config.key}`;
       createConnector = (ctx) => createJibeConnector(employer, ctx);
+    } else {
+      const employer: SuccessFactorsEmployer = { ...base, config: parsed.data.ats_config };
+      sourceId = `successfactors:${employer.config.key}`;
+      createConnector = (ctx) => createSuccessFactorsConnector(employer, ctx);
     }
 
     // Sequential on purpose: one connector failing must not affect the others,
