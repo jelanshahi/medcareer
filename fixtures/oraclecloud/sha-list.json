@@ -1,0 +1,591 @@
+{
+ "items": [
+  {
+   "SearchId": 1,
+   "Keyword": null,
+   "CorrectedKeyword": null,
+   "UseExactKeywordFlag": false,
+   "SuggestedKeyword": null,
+   "ExecuteSpellCheckFlag": true,
+   "Location": null,
+   "LocationId": null,
+   "Radius": 0,
+   "RadiusUnit": "MI",
+   "SelectedTitlesFacet": null,
+   "SelectedCategoriesFacet": null,
+   "SelectedPostingDatesFacet": null,
+   "SelectedLocationsFacet": null,
+   "LastSelectedFacet": null,
+   "Facets": "TITLES;LOCATIONS;LOCATION_LEVEL1;LOCATION_LEVEL2;LOCATION_LEVEL3;CATEGORIES;POSTING_DATES;WORK_LOCATIONS;FLEX_FIELDS;ORGANIZATIONS;WORKPLACE_TYPES",
+   "Offset": 0,
+   "Limit": 200,
+   "SortBy": "POSTING_DATES_DESC",
+   "TotalJobsCount": 2124,
+   "Latitude": null,
+   "Longitude": null,
+   "SiteNumber": "CX_1001",
+   "JobFamilyId": null,
+   "PostingStartDate": null,
+   "PostingEndDate": null,
+   "SelectedWorkLocationsFacet": null,
+   "RequisitionId": null,
+   "CandidateNumber": null,
+   "WorkLocationZipCode": null,
+   "WorkLocationCountryCode": null,
+   "SelectedFlexFieldsFacets": null,
+   "OrganizationId": null,
+   "SelectedOrganizationsFacet": null,
+   "UserTargetFacetName": null,
+   "UserTargetFacetInputTerm": null,
+   "HotJobFlag": null,
+   "WorkplaceType": null,
+   "SelectedWorkplaceTypesFacet": null,
+   "BotQRShortCode": null,
+   "requisitionList": [
+    {
+     "Id": "98665",
+     "Title": "Nurse A - Registered Nurse General Duty Nurse",
+     "PostedDate": "2026-09-19",
+     "PostingEndDate": null,
+     "Language": "US",
+     "PrimaryLocationCountry": "CA",
+     "GeographyId": 100000001426229,
+     "HotJobFlag": false,
+     "WorkplaceTypeCode": null,
+     "JobFamily": null,
+     "JobFunction": null,
+     "WorkerType": null,
+     "ContractType": null,
+     "ManagerLevel": null,
+     "JobSchedule": null,
+     "JobShift": null,
+     "JobType": null,
+     "StudyLevel": null,
+     "DomesticTravelRequired": null,
+     "InternationalTravelRequired": null,
+     "WorkDurationYears": null,
+     "WorkDurationMonths": null,
+     "WorkHours": null,
+     "WorkDays": null,
+     "LegalEmployer": null,
+     "BusinessUnit": null,
+     "Department": null,
+     "Organization": null,
+     "BusinessUnitId": 300000003438826,
+     "LegalEmployerId": 300000003448324,
+     "OrganizationId": 300000003438826,
+     "MediaThumbURL": "https://objectstorage.ca-toronto-1.oraclecloud.com/p/AHh_i3x6tINGpYa84tLbwCydyDeqvlY7ahSV4DGpFI5Q2aeJXdNjTaM-xQMk20x6/n/idph4uezr91q/b/SKGPRDBKT01/o/Logo-Saskatchewan-Health-Authority-Colour-300DPI-16x9Logo-Saskatchewan-Health-Authority-Colour-300DPI-16x9.png",
+     "ShortDescriptionStr": "Provides direct client care activities including assessment, planning, implementation, and evaluation.  The General Duty Nurse is responsible and accountable for the provision of safe client care services and programs.  Job description is available upon request.\n",
+     "PrimaryLocation": "Porcupine Plain, SK, Canada",
+     "Distance": 1789776000000,
+     "TrendingFlag": false,
+     "BeFirstToApplyFlag": false,
+     "Relevancy": 9,
+     "WorkplaceType": "",
+     "ExternalQualificationsStr": null,
+     "ExternalResponsibilitiesStr": null
+    },
+    {
+     "Id": "106120",
+     "Title": "Licensed Practical Nurse",
+     "PostedDate": "2026-09-19",
+     "PostingEndDate": null,
+     "Language": "US",
+     "PrimaryLocationCountry": "CA",
+     "GeographyId": 100000001426192,
+     "HotJobFlag": false,
+     "WorkplaceTypeCode": null,
+     "JobFamily": null,
+     "JobFunction": null,
+     "WorkerType": null,
+     "ContractType": null,
+     "ManagerLevel": null,
+     "JobSchedule": null,
+     "JobShift": null,
+     "JobType": null,
+     "StudyLevel": null,
+     "DomesticTravelRequired": null,
+     "InternationalTravelRequired": null,
+     "WorkDurationYears": null,
+     "WorkDurationMonths": null,
+     "WorkHours": null,
+     "WorkDays": null,
+     "LegalEmployer": null,
+     "BusinessUnit": null,
+     "Department": null,
+     "Organization": null,
+     "BusinessUnitId": 300000003438826,
+     "LegalEmployerId": 300000003448324,
+     "OrganizationId": 300000003438826,
+     "MediaThumbURL": "https://objectstorage.ca-toronto-1.oraclecloud.com/p/AHh_i3x6tINGpYa84tLbwCydyDeqvlY7ahSV4DGpFI5Q2aeJXdNjTaM-xQMk20x6/n/idph4uezr91q/b/SKGPRDBKT01/o/Logo-Saskatchewan-Health-Authority-Colour-300DPI-16x9Logo-Saskatchewan-Health-Authority-Colour-300DPI-16x9.png",
+     "ShortDescriptionStr": "Promotes health and healing and provides education as a member of the health care team to achieve optimum care for clients/patients/residents in all phases of health care.\n",
+     "PrimaryLocation": "Kelvington, SK, Canada",
+     "Distance": 1789776000000,
+     "TrendingFlag": false,
+     "BeFirstToApplyFlag": false,
+     "Relevancy": 9,
+     "WorkplaceType": "",
+     "ExternalQualificationsStr": null,
+     "ExternalResponsibilitiesStr": null
+    },
+    {
+     "Id": "115275",
+     "Title": "Emergency Medical Technician",
+     "PostedDate": "2026-09-19",
+     "PostingEndDate": null,
+     "Language": "US",
+     "PrimaryLocationCountry": "CA",
+     "GeographyId": 100000001426264,
+     "HotJobFlag": false,
+     "WorkplaceTypeCode": null,
+     "JobFamily": null,
+     "JobFunction": null,
+     "WorkerType": null,
+     "ContractType": null,
+     "ManagerLevel": null,
+     "JobSchedule": null,
+     "JobShift": null,
+     "JobType": null,
+     "StudyLevel": null,
+     "DomesticTravelRequired": null,
+     "InternationalTravelRequired": null,
+     "WorkDurationYears": null,
+     "WorkDurationMonths": null,
+     "WorkHours": null,
+     "WorkDays": null,
+     "LegalEmployer": null,
+     "BusinessUnit": null,
+     "Department": null,
+     "Organization": null,
+     "BusinessUnitId": 300000003438826,
+     "LegalEmployerId": 300000003448324,
+     "OrganizationId": 300000003438826,
+     "MediaThumbURL": "https://objectstorage.ca-toronto-1.oraclecloud.com/p/AHh_i3x6tINGpYa84tLbwCydyDeqvlY7ahSV4DGpFI5Q2aeJXdNjTaM-xQMk20x6/n/idph4uezr91q/b/SKGPRDBKT01/o/Logo-Saskatchewan-Health-Authority-Colour-300DPI-16x9Logo-Saskatchewan-Health-Authority-Colour-300DPI-16x9.png",
+     "ShortDescriptionStr": "Reporting to the Manager or designate for the area of province they are working, the Emergency Medical Services - EMT/PCP responds to emergency and non-emergency events, and provides assessment, treatment and transportation of the ill or injured persons consistent with The Saskatchewan Ambulance Act and regulations; Saskatchewan College of Paramedics (SCoP) Clinical Practice Protocols; The Paramedics Act and bylaws; and Saskatchewan Health Authority (SHA) policies, procedures and work standards.\n",
+     "PrimaryLocation": "Wilkie, SK, Canada",
+     "Distance": 1789776000000,
+     "TrendingFlag": false,
+     "BeFirstToApplyFlag": false,
+     "Relevancy": 9,
+     "WorkplaceType": "",
+     "ExternalQualificationsStr": null,
+     "ExternalResponsibilitiesStr": null
+    },
+    {
+     "Id": "120234",
+     "Title": "Combined Laboratory & X-Ray Technologist",
+     "PostedDate": "2026-09-19",
+     "PostingEndDate": null,
+     "Language": "US",
+     "PrimaryLocationCountry": "CA",
+     "GeographyId": 100000001426114,
+     "HotJobFlag": false,
+     "WorkplaceTypeCode": null,
+     "JobFamily": null,
+     "JobFunction": null,
+     "WorkerType": null,
+     "ContractType": null,
+     "ManagerLevel": null,
+     "JobSchedule": null,
+     "JobShift": null,
+     "JobType": null,
+     "StudyLevel": null,
+     "DomesticTravelRequired": null,
+     "InternationalTravelRequired": null,
+     "WorkDurationYears": null,
+     "WorkDurationMonths": null,
+     "WorkHours": null,
+     "WorkDays": null,
+     "LegalEmployer": null,
+     "BusinessUnit": null,
+     "Department": null,
+     "Organization": null,
+     "BusinessUnitId": 300000003438826,
+     "LegalEmployerId": 300000003448324,
+     "OrganizationId": 300000003438826,
+     "MediaThumbURL": "https://objectstorage.ca-toronto-1.oraclecloud.com/p/AHh_i3x6tINGpYa84tLbwCydyDeqvlY7ahSV4DGpFI5Q2aeJXdNjTaM-xQMk20x6/n/idph4uezr91q/b/SKGPRDBKT01/o/Logo-Saskatchewan-Health-Authority-Colour-300DPI-16x9Logo-Saskatchewan-Health-Authority-Colour-300DPI-16x9.png",
+     "ShortDescriptionStr": "Performs laboratory/radiology duties for the detection, prevention and management of physiological and pathological conditions.\n",
+     "PrimaryLocation": "La Ronge, SK, Canada",
+     "Distance": 1789776000000,
+     "TrendingFlag": false,
+     "BeFirstToApplyFlag": false,
+     "Relevancy": 9,
+     "WorkplaceType": "",
+     "ExternalQualificationsStr": null,
+     "ExternalResponsibilitiesStr": null
+    },
+    {
+     "Id": "135168",
+     "Title": "Finance Officer",
+     "PostedDate": "2026-09-19",
+     "PostingEndDate": null,
+     "Language": "US",
+     "PrimaryLocationCountry": "CA",
+     "GeographyId": 100000001426062,
+     "HotJobFlag": false,
+     "WorkplaceTypeCode": null,
+     "JobFamily": null,
+     "JobFunction": null,
+     "WorkerType": null,
+     "ContractType": null,
+     "ManagerLevel": null,
+     "JobSchedule": null,
+     "JobShift": null,
+     "JobType": null,
+     "StudyLevel": null,
+     "DomesticTravelRequired": null,
+     "InternationalTravelRequired": null,
+     "WorkDurationYears": null,
+     "WorkDurationMonths": null,
+     "WorkHours": null,
+     "WorkDays": null,
+     "LegalEmployer": null,
+     "BusinessUnit": null,
+     "Department": null,
+     "Organization": null,
+     "BusinessUnitId": 300000003438826,
+     "LegalEmployerId": 300000003448324,
+     "OrganizationId": 300000003438826,
+     "MediaThumbURL": "https://objectstorage.ca-toronto-1.oraclecloud.com/p/AHh_i3x6tINGpYa84tLbwCydyDeqvlY7ahSV4DGpFI5Q2aeJXdNjTaM-xQMk20x6/n/idph4uezr91q/b/SKGPRDBKT01/o/Logo-Saskatchewan-Health-Authority-Colour-300DPI-16x9Logo-Saskatchewan-Health-Authority-Colour-300DPI-16x9.png",
+     "ShortDescriptionStr": "Performs a variety of general and advanced accounting duties.\n",
+     "PrimaryLocation": "Saskatoon, SK, Canada",
+     "Distance": 1789776000000,
+     "TrendingFlag": false,
+     "BeFirstToApplyFlag": false,
+     "Relevancy": 9,
+     "WorkplaceType": "",
+     "ExternalQualificationsStr": null,
+     "ExternalResponsibilitiesStr": null
+    },
+    {
+     "Id": "135260",
+     "Title": "Medical Office Assistant",
+     "PostedDate": "2026-09-19",
+     "PostingEndDate": null,
+     "Language": "US",
+     "PrimaryLocationCountry": "CA",
+     "GeographyId": 100000001426062,
+     "HotJobFlag": false,
+     "WorkplaceTypeCode": null,
+     "JobFamily": null,
+     "JobFunction": null,
+     "WorkerType": null,
+     "ContractType": null,
+     "ManagerLevel": null,
+     "JobSchedule": null,
+     "JobShift": null,
+     "JobType": null,
+     "StudyLevel": null,
+     "DomesticTravelRequired": null,
+     "InternationalTravelRequired": null,
+     "WorkDurationYears": null,
+     "WorkDurationMonths": null,
+     "WorkHours": null,
+     "WorkDays": null,
+     "LegalEmployer": null,
+     "BusinessUnit": null,
+     "Department": null,
+     "Organization": null,
+     "BusinessUnitId": 300000003438826,
+     "LegalEmployerId": 300000003448324,
+     "OrganizationId": 300000003438826,
+     "MediaThumbURL": "https://objectstorage.ca-toronto-1.oraclecloud.com/p/AHh_i3x6tINGpYa84tLbwCydyDeqvlY7ahSV4DGpFI5Q2aeJXdNjTaM-xQMk20x6/n/idph4uezr91q/b/SKGPRDBKT01/o/Logo-Saskatchewan-Health-Authority-Colour-300DPI-16x9Logo-Saskatchewan-Health-Authority-Colour-300DPI-16x9.png",
+     "ShortDescriptionStr": "Provides medical administrative support to departments/programs including medical transcription.\n",
+     "PrimaryLocation": "Saskatoon, SK, Canada",
+     "Distance": 1789776000000,
+     "TrendingFlag": false,
+     "BeFirstToApplyFlag": false,
+     "Relevancy": 9,
+     "WorkplaceType": "",
+     "ExternalQualificationsStr": null,
+     "ExternalResponsibilitiesStr": null
+    }
+   ],
+   "categoriesFacet": [
+    {
+     "Id": 300000012686398,
+     "Name": "Community Care",
+     "TotalCount": 375
+    },
+    {
+     "Id": 300000012686662,
+     "Name": "General Medicine and Acute Care",
+     "TotalCount": 327
+    },
+    {
+     "Id": 300000012686853,
+     "Name": "Primary Health Services",
+     "TotalCount": 145
+    },
+    {
+     "Id": 300000012686797,
+     "Name": "Laboratory Services",
+     "TotalCount": 144
+    },
+    {
+     "Id": 300000012686548,
+     "Name": "Emergency Medical Services",
+     "TotalCount": 129
+    },
+    {
+     "Id": 300000012686886,
+     "Name": "Rehabilitation Services",
+     "TotalCount": 120
+    },
+    {
+     "Id": 300000012686518,
+     "Name": "Diagnostic Imaging",
+     "TotalCount": 109
+    },
+    {
+     "Id": 300000012686389,
+     "Name": "Ambulatory and Outpatient Care",
+     "TotalCount": 107
+    },
+    {
+     "Id": 300000012686819,
+     "Name": "Mental Health and Addiction Services",
+     "TotalCount": 100
+    },
+    {
+     "Id": 300000012686831,
+     "Name": "Nutrition and Food Services",
+     "TotalCount": 87
+    }
+   ],
+   "locationsFacet": [
+    {
+     "Id": 300000000295575,
+     "Name": "Canada",
+     "TotalCount": 2124
+    },
+    {
+     "Id": 100000001418145,
+     "Name": "SK, Canada",
+     "TotalCount": 2124
+    },
+    {
+     "Id": 100000001426062,
+     "Name": "Saskatoon, SK, Canada",
+     "TotalCount": 496
+    },
+    {
+     "Id": 100000001426061,
+     "Name": "Regina, SK, Canada",
+     "TotalCount": 221
+    },
+    {
+     "Id": 100000001426064,
+     "Name": "North Battleford, SK, Canada",
+     "TotalCount": 78
+    },
+    {
+     "Id": 100000001426076,
+     "Name": "Prince Albert, SK, Canada",
+     "TotalCount": 73
+    },
+    {
+     "Id": 100000001426070,
+     "Name": "Yorkton, SK, Canada",
+     "TotalCount": 72
+    },
+    {
+     "Id": 100000001426075,
+     "Name": "Moose Jaw, SK, Canada",
+     "TotalCount": 56
+    },
+    {
+     "Id": 100000001426073,
+     "Name": "Swift Current, SK, Canada",
+     "TotalCount": 43
+    },
+    {
+     "Id": 100000001426114,
+     "Name": "La Ronge, SK, Canada",
+     "TotalCount": 38
+    }
+   ],
+   "postingDatesFacet": [
+    {
+     "Id": 7,
+     "Name": "Less than 7 days",
+     "TotalCount": 910
+    },
+    {
+     "Id": 30,
+     "Name": "Less than 30 days",
+     "TotalCount": 1316
+    },
+    {
+     "Id": 31,
+     "Name": "Greater than 30 days",
+     "TotalCount": 808
+    }
+   ],
+   "titlesFacet": [
+    {
+     "Id": "Nursing",
+     "Name": "Nursing",
+     "TotalCount": 993
+    },
+    {
+     "Id": "Professional",
+     "Name": "Professional",
+     "TotalCount": 361
+    },
+    {
+     "Id": "Technologists and Technicians",
+     "Name": "Technologists and Technicians",
+     "TotalCount": 328
+    },
+    {
+     "Id": "Support Worker",
+     "Name": "Support Worker",
+     "TotalCount": 255
+    },
+    {
+     "Id": "Trades and Maintenance",
+     "Name": "Trades and Maintenance",
+     "TotalCount": 72
+    },
+    {
+     "Id": "Administration",
+     "Name": "Administration",
+     "TotalCount": 51
+    },
+    {
+     "Id": "Clinical Professional",
+     "Name": "Clinical Professional",
+     "TotalCount": 38
+    },
+    {
+     "Id": "Management",
+     "Name": "Management",
+     "TotalCount": 10
+    },
+    {
+     "Id": "Science and Research",
+     "Name": "Science and Research",
+     "TotalCount": 2
+    },
+    {
+     "Id": "Executive",
+     "Name": "Executive",
+     "TotalCount": 1
+    }
+   ],
+   "workLocationsFacet": [
+    {
+     "Id": 300000009295206,
+     "Name": "Royal University Hospital",
+     "TotalCount": 229
+    },
+    {
+     "Id": 300000009092918,
+     "Name": "St. Pauls Hospital",
+     "TotalCount": 73
+    },
+    {
+     "Id": 300000009092846,
+     "Name": "Victoria Hospital",
+     "TotalCount": 61
+    },
+    {
+     "Id": 300000009092882,
+     "Name": "Pasqua Hospital",
+     "TotalCount": 53
+    },
+    {
+     "Id": 300000009092981,
+     "Name": "Regina General Hospital",
+     "TotalCount": 51
+    },
+    {
+     "Id": 300000009295073,
+     "Name": "Saskatoon City Hospital",
+     "TotalCount": 49
+    },
+    {
+     "Id": 300000009092779,
+     "Name": "Battlefords Union Hospital",
+     "TotalCount": 48
+    },
+    {
+     "Id": 300000009295176,
+     "Name": "Yorkton Regional Health Centre",
+     "TotalCount": 48
+    },
+    {
+     "Id": 300000009295110,
+     "Name": "Dr. F.H. Wigmore Regional Hospital",
+     "TotalCount": 38
+    },
+    {
+     "Id": 300000009092767,
+     "Name": "La Ronge Health Centre",
+     "TotalCount": 33
+    }
+   ],
+   "flexFieldsFacet": [],
+   "organizationsFacet": [
+    {
+     "Id": 300000003438826,
+     "Name": "Saskatchewan Health Authority",
+     "TotalCount": 2047
+    },
+    {
+     "Id": 300000003438906,
+     "Name": "St Josephs Hospital Estevan",
+     "TotalCount": 19
+    },
+    {
+     "Id": 300000003438796,
+     "Name": "Saskatchewan Cancer Agency",
+     "TotalCount": 16
+    },
+    {
+     "Id": 300000003438106,
+     "Name": "All Nations' Healing Hospital",
+     "TotalCount": 8
+    },
+    {
+     "Id": 300000003438646,
+     "Name": "Radville Marian Health Centre",
+     "TotalCount": 8
+    },
+    {
+     "Id": 300000003438716,
+     "Name": "Salvation Army William Booth Special Care Home",
+     "TotalCount": 5
+    },
+    {
+     "Id": 300000003438736,
+     "Name": "Santa Maria Senior Citizens Home Inc.",
+     "TotalCount": 5
+    },
+    {
+     "Id": 300000003438936,
+     "Name": "St. Joseph's Health Centre",
+     "TotalCount": 5
+    },
+    {
+     "Id": 300000003438216,
+     "Name": "Cupar And District Nursing Home",
+     "TotalCount": 3
+    },
+    {
+     "Id": 300000003438626,
+     "Name": "Providence Place",
+     "TotalCount": 3
+    }
+   ],
+   "workplaceTypesFacet": [
+    {
+     "Id": "ORA_ON_SITE",
+     "Name": "On-site",
+     "TotalCount": 2124
+    }
+   ]
+  }
+ ]
+}

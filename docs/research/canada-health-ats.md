@@ -5,7 +5,7 @@ them, and what is odd about each system's data. Written so nobody has to redo th
 
 Ontario's 134 individual hospitals are in a separate file: [ontario-hospitals-ats.md](./ontario-hospitals-ats.md).
 
-**Last checked: 18 September 2026.** Employers change job systems every few years, so
+**Last checked: 19 September 2026.** Employers change job systems every few years, so
 re-check a row before trusting it.
 
 ## Connectors we have built
@@ -17,6 +17,7 @@ re-check a row before trusting it.
 | [icims.ts](../../workers/connectors/icims.ts) | Vancouver Coastal Health, Humber River, Mackenzie, Cambridge Memorial | Sitemap + one page per posting | 1 sitemap + new postings |
 | [jibe.ts](../../workers/connectors/jibe.ts) | Fraser Health | JSON API, whole postings, 100 at a time | ~22, no per-posting fetches |
 | [successfactors.ts](../../workers/connectors/successfactors.ts) | Nova Scotia Health, IWK Health | Paged search HTML + one page per posting | ~10 search pages + new postings |
+| [oraclecloud.ts](../../workers/connectors/oraclecloud.ts) | Saskatchewan Health Authority | REST API, 200 requisitions per request | ~11 list requests + new postings |
 
 ## Province by province
 
@@ -43,11 +44,11 @@ and crawlable, no connector yet; **unchecked** = system identified, crawl permis
 | **BC** | Providence Health Care | Unknown | unchecked | Site blocked automated requests during research |
 | **BC** | First Nations Health Authority | PeopleSoft | unchecked | Small |
 | **AB** | Alberta Health Services, Covenant Health | Taleo behind SelectMinds | **blocked** | See below. Rows seeded inactive in the database |
-| **SK** | Saskatchewan Health Authority | Oracle Cloud Recruiting | unchecked | One connector covers the province |
+| **SK** | Saskatchewan Health Authority | Oracle Cloud Recruiting | live | The whole province: ~2,120 open, ~1,300 within 30 days |
 | **MB** | Shared Health / healthcareersmanitoba.ca | Taleo | unchecked | |
 | **MB** | Winnipeg Regional Health Authority | SAP SuccessFactors | unchecked | |
 | **NS** | Nova Scotia Health **and** IWK Health | SAP SuccessFactors (`jobs.nshealth.ca`) | live | Both employers on one site — see below |
-| **NB** | Horizon and Vitalité (`nbhealthjobs.ca`) | Salesforce (`nbhealthjobs.my.site.com`) | unchecked | Both employers, so the whole province |
+| **NB** | Horizon and Vitalité | **iTacit** (`horizonnb.itacit.com`, `vitalitenb.itacit.com`) | **blocked** | Not Salesforce — that site is only for internationally educated professionals. See below |
 | **NL** | NL Health Services | ServiceNow (`nlhs.service-now.com/nlhsjobs`) | unchecked | |
 | **PE** | Health PEI | PEI government job site (`jobspei.ca`) | unchecked | Site blocked automated requests during research |
 | **QC** | MUHC | Salesforce (`carrieres.cusm.ca`) | unchecked | |
@@ -69,6 +70,18 @@ with:
 ```sql
 update employers set is_active = true where slug in ('alberta-health-services', 'covenant-health');
 ```
+
+**New Brunswick (Horizon Health Network and Vitalité Health Network)** post through iTacit
+(`horizonnb.itacit.com`, `vitalitenb.itacit.com`). Both portals answer **401 Unauthorized** for
+robots.txt and for sitemap.xml, while iTacit's own marketing site serves a normal robots.txt. The
+robots standard (RFC 9309) says a crawler that gets 401 or 403 for robots.txt must treat the whole
+site as disallowed, so we do not crawl them. The job pages themselves are publicly readable, so
+this is a permission question, not a technical one: ask Horizon and Vitalité (or iTacit) to serve a
+robots.txt, or for written permission. Checked 19 Sep 2026.
+
+Note the earlier research mislabelled New Brunswick as Salesforce. `nbhealthjobs.my.site.com` is a
+Salesforce site, but it only handles enquiries from internationally educated professionals — the
+job postings are on iTacit.
 
 **Fraser Health's iCIMS site** (`careers-fraserhealth.icims.com`) disallows all crawling in
 robots.txt. Their public board (`jobs.fraserhealth.ca`) allows it and carries the same jobs,
@@ -92,6 +105,10 @@ Every connector works around something. Do not assume a field means what it says
   description prose. `location_name` is sometimes a facility and sometimes a list of
   communities. Apply links point at an iCIMS login page, so we link to the public posting.
   robots.txt asks for one request every 5 seconds.
+- **Oracle Cloud (Saskatchewan)** — the API’s `JobSchedule` contradicts the posting itself: a
+  posting typed "Part-time regular" can carry JobSchedule "Full time", so the posting’s own
+  "Type" line wins. Pay sits in the description as a band whose name comes between the label
+  and the figures ("Pay Band Nurse A $38.580 to $50.070"), quoted to three decimals.
 - **SuccessFactors (Nova Scotia)** — `addressRegion` is truncated to "Nova", so province comes
   from the registry. `hiringOrganization` says "Nova Scotia Health and IWK Health" on every
   posting, so the two employers are told apart by the URL path (`/nsha/`, `/iwk/`,

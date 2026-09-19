@@ -56,7 +56,7 @@ export type JobRow = {
 
 /** Lower number wins. Direct ATS beats Job Bank beats Adzuna. */
 export function sourcePriority(sourceId: string): number {
-  if (/^(workday|taleo|icims|jibe|successfactors):/.test(sourceId)) return 0;
+  if (/^(workday|taleo|icims|jibe|successfactors|oraclecloud):/.test(sourceId)) return 0;
   if (sourceId === 'jobbank') return 1;
   return 2;
 }
