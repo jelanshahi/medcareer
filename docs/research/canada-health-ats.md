@@ -16,6 +16,7 @@ re-check a row before trusting it.
 | [taleo.ts](../../workers/connectors/taleo.ts) | Alberta Health Services, Covenant Health (**inactive — blocked, see below**) | HTML search pages + one page per posting | ~110 list pages + new postings |
 | [icims.ts](../../workers/connectors/icims.ts) | Vancouver Coastal Health, Humber River, Mackenzie, Cambridge Memorial | Sitemap + one page per posting | 1 sitemap + new postings |
 | [jibe.ts](../../workers/connectors/jibe.ts) | Fraser Health | JSON API, whole postings, 100 at a time | ~22, no per-posting fetches |
+| [successfactors.ts](../../workers/connectors/successfactors.ts) | Nova Scotia Health, IWK Health | Paged search HTML + one page per posting | ~10 search pages + new postings |
 
 ## Province by province
 
@@ -45,7 +46,7 @@ and crawlable, no connector yet; **unchecked** = system identified, crawl permis
 | **SK** | Saskatchewan Health Authority | Oracle Cloud Recruiting | unchecked | One connector covers the province |
 | **MB** | Shared Health / healthcareersmanitoba.ca | Taleo | unchecked | |
 | **MB** | Winnipeg Regional Health Authority | SAP SuccessFactors | unchecked | |
-| **NS** | Nova Scotia Health **and** IWK Health | SAP SuccessFactors (`jobs.nshealth.ca`) | available | Both employers on one site — see below |
+| **NS** | Nova Scotia Health **and** IWK Health | SAP SuccessFactors (`jobs.nshealth.ca`) | live | Both employers on one site — see below |
 | **NB** | Horizon and Vitalité (`nbhealthjobs.ca`) | Salesforce (`nbhealthjobs.my.site.com`) | unchecked | Both employers, so the whole province |
 | **NL** | NL Health Services | ServiceNow (`nlhs.service-now.com/nlhsjobs`) | unchecked | |
 | **PE** | Health PEI | PEI government job site (`jobspei.ca`) | unchecked | Site blocked automated requests during research |
@@ -112,7 +113,7 @@ Run this before writing any connector. It has caught a blocker twice.
    at each employer on a shared site.
 7. **Volume within 30 days** — how many postings we would actually store.
 
-## Nova Scotia — checked 18 Sep 2026, ready to build
+## Nova Scotia — checked 18 Sep 2026, live since 19 Sep 2026
 
 - **Site:** `jobs.nshealth.ca`, SAP SuccessFactors, three career sites on one host:
   `/nsha/` (159 postings), `/iwk/` (44) and `/physicians/` (9).
