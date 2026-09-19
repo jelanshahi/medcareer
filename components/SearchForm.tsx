@@ -1,5 +1,7 @@
 import { SORTS, type SearchParams } from '@/lib/schemas/search-params';
+import type { ProvinceCode } from '@/lib/types';
 import { HiddenFilterFields } from '@/components/HiddenFilterFields';
+import { ProvinceCitySelect } from '@/components/ProvinceCitySelect';
 import { CONTAINER, FIELD, PILL_PRIMARY } from '@/lib/ui/styles';
 
 const SORT_LABELS: Record<(typeof SORTS)[number], string> = {
@@ -16,7 +18,15 @@ const SORT_LABELS: Record<(typeof SORTS)[number], string> = {
  * (category, employment type, employer) and the sidebar form replicates the
  * ones it does not render (q, sort, city). Without that, submitting either
  * form would silently clear the other's selections. */
-export function SearchForm({ params, cities, region }: { params: SearchParams; cities: string[]; region: string }) {
+export function SearchForm({
+  params,
+  citiesByProvince,
+  region,
+}: {
+  params: SearchParams;
+  citiesByProvince: Partial<Record<ProvinceCode, string[]>>;
+  region: string;
+}) {
   return (
     <form method="get" action="/jobs" className={`${CONTAINER} flex flex-wrap items-center gap-2.5 py-4`}>
       <HiddenFilterFields
@@ -38,11 +48,13 @@ export function SearchForm({ params, cities, region }: { params: SearchParams; c
         />
       </div>
 
-      <label htmlFor="city" className="sr-only">City</label>
-      <select id="city" name="city" defaultValue={params.city?.[0] ?? ''} className={`${FIELD} flex-1 basis-[150px]`}>
-        <option value="">All of {region}</option>
-        {cities.map((c) => <option key={c} value={c}>{c}</option>)}
-      </select>
+      <ProvinceCitySelect
+        citiesByProvince={citiesByProvince}
+        cityName="city"
+        allCityLabel={`All of ${region}`}
+        defaultCity={params.city?.[0] ?? ''}
+        selectClassName={`${FIELD} flex-1 basis-[130px]`}
+      />
 
       <label htmlFor="sort" className="sr-only">Sort by</label>
       <select id="sort" name="sort" defaultValue={params.sort} className={`${FIELD} flex-1 basis-[150px]`}>

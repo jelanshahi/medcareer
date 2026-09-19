@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { createServerClient } from '@/lib/db/server';
 import { selectAll } from '@/lib/db/select-all';
-import { regionName } from '@/lib/provinces';
+import { groupCitiesByProvince, regionName } from '@/lib/provinces';
 import { CATEGORIES, CATEGORY_LABELS } from '@/lib/taxonomy/categories';
 import { EMPLOYMENT_TYPES, EMPLOYMENT_LABELS } from '@/lib/taxonomy/employment';
 import { tally, type FacetRow } from '@/lib/jobs/facets';
@@ -10,6 +10,7 @@ import { PostedTodayCard, type PostedTodayJob } from '@/components/PostedTodayCa
 import { Stat } from '@/components/Stat';
 import { DisciplineTile } from '@/components/DisciplineTile';
 import { JobAlertForm } from '@/components/JobAlertForm';
+import { ProvinceCitySelect } from '@/components/ProvinceCitySelect';
 import { EYEBROW, FIELD, H2, PILL_OUTLINE, PILL_PRIMARY, SECTION } from '@/lib/ui/styles';
 
 export const dynamic = 'force-dynamic';
@@ -54,6 +55,7 @@ export default async function HomePage() {
   const totalActive = rows.length;
   const employerNames = [...new Set(rows.map((r) => r.employer_name))].sort();
   const cities = [...new Set(rows.map((r) => r.city))].sort();
+  const citiesByProvince = groupCitiesByProvince(rows);
   const categoryCounts = tally(rows, 'category');
   const typeCounts = tally(rows, 'employment_type');
 
@@ -130,11 +132,13 @@ export default async function HomePage() {
                 className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[17px] outline-offset-[6px]"
               />
             </div>
-            <label htmlFor="hero-city" className="sr-only">City</label>
-            <select id="hero-city" name="city" className={`${FIELD} flex-1 basis-[150px]`}>
-              <option value="">All of {region}</option>
-              {cities.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
+            <ProvinceCitySelect
+              citiesByProvince={citiesByProvince}
+              cityName="city"
+              idPrefix="hero-city"
+              allCityLabel={`All of ${region}`}
+              selectClassName={`${FIELD} flex-1 basis-[130px]`}
+            />
             <button type="submit" className={`${PILL_PRIMARY} flex-1 basis-[130px] rounded-xl`}>
               Search
             </button>
@@ -212,7 +216,7 @@ export default async function HomePage() {
               </h2>
             </div>
 
-            <JobAlertForm region={region} cities={cities} />
+            <JobAlertForm region={region} citiesByProvince={citiesByProvince} />
           </div>
         </div>
       </section>

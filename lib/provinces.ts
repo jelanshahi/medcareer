@@ -61,3 +61,22 @@ export function provinceOfCity(rows: ReadonlyArray<{ city: string; province: str
   for (const r of rows) if (r.city === city) counts.set(r.province, (counts.get(r.province) ?? 0) + 1);
   return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 }
+
+/** Every active city, grouped by province, for the two-step province-then-city
+ *  picker (components/ProvinceCitySelect.tsx). Only provinces with at least
+ *  one active job appear as keys, and each city list is deduplicated and
+ *  sorted — the same shape a flat `[...new Set(rows.map(r => r.city))].sort()`
+ *  already produced, just partitioned first. */
+export function groupCitiesByProvince(
+  rows: ReadonlyArray<{ city: string; province: string }>,
+): Partial<Record<ProvinceCode, string[]>> {
+  const out: Partial<Record<ProvinceCode, string[]>> = {};
+  for (const r of rows) {
+    const code = r.province as ProvinceCode;
+    (out[code] ??= []).push(r.city);
+  }
+  for (const code of Object.keys(out) as ProvinceCode[]) {
+    out[code] = [...new Set(out[code])].sort();
+  }
+  return out;
+}

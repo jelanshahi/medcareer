@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { createServerClient } from '@/lib/db/server';
 import { selectAll } from '@/lib/db/select-all';
-import { loadRegion, provinceName } from '@/lib/provinces';
+import { groupCitiesByProvince, loadRegion, provinceName } from '@/lib/provinces';
 import { parseSearchParams, PAGE_SIZE, type SearchParams } from '@/lib/schemas/search-params';
 import { CATEGORIES, CATEGORY_LABELS, type Category } from '@/lib/taxonomy/categories';
 import { EMPLOYMENT_TYPES, EMPLOYMENT_LABELS, type EmploymentType } from '@/lib/taxonomy/employment';
@@ -59,6 +59,10 @@ export async function generateMetadata(props: PageProps<'/jobs'>): Promise<Metad
 
 const RESULT_COLUMNS =
   'slug,title,employer_name,facility_name,city,province,category,employment_type,salary_min,salary_max,salary_period,posted_at';
+
+// FacetRow (lib/jobs/facets.ts) doesn't carry province — only this page needs
+// it, to group the city filter under a province step (ProvinceCitySelect).
+type PageFacetRow = FacetRow & { province: string };
 
 type Chip = { key: string; label: string; href: string };
 
@@ -127,8 +131,8 @@ export default async function JobsPage(props: PageProps<'/jobs'>) {
   // faceted-search behaviour) without a round trip per facet value. Counting
   // in JS is cheap next to a round trip per facet, but the active set is past
   // PostgREST's 1000-row cap, so the read is paged.
-  const facetQuery = selectAll<FacetRow>((from, to) => {
-    let q = db.from('jobs').select('category,city,employment_type,employer_name').eq('is_active', true);
+  const facetQuery = selectAll<PageFacetRow>((from, to) => {
+    let q = db.from('jobs').select('category,city,employment_type,employer_name,province').eq('is_active', true);
     if (params.q) q = q.textSearch('search_vector', params.q, { type: 'websearch' });
     return q.order('id').range(from, to);
   });
@@ -174,7 +178,7 @@ export default async function JobsPage(props: PageProps<'/jobs'>) {
     checked: params.employer?.includes(e) ?? false,
   }));
 
-  const cities = [...new Set(rows.map((r) => r.city))].sort();
+  const citiesByProvince = groupCitiesByProvince(rows);
 
   const chips = buildChips(params);
   const total = count ?? 0;
@@ -185,7 +189,7 @@ export default async function JobsPage(props: PageProps<'/jobs'>) {
   return (
     <>
       <div className="border-b border-[var(--color-rule)] bg-[var(--color-surface)]">
-        <SearchForm params={params} cities={cities} region={region} />
+        <SearchForm params={params} citiesByProvince={citiesByProvince} region={region} />
       </div>
 
       <div className={`${CONTAINER} flex flex-wrap items-start gap-7 pb-[72px] pt-6`}>

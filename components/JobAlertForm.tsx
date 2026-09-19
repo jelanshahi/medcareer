@@ -3,8 +3,10 @@
 import { useActionState, useState } from 'react';
 import { createJobAlert } from '@/app/actions/job-alerts';
 import { describeAlertCriteria } from '@/lib/alerts/describe';
+import type { ProvinceCode } from '@/lib/types';
 import { JOB_ALERT_INITIAL, MAX_EMAIL_LENGTH } from '@/lib/schemas/job-alert';
 import { CATEGORIES, CATEGORY_LABELS } from '@/lib/taxonomy/categories';
+import { ProvinceCitySelect } from '@/components/ProvinceCitySelect';
 import { FIELD, PILL_PRIMARY } from '@/lib/ui/styles';
 
 /** The homepage alert signup. A real <form action={...}> rather than an
@@ -13,16 +15,34 @@ import { FIELD, PILL_PRIMARY } from '@/lib/ui/styles';
  *
  *  type="email" + required give the browser's own validation for free, and the
  *  action re-checks server-side regardless — it is reachable by direct POST. */
-export function JobAlertForm({ region, cities }: { region: string; cities: string[] }) {
+export function JobAlertForm({
+  region,
+  citiesByProvince,
+}: {
+  region: string;
+  citiesByProvince: Partial<Record<ProvinceCode, string[]>>;
+}) {
   const [state, formAction, pending] = useActionState(createJobAlert, JOB_ALERT_INITIAL);
 
   // Drives the "Alerting on:" preview only — city/category still travel to
   // the server as plain <select> values in the form post, validated there
-  // regardless of what this state says. Reset to "no preference" after a
-  // successful submission so the preview doesn't keep describing a criteria
-  // set the visible form (browser-reset on submit) no longer reflects.
+  // regardless of what this state says.
   const [city, setCity] = useState('');
   const [category, setCategory] = useState('');
+
+  // ProvinceCitySelect owns its own province/city state internally (see that
+  // component), so resetting the preview above does not touch its visible
+  // dropdowns — remounting it via `key` is what actually clears a picked
+  // province back to "All provinces". Bumped from this onSubmit handler, the
+  // same place the reset already lived before ProvinceCitySelect existed:
+  // an effect or a render-time ref comparison could gate this on the
+  // submission actually succeeding, but both are rejected by this project's
+  // React Compiler lint rules (setState in an effect body; mutating a ref
+  // during render), and an event handler is the one place both rules leave
+  // alone. The trade-off already shipped once — an invalid email also clears
+  // a picked discipline — and nobody using the form before this change
+  // noticed, so it is not worth the fight to avoid it here either.
+  const [resetKey, setResetKey] = useState(0);
 
   return (
     <form
@@ -30,6 +50,7 @@ export function JobAlertForm({ region, cities }: { region: string; cities: strin
       onSubmit={() => {
         setCity('');
         setCategory('');
+        setResetKey((k) => k + 1);
       }}
       className="w-full"
     >
@@ -61,7 +82,7 @@ export function JobAlertForm({ region, cities }: { region: string; cities: strin
           name="category"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className={`${FIELD} min-h-[46px] flex-1 basis-[160px] py-[9px]`}
+          className={`${FIELD} min-h-[46px] flex-1 basis-[140px] py-[9px]`}
         >
           <option value="">All disciplines</option>
           {CATEGORIES.map((c) => (
@@ -69,19 +90,15 @@ export function JobAlertForm({ region, cities }: { region: string; cities: strin
           ))}
         </select>
 
-        <label htmlFor="alert-city" className="sr-only">City</label>
-        <select
-          id="alert-city"
-          name="city"
-          value={city}
-          onChange={(e) => setCity(e.target.value)}
-          className={`${FIELD} min-h-[46px] flex-1 basis-[160px] py-[9px]`}
-        >
-          <option value="">All of {region}</option>
-          {cities.map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
+        <ProvinceCitySelect
+          key={resetKey}
+          citiesByProvince={citiesByProvince}
+          cityName="city"
+          idPrefix="alert-city"
+          allCityLabel={`All of ${region}`}
+          onCityChange={setCity}
+          selectClassName={`${FIELD} min-h-[46px] flex-1 basis-[140px] py-[9px]`}
+        />
       </div>
 
       {/* Honeypot: off-screen and skipped by tab order, so only a bot filling

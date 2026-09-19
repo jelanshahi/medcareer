@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { provinceName, provinceOfCity, regionName } from '@/lib/provinces';
+import { groupCitiesByProvince, provinceName, provinceOfCity, regionName } from '@/lib/provinces';
 import { categoryBlurb } from '@/lib/taxonomy/blurbs';
 
 describe('regionName', () => {
@@ -29,6 +29,40 @@ describe('provinceOfCity', () => {
     ];
     expect(provinceOfCity(rows, 'Edmonton')).toBe('AB');
     expect(provinceOfCity(rows, 'Calgary')).toBeNull();
+  });
+});
+
+describe('groupCitiesByProvince', () => {
+  // ProvinceCitySelect (components/ProvinceCitySelect.tsx) narrows its city
+  // list to whichever province key is present here, so the grouping is the
+  // entire correctness of the province step.
+  const rows = [
+    { city: 'Toronto', province: 'ON' },
+    { city: 'Hamilton', province: 'ON' },
+    { city: 'Toronto', province: 'ON' }, // a repeat, from a second job posting
+    { city: 'Calgary', province: 'AB' },
+  ];
+
+  it('partitions cities under their own province', () => {
+    expect(groupCitiesByProvince(rows)).toEqual({
+      ON: ['Hamilton', 'Toronto'],
+      AB: ['Calgary'],
+    });
+  });
+
+  it('deduplicates a city that appears on more than one row', () => {
+    const grouped = groupCitiesByProvince(rows);
+    expect(grouped.ON).toEqual(['Hamilton', 'Toronto']);
+  });
+
+  it('never produces a key for a province with no rows', () => {
+    // ProvinceCitySelect lists every key as a province option — a stray
+    // empty-array entry would render a province with nothing under it.
+    expect(groupCitiesByProvince(rows)).not.toHaveProperty('BC');
+  });
+
+  it('returns an empty object for no rows, not a thrown error', () => {
+    expect(groupCitiesByProvince([])).toEqual({});
   });
 });
 
