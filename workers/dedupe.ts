@@ -60,11 +60,21 @@ export type JobRow = {
   updated_at: string;
 };
 
-/** Lower number wins. Direct ATS beats Job Bank beats Adzuna. */
+/**
+ * Lower number wins. A direct ATS feed beats an aggregator: it is the employer's own record
+ * and carries the real apply URL.
+ *
+ * Written as "anything that is not a known aggregator", rather than as a list of ATS
+ * platforms to keep up to date. The list version had already fallen behind — it matched
+ * `successfactors:` but not `successfactors_mb:`, so all 853 Manitoba postings were scoring
+ * *below* Adzuna, and `bchealthjobs:` would have joined them. It cost nothing while no
+ * fingerprint spanned two sources (crossSourceMerges has been 0 every run), but the first
+ * time one did it would have quietly picked the aggregator as canonical.
+ */
+const AGGREGATOR_PRIORITY: Record<string, number> = { jobbank: 1, adzuna: 2 };
+
 export function sourcePriority(sourceId: string): number {
-  if (/^(workday|taleo|icims|jibe|successfactors|oraclecloud):/.test(sourceId)) return 0;
-  if (sourceId === 'jobbank') return 1;
-  return 2;
+  return AGGREGATOR_PRIORITY[sourceId.split(':')[0]] ?? 0;
 }
 
 export function pickCanonical(rows: RawRow[]): RawRow {

@@ -23,6 +23,19 @@ describe('sourcePriority', () => {
     expect(sourcePriority('workday:shn')).toBeLessThan(sourcePriority('jobbank'));
     expect(sourcePriority('jobbank')).toBeLessThan(sourcePriority('adzuna'));
   });
+
+  it('ranks every direct ATS platform above the aggregators, not just the ones once listed', () => {
+    // A hand-maintained list of platforms had already missed successfactors_mb, dropping all
+    // 853 Manitoba postings below Adzuna. Any platform we have not named as an aggregator is
+    // a direct feed.
+    for (const sourceId of [
+      'workday:shn', 'taleo:ahs', 'icims:vch', 'jibe:fraser',
+      'successfactors:nsh', 'successfactors_mb:mb', 'bchealthjobs:interior', 'oraclecloud:sk',
+      'somethingwehavenotbuiltyet:x',
+    ]) {
+      expect(sourcePriority(sourceId)).toBeLessThan(sourcePriority('jobbank'));
+    }
+  });
 });
 
 describe('pickCanonical', () => {

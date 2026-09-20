@@ -18,6 +18,7 @@ re-check a row before trusting it.
 | [jibe.ts](../../workers/connectors/jibe.ts) | Fraser Health | JSON API, whole postings, 100 at a time | ~22, no per-posting fetches |
 | [successfactors.ts](../../workers/connectors/successfactors.ts) | Nova Scotia Health, IWK Health | Paged search HTML + one page per posting | ~10 search pages + new postings |
 | [successfactors-mb.ts](../../workers/connectors/successfactors-mb.ts) | The shared Manitoba site — ~30 employers | Paged search HTML + one page per posting | ~35 search pages + new postings |
+| [bchealthjobs.ts](../../workers/connectors/bchealthjobs.ts) | Interior Health, Northern Health | Sitemap + one page per posting | 1 sitemap + new postings |
 | [oraclecloud.ts](../../workers/connectors/oraclecloud.ts) | Saskatchewan Health Authority | REST API, 200 requisitions per request | ~11 list requests + new postings |
 
 ## Province by province
@@ -40,11 +41,11 @@ connector yet; **unchecked** = system identified, crawl permission not tested.
 | **ON** | ~48 smaller hospitals | None — email or PDF | n/a | Cannot be integrated at all |
 | **BC** | Fraser Health | iCIMS via Jibe board | live | |
 | **BC** | Vancouver Coastal Health | iCIMS | live | |
-| **BC** | Island Health | HRSmart (`islandhealth.hua.hrsmart.com`) | unchecked | |
-| **BC** | Interior Health, Northern Health | Shared custom system (`jobs.interiorhealth.ca`, `jobs.northernhealth.ca`) | unchecked | One connector should cover both |
-| **BC** | PHSA (BC Children's, BC Cancer) | Own Drupal site (`jobs.phsa.ca`) | unchecked | Covers several provincial programs |
-| **BC** | Providence Health Care | Unknown | unchecked | Site blocked automated requests during research |
-| **BC** | First Nations Health Authority | PeopleSoft | unchecked | Small |
+| **BC** | Island Health | HRSmart (`islandhealth.hua.hrsmart.com`) | **blocked** | robots.txt allows Googlebot and disallows everyone else. See below |
+| **BC** | Interior Health **and** Northern Health | Shared unbranded ASP.NET app (`jobs.interiorhealth.ca`, `expectmore.northernhealth.ca`) | live | One connector covers both — see below |
+| **BC** | PHSA (BC Children’s, BC Cancer) | Behind CloudFront (`jobs.phsa.ca`) | **blocked** | 403 to our User-Agent, 200 to a browser. See below |
+| **BC** | Providence Health Care | Behind CloudFront (`www.providencehealthcare.org`) | **blocked** | Same 403-to-bots pattern as PHSA. See below |
+| **BC** | First Nations Health Authority | None of its own | not viable | Its jobs page links out to member organisations’ own systems (Prevue, ScouteRecruit) — a handful of postings across several |
 | **AB** | Alberta Health Services, Covenant Health | Taleo behind SelectMinds | **blocked** | See below. Rows seeded inactive in the database |
 | **SK** | Saskatchewan Health Authority | Oracle Cloud Recruiting | live | The whole province: ~2,120 open, ~1,300 within 30 days |
 | **MB** | ~30 employers on one shared site | SAP SuccessFactors (`careers.wrha.mb.ca`) | live | Almost the whole province — see below |
@@ -130,6 +131,29 @@ Consequence for the code: `sourcePriority()` in [dedupe.ts](../../workers/dedupe
 `jobbank` source below direct ATS feeds, which reads like a plan to add one. There is no such
 plan. Leave the branch alone — it is harmless — but nothing should ever emit that source id.
 
+**Island Health** (`islandhealth.hua.hrsmart.com`) runs HRSmart and names exactly one crawler
+it will accept:
+
+```
+User-agent: Googlebot
+Allow: /
+
+User-agent: *
+Disallow: /
+```
+
+We match the second group, so the site is closed to us. This is a deliberate allow-list rather
+than a blanket block, which makes it a good candidate to ask: they already accept one identified
+crawler and would only be adding a second. Checked 20 Sep 2026.
+
+**PHSA** (`jobs.phsa.ca`) and **Providence Health Care** (`www.providencehealthcare.org`) both sit
+behind CloudFront and answer **403 to our User-Agent while serving a browser normally** — the same
+pattern as Alberta Health Services. For PHSA the difference is stark: `robots.txt` itself returns
+403 to `MedCareerBot` and 200 to Chrome. RFC 9309 says a crawler that cannot fetch robots.txt must
+treat the site as disallowed, and in any case we do not disguise the crawler, so both are closed.
+Like Alberta, this is a WAF rule rather than a stated policy, so it is worth asking rather than
+assuming they meant to exclude us. Checked 20 Sep 2026.
+
 **Fraser Health's iCIMS site** (`careers-fraserhealth.icims.com`) disallows all crawling in
 robots.txt. Their public board (`jobs.fraserhealth.ca`) allows it and carries the same jobs,
 so we use that and send applicants there too.
@@ -166,6 +190,22 @@ Every connector works around something. Do not assume a field means what it says
   ("$22.002, $22.645, $23.307"), not a range; plenty of postings just say "As per MNU
   Collective Agreement". Labels are spelled inconsistently between employers
   ("Department / Unit" and "Department/Unit", "Anticipated shift" and "Anticipated Shift").
+- **The shared BC app (Interior, Northern)** — the JSON-LD misspells its own id field as
+  `"identifer"`, so the job id is taken from the URL instead. `datePosted` is not ISO 8601:
+  month and day are unpadded ("2026-9-18"), which `new Date` parses in local time and can shift
+  back a day, so it is split and rebuilt in UTC. Northern Health writes `addressLocality` as
+  "Prince George, BC" where Interior writes plain "Castlegar", so the province suffix is stripped.
+  Facility and department are shouted and abbreviated ("CASTLEGAR DIST HLTH CTR"), and are title
+  cased for display. Neither authority states a **shift** anywhere — not in the JSON-LD, the
+  labelled fields, or the prose — so shift is left empty rather than guessed. Above all, both
+  leave requisitions **open until filled**: 83% of each sitemap is older than 30 days, the oldest
+  from 2023, so most of what they list never enters the ingest window. **Northern Health
+  shouts every job title** ("REGISTERED NURSE (RN), MED SURG") where Interior Health does not —
+  117 of Northern's 118 postings against 0 of Interior's 216 — so a title that is entirely
+  uppercase is title cased for display, preserving clinical acronyms and grade numerals
+  ("Activity Worker II", not "Ii"). **Close Date** is a bare day ("SEPTEMBER 20, 2026") and has
+  to be anchored to the *end* of it: it becomes `expires_at`, so reading it as midnight would
+  take a posting off the site at the start of the day it actually closes.
 - **SuccessFactors (Nova Scotia)** — `addressRegion` is truncated to "Nova", so province comes
   from the registry. `hiringOrganization` says "Nova Scotia Health and IWK Health" on every
   posting, so the two employers are told apart by the URL path (`/nsha/`, `/iwk/`,
@@ -368,3 +408,95 @@ connector to run.
 
 **Asked: not yet sent (as of 20 Sep 2026).** Record the date here when it goes out, the way the
 Alberta ask is recorded above.
+
+## British Columbia — Interior and Northern, checked 20 Sep 2026, live since 20 Sep 2026
+
+BC was never one system, and after this pass it is three groups: two authorities we already had
+(Fraser, Vancouver Coastal), two we have just added, and three that refuse our crawler.
+
+### One app, two authorities, no vendor
+
+Interior Health and Northern Health run the same careers application — byte-for-byte the same
+markup, the same URL scheme, the same field card. It carries no vendor name anywhere: no
+`generator` meta, no third-party asset host, no branding in the footer. The signature to
+recognise it by is the **`/ViewJobPosting/{id}`** URL, so if a third BC authority turns up on it,
+it belongs on [bchealthjobs.ts](../../workers/connectors/bchealthjobs.ts) rather than a new
+connector.
+
+| | Interior Health | Northern Health |
+|---|---|---|
+| Host | `jobs.interiorhealth.ca` | `expectmore.northernhealth.ca` |
+| Postings listed | ~1,354 | ~657 |
+| Within the 30-day window | ~232 | ~118 |
+| Default city | Kelowna | Prince George |
+
+`jobs.northernhealth.ca` is an alias that redirects to `expectmore.northernhealth.ca`; the
+sitemap gives the canonical host, and the registry uses it.
+
+### Why the posting count and the job count are so far apart
+
+Both authorities leave requisitions **open until filled** — "OPEN UNTIL FILLED" is the Close Date
+on most postings — and never retire them from the sitemap. The oldest entry is from **April 2023**.
+Against the 30-day ingest cutoff that means **83% of what they list never enters the window**: 2,011
+postings become roughly 350 jobs.
+
+That is a much bigger gap than anywhere else we crawl, and worth knowing before anyone reads the
+sitemap counts as a forecast. It is also the strongest argument for the cutoff: a 2023 requisition
+still sitting on the board is not a vacancy an applicant should be sent to.
+
+The saving grace is that the cutoff can be applied **before** fetching anything. The sitemap's
+`<lastmod>` equals the posting's own `datePosted` — checked on 10 postings spread across 3.5
+years, exact on all 10 — and `lastmod` is never bumped, or nothing would still read 2023. So the
+connector reads one sitemap, drops the 83%, and hydrates only what is left, the way
+[icims.ts](../../workers/connectors/icims.ts) does.
+
+### What the postings give us
+
+Each page carries schema.org JobPosting as JSON-LD, plus a labelled card the employer fills in:
+Competition #, Employee Type, Bargaining Unit, Facility, Location, Department, Reports To, Close
+Date, and — on about half — Hourly Wage.
+
+- **Employment type** comes from Employee Type, which combines the engagement and the hours:
+  "PERMANENT FULL TIME", "RELIEF FULL TIME", "TERM SPECIFIC FULL TIME", "CASUAL", "PERMANENT PART
+  TIME (0.50 FTE)". The engagement wins — "relief" is BC health's word for covering someone
+  else's line, so RELIEF FULL TIME is casual work, not full time.
+- **Pay** is a clean hourly range ("$27.26 - $29.16") where it is stated at all. Roughly half of
+  postings quote none.
+- **Facility** is the one field the site gives that most others do not, and it is on every
+  posting. It needs handling, though: it arrives shouted, abbreviated, and **truncated by the
+  source at about 25 characters** — "DAWSON CREEK & DIST HOSPI" and "GR BAKER MEMORIAL HOSP CO"
+  are cut off in the data we are given, not by us. It is title cased for display, with joining
+  words kept lowercase and the province code kept upper ("UNIV. HOSPITAL OF N. BC" would
+  otherwise read "Univ. Hospital Of N. Bc", and it is the commonest facility of the two
+  authorities). Real acronyms still come out title cased — "Fsj Hosp/Health Centre" for Fort
+  St. John — because nothing distinguishes them from the vowel-less abbreviations beside them
+  (Hlth, Ctr, Rgnl, Bndry) that read better that way. About 8 postings give the facility as
+  "FLEXIBLE", meaning no fixed site; that is stored as no facility rather than as a place.
+- **Shift** is stated nowhere, so it stays empty. This is the only live connector with no shift
+  data at all.
+- **Close Date** is "OPEN UNTIL FILLED" on most postings and a bare day on the rest. Where it is
+  a day, it is stored as 23:59:59 Pacific on that day rather than its midnight, so a posting is
+  never expired while it is still open — the same correction taleo.ts makes for Alberta. The
+  offset is fixed at -08:00: BC is -07:00 under daylight time, so in summer a posting lives one
+  extra hour rather than dying an hour early, which is the safe direction.
+- **Titles** arrive shouted from Northern Health and normally cased from Interior Health, so
+  fully-uppercase titles are title cased. Clinical acronyms (RN, LPN, ICU, MRI) and grade
+  numerals (II, III) are preserved.
+
+See the gotchas list above for the misspelled `"identifer"` key, the unpadded `datePosted`, and
+Northern Health's "Prince George, BC" locality.
+
+### What BC is still missing
+
+Three authorities refuse the crawler, and all three are worth asking rather than writing off,
+because none of them states a policy against us — they are a robots.txt allow-list and two WAF
+rules:
+
+- **Island Health** — robots.txt admits Googlebot and no one else. They already accept one
+  identified crawler.
+- **PHSA** (BC Children's, BC Cancer, BC Women's) — 403 to our User-Agent, 200 to a browser.
+- **Providence Health Care** (St. Paul's) — the same.
+
+The First Nations Health Authority has no board of its own; its jobs page links out to member
+organisations on Prevue and ScouteRecruit, a handful of postings across several systems, so it is
+not worth a connector.
