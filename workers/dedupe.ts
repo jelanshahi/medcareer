@@ -8,8 +8,14 @@ import type { NormalizedPosting } from '@/lib/types';
 
 const EXPIRY_DAYS = 60;
 const SELECT_PAGE_SIZE = 1000;
-/** Rows per upsert request. Keeps each request well clear of Supabase's payload limits. */
-const WRITE_CHUNK_SIZE = 500;
+/**
+ * Rows per upsert request. Payload size is not the binding limit — Postgres' statement
+ * timeout is. At 500 a chunk of full job descriptions upserted on a unique index started
+ * failing with "canceling statement due to statement timeout" once the table passed ~4,000
+ * jobs (Manitoba's 853 took it there), silently dropping 500 jobs from a run that otherwise
+ * reported success.
+ */
+const WRITE_CHUNK_SIZE = 200;
 
 /**
  * NormalizedPosting as it round-trips through jsonb: Date fields come back

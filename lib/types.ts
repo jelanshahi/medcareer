@@ -19,6 +19,13 @@ export type JobStub = {
    * date leave it undefined and are filtered after hydration instead.
    */
   postedAt?: Date;
+  /**
+   * Values the list page states that the posting itself may not. The shared Manitoba site
+   * is the case: the employing organization and the employment status are columns in the
+   * search results, and many postings state neither in their own text. `hydrate` folds
+   * these into the record it returns, so `normalize` stays pure.
+   */
+  listFields?: Record<string, string>;
 };
 
 /** The single shape the rest of the system knows about. */

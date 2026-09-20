@@ -52,7 +52,7 @@ const FIELD_LABELS = [
 
 const text = (html: string) => parse(html).text.replace(/\s+/g, ' ').trim();
 
-function requireHost(url: string, host: string): URL {
+export function requireHost(url: string, host: string): URL {
   const parsed = new URL(url);
   if (parsed.protocol !== 'https:' || parsed.host !== host) {
     throw new Error(`URL "${url}" is not on registry host "${host}"`);
@@ -111,7 +111,7 @@ export function parseDescriptionFields(descriptionText: string): Record<string, 
 }
 
 /** "Sat Sep 26 03:00:00 UTC 2026", the format the microdata uses. */
-function parseMicrodataDate(value: string | undefined): Date | undefined {
+export function parseMicrodataDate(value: string | undefined): Date | undefined {
   if (!value) return undefined;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? undefined : date;

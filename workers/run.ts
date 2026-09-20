@@ -7,6 +7,7 @@ import { createIcimsConnector, type IcimsEmployer } from '@/workers/connectors/i
 import { createJibeConnector, type JibeEmployer } from '@/workers/connectors/jibe';
 import { createOracleCloudConnector, type OracleCloudEmployer } from '@/workers/connectors/oraclecloud';
 import { createSuccessFactorsConnector, type SuccessFactorsEmployer } from '@/workers/connectors/successfactors';
+import { createSuccessFactorsMbConnector, type SuccessFactorsMbEmployer } from '@/workers/connectors/successfactors-mb';
 import { createTaleoConnector, type TaleoEmployer } from '@/workers/connectors/taleo';
 import type { Connector } from '@/workers/connectors/types';
 import { createWorkdayConnector, type WorkdayEmployer } from '@/workers/connectors/workday';
@@ -54,6 +55,12 @@ const SuccessFactorsAtsConfigSchema = z.object({
   sites: z.array(z.string().min(1)).min(1),
 });
 
+/** The shared Manitoba site is one career site at the host root, carrying many employers. */
+const SuccessFactorsMbAtsConfigSchema = z.object({
+  key: z.string().min(1),
+  host: z.string().min(1),
+});
+
 /** Oracle Cloud Recruiting: `site` is the career site number, e.g. "CX_1001". */
 const OracleCloudAtsConfigSchema = z.object({
   key: z.string().min(1),
@@ -74,6 +81,7 @@ const EmployerRowSchema = z.discriminatedUnion('ats_platform', [
   EmployerBaseSchema.extend({ ats_platform: z.literal('icims'), ats_config: BoardAtsConfigSchema }),
   EmployerBaseSchema.extend({ ats_platform: z.literal('jibe'), ats_config: BoardAtsConfigSchema }),
   EmployerBaseSchema.extend({ ats_platform: z.literal('successfactors'), ats_config: SuccessFactorsAtsConfigSchema }),
+  EmployerBaseSchema.extend({ ats_platform: z.literal('successfactors_mb'), ats_config: SuccessFactorsMbAtsConfigSchema }),
   EmployerBaseSchema.extend({ ats_platform: z.literal('oraclecloud'), ats_config: OracleCloudAtsConfigSchema }),
 ]);
 
@@ -275,7 +283,7 @@ async function main() {
     .from('employers')
     .select('slug,name,province,default_city,ats_platform,ats_config')
     .eq('is_active', true)
-    .in('ats_platform', ['workday', 'taleo', 'icims', 'jibe', 'successfactors', 'oraclecloud']);
+    .in('ats_platform', ['workday', 'taleo', 'icims', 'jibe', 'successfactors', 'successfactors_mb', 'oraclecloud']);
 
   if (error) throw error;
 
@@ -316,6 +324,10 @@ async function main() {
       const employer: SuccessFactorsEmployer = { ...base, config: parsed.data.ats_config };
       sourceId = `successfactors:${employer.config.key}`;
       createConnector = (ctx) => createSuccessFactorsConnector(employer, ctx);
+    } else if (parsed.data.ats_platform === 'successfactors_mb') {
+      const employer: SuccessFactorsMbEmployer = { ...base, config: parsed.data.ats_config };
+      sourceId = `successfactors_mb:${employer.config.key}`;
+      createConnector = (ctx) => createSuccessFactorsMbConnector(employer, ctx);
     } else {
       const employer: OracleCloudEmployer = { ...base, config: parsed.data.ats_config };
       sourceId = `oraclecloud:${employer.config.key}`;
