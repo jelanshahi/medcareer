@@ -5,7 +5,7 @@ them, and what is odd about each system's data. Written so nobody has to redo th
 
 Ontario's 134 individual hospitals are in a separate file: [ontario-hospitals-ats.md](./ontario-hospitals-ats.md).
 
-**Last checked: 19 September 2026.** Employers change job systems every few years, so
+**Last checked: 20 September 2026.** Employers change job systems every few years, so
 re-check a row before trusting it.
 
 ## Connectors we have built
@@ -22,8 +22,9 @@ re-check a row before trusting it.
 
 ## Province by province
 
-Status: **live** = on the site; **blocked** = they refuse our crawler; **available** = checked
-and crawlable, no connector yet; **unchecked** = system identified, crawl permission not tested.
+Status: **live** = on the site; **blocked** = they refuse our crawler; **ruled out** = we have
+decided not to use it, whether or not we could; **available** = checked and crawlable, no
+connector yet; **unchecked** = system identified, crawl permission not tested.
 
 | Province | Employer | Job system | Status | Notes |
 |---|---|---|---|---|
@@ -52,13 +53,14 @@ and crawlable, no connector yet; **unchecked** = system identified, crawl permis
 | **MB** | Northern Health Region | Own WordPress listing | unchecked | Posts only 5 jobs to the shared site |
 | **NS** | Nova Scotia Health **and** IWK Health | SAP SuccessFactors (`jobs.nshealth.ca`) | live | Both employers on one site — see below |
 | **NB** | Horizon and Vitalité | **iTacit** (`horizonnb.itacit.com`, `vitalitenb.itacit.com`) | **blocked** | Not Salesforce — that site is only for internationally educated professionals. See below |
-| **NL** | NL Health Services | ServiceNow (`nlhs.service-now.com/nlhsjobs`) | unchecked | |
+| **NL** | NL Health Services | ServiceNow (`nlhs.service-now.com/nlhsjobs`) | **blocked** | One authority for the whole province. robots.txt is `Disallow: /`. See below |
 | **PE** | Health PEI | PEI government job site (`jobspei.ca`) | unchecked | Site blocked automated requests during research |
 | **QC** | MUHC | Salesforce (`carrieres.cusm.ca`) | unchecked | |
 | **QC** | Public network (CIUSSS/CISSS) | Quebec government site | unchecked | Postings in French; our category matching is English-only |
 | **YT** | Yukon Hospitals | UKG UltiPro | unchecked | |
 | **NT** | NTHSSA | Territorial government site | unchecked | |
 | **NU** | Government of Nunavut | Territorial government site | unchecked | |
+| *national* | *(any employer, any province)* | Job Bank (`jobbank.gc.ca`) | **ruled out** | Terms of Use forbid crawlers, and the owner has declined it as a source outright. Do not propose it again — see below |
 
 ## Employers who refuse our crawler
 
@@ -85,6 +87,48 @@ robots.txt, or for written permission. Checked 19 Sep 2026.
 Note the earlier research mislabelled New Brunswick as Salesforce. `nbhealthjobs.my.site.com` is a
 Salesforce site, but it only handles enquiries from internationally educated professionals — the
 job postings are on iTacit.
+
+**NL Health Services** (`nlhs.service-now.com/nlhsjobs`) serves a robots.txt that is two lines
+long and disallows the entire host:
+
+```
+User-agent: *
+Disallow: /
+```
+
+That is the whole file — 25 bytes, no per-agent exception, nothing carved out. One authority runs
+every hospital, health centre and long-term care home in the province (Eastern, Central, Western
+and Labrador-Grenfell merged into it in 2023), so this single robots.txt closes the province. The
+public site `nlhealthservices.ca` is crawlable but carries no listings at all — its careers page
+only links out to the blocked portal. Their careers team publishes an address,
+`NLHScareers@nlhealthservices.ca`, so this is a permission question like Alberta's, not a
+technical one. Checked 20 Sep 2026.
+
+**Job Bank** (`jobbank.gc.ca`) is the federal board, and it is worth writing down why we cannot
+use it, because its robots.txt invites you to. robots.txt is `User-agent: * / Crawl-delay: 5` and
+disallows nothing, the search takes a clean `?fprov=NL&page=N` GET, and every posting carries
+schema.org JobPosting as RDFa. The Terms of Use then say the opposite, in terms that name what we
+would be building:
+
+> Job Bank prohibits the use of any script, robot, spider, Web crawler, screen scraper, automated
+> query program, artificial intelligence or other automated device, software, or process to access
+> its services or otherwise interfere in any way with its operations and infrastructure.
+
+Separately, [canada.ca's terms](https://www.canada.ca/en/transparency/terms.html) allow
+non-commercial reproduction but require **prior written permission for commercial redistribution**,
+which is what this site does. So Job Bank needs written permission on two counts, and a permissive
+robots.txt does not substitute for either. Checked 20 Sep 2026.
+
+**The owner has ruled Job Bank out as a source, permission or no permission** (decided
+20 Sep 2026): too many licence conditions attached, and the postings are not reliably accurate.
+That second objection is borne out by what we found — see the date trap below, where a posting
+Job Bank dated 2026-08-07 carried the employer's own "Posted Date: 2024-12-04". This is a settled
+decision, not a blocker waiting to be cleared: **do not re-propose Job Bank**, and do not treat a
+future change in its Terms as reopening the question.
+
+Consequence for the code: `sourcePriority()` in [dedupe.ts](../../workers/dedupe.ts) ranks a
+`jobbank` source below direct ATS feeds, which reads like a plan to add one. There is no such
+plan. Leave the branch alone — it is harmless — but nothing should ever emit that source id.
 
 **Fraser Health's iCIMS site** (`careers-fraserhealth.icims.com`) disallows all crawling in
 robots.txt. Their public board (`jobs.fraserhealth.ca`) allows it and carries the same jobs,
@@ -129,19 +173,22 @@ Every connector works around something. Do not assume a field means what it says
 
 ## Pre-flight checklist for a new source
 
-Run this before writing any connector. It has caught a blocker twice.
+Run this before writing any connector. It has caught a blocker four times: Alberta, New
+Brunswick, Newfoundland and Job Bank.
 
-1. **robots.txt** — fetch it. Does it allow the job list and the postings?
-2. **Our User-Agent** — request the job list with `MedCareerBot/0.1 (+https://www.medcareer.ca/about; mailto:…)`
+1. **Terms of Use** — read them, not just robots.txt. Job Bank allows crawlers in robots.txt and
+   forbids them in its Terms; the Terms win. Check for a commercial-reuse restriction too.
+2. **robots.txt** — fetch it. Does it allow the job list and the postings?
+3. **Our User-Agent** — request the job list with `MedCareerBot/0.1 (+https://www.medcareer.ca/about; mailto:…)`
    and again with a browser User-Agent. Different status codes mean they block bots.
-3. **Crawl-delay** — honour it if stated; the connector gets its own rate limiter if it differs
+4. **Crawl-delay** — honour it if stated; the connector gets its own rate limiter if it differs
    from our default of one request per second.
-4. **How to list every posting** — a feed, sitemap, JSON API or paged HTML. Count them.
-5. **Posted date** — is there a real one, on the list or the posting? Without it the 30-day
+5. **How to list every posting** — a feed, sitemap, JSON API or paged HTML. Count them.
+6. **Posted date** — is there a real one, on the list or the posting? Without it the 30-day
    ingest cutoff cannot work, and a first crawl marks every old job "posted today".
-6. **Fields** — city, employment type, pay, closing date. Check across several postings, and
+7. **Fields** — city, employment type, pay, closing date. Check across several postings, and
    at each employer on a shared site.
-7. **Volume within 30 days** — how many postings we would actually store.
+8. **Volume within 30 days** — how many postings we would actually store.
 
 ## Nova Scotia — checked 18 Sep 2026, live since 19 Sep 2026
 
@@ -213,3 +260,111 @@ their own systems. Each needs its own connector, and none has been checked yet:
 - **Prairie Mountain Health** — `careers.pmh-mb.ca`, a custom Joomla component.
 - **Interlake-Eastern RHA** — `selfservice.ierha.ca/QSS/applicant/JobSearch.aspx`, QSS.
 - **Northern Health Region** — a WordPress listing at `northernhealthregion.com/careers/`.
+
+## Newfoundland and Labrador — checked 20 Sep 2026, blocked
+
+Newfoundland is the first province where **both** routes to the jobs are closed, and the second
+(after New Brunswick) where the blocker is permission rather than technology. No connector was
+written. Everything below is so the next person can act on it without repeating the search.
+
+### One employer, one closed door
+
+NL Health Services is the entire province. Eastern Health, Central Health, Western Health and
+Labrador-Grenfell Health were merged into it in 2023, so unlike Manitoba's thirty organisations or
+Ontario's 134 hospitals there is no second employer to fall back on. Their portal is ServiceNow at
+`nlhs.service-now.com/nlhsjobs`, and its robots.txt disallows the whole host. That is the province.
+
+`nlhealthservices.ca` is an ordinary WordPress site with a permissive robots.txt, but its
+`/careers/` page holds no postings — only links to the blocked portal, an FAQ, and an address for
+the careers team.
+
+Memorial University was checked as a possible second source and is not one: its postings sit behind
+`my.mun.ca` (login) and `mun.ca/academic-careers`, which are faculty appointments rather than
+clinical vacancies.
+
+### What is on Job Bank, and why it is not worth revisiting
+
+Job Bank carries NL Health Services' postings — **447** of them, against 1,228 jobs in the province
+altogether, which would have made Newfoundland our third-largest province ahead of Ontario's 573.
+That number is the only tempting thing about it, and it is why this section exists: so the next
+person who finds those 447 postings stops here instead of rediscovering the licence terms and the
+data problems from scratch. The recon below is evidence for the decision, not a design sketch.
+
+- **Search:** `https://www.jobbank.gc.ca/jobsearch/jobsearch?fprov=NL&page=N`. `fprov` is a clean
+  GET parameter; the `locationstring` one in the visible form is ignored and silently returns
+  national counts, which is an easy way to mis-size the opportunity by a factor of fifty.
+- **Paging:** 25 rows per page, count in `<span id="results-count">`.
+- **IDs:** `/jobsearch/jobposting/50325890`. The href carries a `;jsessionid=…` suffix that has to
+  be stripped or every run produces new IDs.
+- **Fields:** schema.org JobPosting as **RDFa attributes**, not JSON-LD — `property="datePosted"`,
+  `"hiringOrganization"`, `"addressLocality"`, `"addressRegion"`, `"baseSalary"`,
+  `"employmentType"`, `"validThrough"`. Descriptions are the employer's full text, including zone,
+  facility, competition number and union pay band.
+- **The date trap:** `datePosted` is when the job reached Job Bank, not when the employer opened
+  it. One posting checked showed `datePosted` 2026-08-07 while its own text said
+  "Posted Date: 2024-12-04" and "Closing Date: Open until filled". A 30-day ingest cutoff read off
+  `datePosted` would therefore admit requisitions that have been open for years. Any Job Bank
+  connector needs the posting's own date parsed out of the prose, the way Saskatchewan's pay band
+  is.
+- **Rate:** robots.txt asks for one request every 5 seconds, so 447 postings is roughly 40 minutes.
+
+### Every other route was checked, and there is no second door
+
+Before settling on the permission ask, these were each checked and each dead-ends at the same
+blocked portal. Recorded so nobody re-runs the search:
+
+| Checked | What it is | Outcome |
+|---|---|---|
+| `nlhealthservices.ca/careers/` | NLHS's own WordPress site | Crawlable, but holds no postings — links out to the portal |
+| `jobs.nlhealthservices.ca` | Looks like a second listing host | 302 redirect straight to the blocked portal |
+| `careers.nlhealthservices.ca` | Guessed subdomain | Does not resolve |
+| [`workinhealthnl.ca`](https://workinhealthnl.ca/) | Government-backed NL recruitment site, **fully crawlable** (`Disallow:` empty) | No vacancies of its own — recruiter contact forms and staff stories. Its whole sitemap is info pages. Links out to the portal |
+| `mun.ca` | Memorial University | Postings behind `my.mun.ca` login; academic appointments, not clinical |
+| Job Bank | Federal board | Ruled out by the owner — see above |
+
+### To unblock Newfoundland
+
+One route, one ask. NL Health Services' job pages are publicly readable by a person; only
+robots.txt stands between us and them, exactly as with Alberta. Send this to
+`NLHScareers@nlhealthservices.ca` (the address their own careers page publishes):
+
+> **Subject:** Permission for medcareer.ca to index NL Health Services job postings
+>
+> Hello,
+>
+> I run medcareer.ca, a Canadian healthcare job board. We list vacancies from health employers
+> across the country and send applicants directly to the employer's own posting to apply — we
+> don't host applications, charge applicants, or place advertising against your listings.
+>
+> We'd like to include NL Health Services. Your careers portal at nlhs.service-now.com/nlhsjobs
+> currently returns a robots.txt that disallows all automated access, so we have not crawled it
+> and won't unless you tell us we may. We'd rather ask than work around it.
+>
+> Would you be willing to permit this? Either of these works for us:
+>
+> 1. Add an exception to the portal's robots.txt for our crawler, which identifies itself as
+>    MedCareerBot; or
+> 2. Reply confirming written permission for us to index the public postings.
+>
+> How we would behave: one request per second at most, off-peak, identifying ourselves with a
+> contact address on every request. We re-check postings so that filled or closed roles come down
+> promptly, and we'd remove anything you asked us to, immediately.
+>
+> Newfoundland and Labrador is currently the only Atlantic province missing from the site — we
+> already carry Nova Scotia Health and IWK. Happy to work to whatever constraints suit you.
+>
+> Thanks for considering it,
+> [name, contact]
+
+If they say yes, the connector is a day's work: ServiceNow portals expose a JSON API behind the
+`sc_cat_item` / table endpoints the portal itself calls, so it would likely be an API connector
+closer to [oraclecloud.ts](../../workers/connectors/oraclecloud.ts) than an HTML scraper. Nothing
+was built or probed against the portal, because probing it is the thing we are asking permission
+for.
+
+Until they answer, Newfoundland stays off the site. No employer row was seeded — unlike Alberta,
+where the rows exist with `is_active = false`, there is nothing to switch on, because there is no
+connector to run.
+
+**Asked: not yet sent (as of 20 Sep 2026).** Record the date here when it goes out, the way the
+Alberta ask is recorded above.
