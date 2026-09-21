@@ -26,7 +26,7 @@ Each row's "Careers/Jobs URL" is the actual evidence for its ATS determination �
 | ATS / Platform | Count | % | Notes |
 |---|---:|---:|---|
 | **No ATS detected — direct/manual application** | 48 | 37% | Mostly smaller/rural hospitals. Postings are PDFs, inline forms, or "email your resume to..." — no third-party platform to integrate with at all. |
-| **njoyn (CGI)** | 14 | 11% | By far the largest single ATS after Workday. A widely used Canadian public-sector ATS — worth building a second connector for. |
+| **njoyn (CGI)** | 14 | 11% | **BLOCKED — do not build this connector.** Radware bot protection serves a CAPTCHA on every job *detail* page while leaving the listing open, and the listing carries neither a description nor a posted date. Verified 21 Sep 2026; see canada-health-ats.md. |
 | **Unclear — needs manual check** | 12 | 9% | Agent couldn't confirm within its lookup budget (site errors, JS-rendered listings, ad-hoc LinkedIn links). Needs a human/deeper look, not a guess. |
 | **Workday** | 3 | 2% | Already have a connector. +3 more found here (see above). |
 | **TalentPoolBuilder** | 6 | 5% | Second-largest cluster worth a dedicated connector. |
@@ -42,7 +42,9 @@ Each row's "Careers/Jobs URL" is the actual evidence for its ATS determination �
 | **BambooHR** | 2 | 2% | Groves Memorial, North Wellington. |
 | One-off platforms (19 total, 1 each) | 19 | 15% | ADP Workforce Now, AppOne, ApplyToJobs.ca, BeVital, Cadient Talent, ClearCompany/HRM Direct, Custom in-house (St. Joseph's London), HiringPlatform, HRSmart, Infor Lawson, Jobvite, Oracle Cloud Recruiting, Oracle Taleo, Prevue APS, QSS/Asurgiant, QSSLive, Scout Recruit, SurveyMonkey (informal), Workland/Atlas |
 
-**Read for strategy:** after Workday (6, zero extra cost) and njoyn (14, one connector), you've covered 20 of 134 hospitals (~15%) with two integrations. The next-best single connector (TalentPoolBuilder, 6 hospitals) has less than half njoyn's reach. Past that, it's long-tail — each additional connector buys 2-4 hospitals. The 48 "no ATS" hospitals (over a third of the province) can't be connector-integrated at all regardless of engineering effort; they'd need manual curation or the hospital adopting a real ATS.
+**Read for strategy (revised 21 Sep 2026):** the njoyn plan below did not survive its pre-flight. Njoyn is blocked by Radware on exactly the pages carrying the description and the posted date, so those 14 hospitals are unreachable and the "two integrations cover 20 hospitals" figure no longer holds. Workday (6) is done. What remains is genuine long tail: TalentPoolBuilder (6) is now the best single connector, then 2-4 hospitals apiece — and each one needs a WAF check before any code is written.
+
+**Original note, kept for its arithmetic:** after Workday (6, zero extra cost) and njoyn (14, one connector), you've covered 20 of 134 hospitals (~15%) with two integrations. The next-best single connector (TalentPoolBuilder, 6 hospitals) has less than half njoyn's reach. Past that, it's long-tail — each additional connector buys 2-4 hospitals. The 48 "no ATS" hospitals (over a third of the province) can't be connector-integrated at all regardless of engineering effort; they'd need manual curation or the hospital adopting a real ATS.
 
 ## Full results (all 131, alphabetical)
 

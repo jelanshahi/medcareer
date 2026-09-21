@@ -56,8 +56,10 @@ connector yet; **unchecked** = system identified, crawl permission not tested.
 | **NB** | Horizon and Vitalité | **iTacit** (`horizonnb.itacit.com`, `vitalitenb.itacit.com`) | **blocked** | Not Salesforce — that site is only for internationally educated professionals. See below |
 | **NL** | NL Health Services | ServiceNow (`nlhs.service-now.com/nlhsjobs`) | **blocked** | One authority for the whole province. robots.txt is `Disallow: /`. See below |
 | **PE** | Health PEI | PEI government job site (`jobspei.ca`) | unchecked | Site blocked automated requests during research |
-| **QC** | MUHC | Salesforce (`carrieres.cusm.ca`) | unchecked | |
-| **QC** | Public network (CIUSSS/CISSS) | Quebec government site | unchecked | Postings in French; our category matching is English-only |
+| **QC** | MUHC | WordPress WP Job Manager (`carrieres.cusm.ca`) | available | 86 postings, crawlable. Same setup as the CISSS sites below |
+| **QC** | Public network (~34 CISSS/CIUSSS) | **Four platforms, no single site** | available | All crawlable, but fragmented and entirely in French — see below |
+| **QC** | Santé Québec central portal | DigitalRecruiters (`emplois.sante.quebec`) | available | Only ~61 postings — a thin layer over the regional sites. `Allow: /`, `Crawl-delay: 10` |
+| **QC** | Montréal health network | **Njoyn** (`emplois.santemontreal.qc.ca`, CLID 54327) | **blocked** | Njoyn serves a Radware bot-detection CAPTCHA after a few requests. See below |
 | **YT** | Yukon Hospitals | UKG UltiPro | unchecked | |
 | **NT** | NTHSSA | Territorial government site | unchecked | |
 | **NU** | Government of Nunavut | Territorial government site | unchecked | |
@@ -213,14 +215,24 @@ Every connector works around something. Do not assume a field means what it says
 
 ## Pre-flight checklist for a new source
 
-Run this before writing any connector. It has caught a blocker four times: Alberta, New
-Brunswick, Newfoundland and Job Bank.
+Run this before writing any connector. It has caught a blocker six times: Alberta, New
+Brunswick, Newfoundland, Job Bank, and — on the same day — Njoyn's 15 tenants.
+
+**robots.txt is no longer the binding constraint.** Four of our blocks come from a WAF or an
+anti-bot service that contradicts a permissive or silent robots.txt: Alberta Health Services,
+PHSA, Providence Health Care and Njoyn. A clean robots.txt means very little on its own, so
+step 3 matters more than step 2.
 
 1. **Terms of Use** — read them, not just robots.txt. Job Bank allows crawlers in robots.txt and
    forbids them in its Terms; the Terms win. Check for a commercial-reuse restriction too.
 2. **robots.txt** — fetch it. Does it allow the job list and the postings?
-3. **Our User-Agent** — request the job list with `MedCareerBot/0.1 (+https://www.medcareer.ca/about; mailto:…)`
-   and again with a browser User-Agent. Different status codes mean they block bots.
+3. **Our User-Agent, on both kinds of page** — request the job list with
+   `MedCareerBot/0.1 (+https://www.medcareer.ca/about; mailto:…)` and again with a browser
+   User-Agent. Different status codes mean they block bots. Then do the same for a **job detail
+   page**, and make several requests in a row: Njoyn serves the listing happily and a CAPTCHA on
+   every detail page, so one request to one page would have passed and the connector would have
+   been built before anyone noticed. Note that an anti-bot service can flag a malformed URL, so
+   check a clean one before concluding.
 4. **Crawl-delay** — honour it if stated; the connector gets its own rate limiter if it differs
    from our default of one request per second.
 5. **How to list every posting** — a feed, sitemap, JSON API or paged HTML. Count them.
@@ -500,3 +512,92 @@ rules:
 The First Nations Health Authority has no board of its own; its jobs page links out to member
 organisations on Prevue and ScouteRecruit, a handful of postings across several systems, so it is
 not worth a connector.
+
+## Quebec — checked 21 Sep 2026, available but not started
+
+Quebec is crawlable everywhere we looked. It is not started because it needs a decision first,
+and the research below is here so that decision can be made without repeating the survey.
+
+### There is no single Quebec site
+
+Unlike Manitoba, where one shared board carries thirty employers, Quebec's ~34 CISSS/CIUSSS are
+spread across at least four platforms on domains with no consistent naming. What was found:
+
+| Site | Platform | Postings | robots.txt |
+|---|---|---|---|
+| `emplois.sante.quebec` (Santé Québec central) | DigitalRecruiters | ~61 | `Allow: /`, `Crawl-delay: 10` |
+| `cn.carrieresante.gouv.qc.ca` (Capitale-Nationale) | WordPress WP Job Manager | 122 | permissive |
+| `laurentides.carrieresante.gouv.qc.ca` | WordPress WP Job Manager | 135 | permissive |
+| `lanaudiere.carrieresante.gouv.qc.ca` | WordPress WP Job Manager | 107 | permissive |
+| `emplois.cisssbsl.com` (Bas-Saint-Laurent) | WordPress WP Job Manager | 92 | permissive |
+| `carrieres.cusm.ca` (MUHC) | WordPress WP Job Manager | 86 | permissive |
+| `emplois.santemontreal.qc.ca` (Montréal) | **Njoyn**, CLID 54327 | — | named-bot blocklist, no `*` group |
+| `ciusss.avature.net` (Centre-Ouest) | Avature | — | `Allow: /careers` + sitemap |
+
+Two useful findings in that table. **Five sites share one WordPress WP Job Manager setup** —
+`/poste/` URLs and a `job_listing-sitemap.xml` — so one connector reaches ~542 postings today and
+more as the remaining regional domains are found. And **Montréal is on Njoyn**, the same ATS as 14
+Ontario hospitals, so a Njoyn connector would reach both provinces.
+
+Only three regions answer on the `*.carrieresante.gouv.qc.ca` pattern (cn, laurentides,
+lanaudiere); the rest use their own domains, so enumerating all 34 is itself a research task.
+
+### The blocker is language, not permission
+
+Every Quebec posting is in French, and that breaks three things that are not connector work:
+
+1. **Categories.** `classify()` in [lib/taxonomy/classify.ts](../../lib/taxonomy/classify.ts) is
+   English regex. "Préposé aux bénéficiaires" and "Infirmière auxiliaire" match nothing, so
+   **every Quebec job would land uncategorised** — against a site-wide category gap that is
+   already the largest quality problem we have.
+2. **Search.** An English query will not match a French title, so the jobs would be present but
+   effectively unfindable for anyone searching the way the rest of the site expects.
+3. **`provinceCodeFromName("Québec")` returns null** — it compares against the unaccented
+   "Quebec". A one-line fix using the existing `deaccent()`, but it would silently push every
+   posting onto the registry fallback until fixed.
+
+None of this is a reason not to do Quebec. It is a reason to decide the language question — French
+taxonomy patterns, bilingual titles, or accepting uncategorised French listings — **before**
+writing connectors, rather than discovering it with several thousand rows already stored.
+
+### Njoyn would have reached further than Quebec — but it is blocked
+
+Worth recording next to this: [ontario-hospitals-ats.md](./ontario-hospitals-ats.md) puts **14
+Ontario hospitals** on Njoyn, the largest single untapped cluster in that province, and Montréal
+makes it 15 tenants across two provinces. All are one URL shape,
+`xweb/Xweb.asp?page=joblisting&CLID={id}`, which is exactly the registry-driven `ats_config`
+pattern every connector here already uses — a CLID per employer.
+
+**Njoyn is blocked, and robots.txt is not what blocks it.** Its robots.txt names ten crawlers —
+BLEXBot, SemrushBot, Applebot, ClaudeBot and others — and has **no `User-agent: *` group at all**,
+so under RFC 9309 no rule applies to `MedCareerBot` and crawling would be permitted. The file is
+byte-identical across every tenant, so it is a platform default rather than a hospital's decision.
+
+What actually stops us is **Radware bot protection**, and it is worth being precise about where,
+because the two halves of the site behave differently:
+
+| Page | Result |
+|---|---|
+| Job **listing** (`page=joblisting&CLID=…`) | **200, 496 KB** — the real page, 100 postings with job number, program/area, title, category, job type and closing date |
+| Job **detail** (`Page=JobDetails&Jobid=…`) | **Radware block page** with a CAPTCHA — *"your activity and behavior on this website made us think that you are a bot"* |
+
+That was verified carefully, because the first attempt used a malformed URL (a double-encoded
+`&amp;`) that could itself have looked like an attack probe. After waiting out the cooldown, a
+clean run — well-formed URL, our own User-Agent, a cookie jar carried from the listing, a referer,
+15 seconds between requests — got the listing at full size and was blocked on the **first** detail
+request. So the block is real and specific to the detail pages, not something we provoked.
+
+That is fatal rather than inconvenient. The listing carries no description and **no posted date**
+— its only date column is `PostDateTo`, the closing date. Without a description there is no job
+page to show, and without a posted date the 30-day cutoff cannot work and a first crawl would
+stamp every posting "posted today". Everything we actually need is on the page we cannot fetch.
+
+Getting past it would mean pretending not to be a crawler, which is the one thing this project
+does not do (see Alberta, PHSA and Providence, all blocked the same way). So Njoyn is closed
+unless CGI or an individual hospital allows us through, and it is closed for **15 tenants at
+once** — 14 Ontario hospitals and Montréal.
+
+There is a pattern here worth naming: **robots.txt is no longer the binding constraint on
+Canadian health ATSs.** Four of our blocks now come from a WAF or an anti-bot service that
+contradicts a permissive or silent robots.txt — Alberta Health Services, PHSA, Providence Health
+Care and now Njoyn. Check for one early; a clean robots.txt means very little on its own.
