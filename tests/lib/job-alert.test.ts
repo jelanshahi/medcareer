@@ -207,8 +207,19 @@ describe('job_alerts schema', () => {
 
   // A SECURITY DEFINER function with a mutable search_path can be tricked into
   // resolving its tables to attacker-controlled ones.
-  it('pins search_path on every SECURITY DEFINER function', () => {
-    const definers = sql.match(/create function[\s\S]*?\$\$;/g) ?? [];
+  it('pins search_path on every SECURITY DEFINER alert function', () => {
+    // "or replace" too: a replacement is the definition the database actually runs, and
+    // matching only `create function` silently skipped 0018's request_job_alert — this
+    // check would have passed with its search_path removed.
+    //
+    // Scoped to the alert functions by name. Widening the pattern also reaches the
+    // job-lifecycle definers (expire_stale_jobs, purge_expired_jobs, purge_jobs), which
+    // these two assertions do not describe: they pin search_path to `public` rather than
+    // '' and never touch job_alerts. They are callable by service_role alone, so that is
+    // not an escalation path — but no test covers them, which is a separate question.
+    // The old `create function` pattern only ever matched alert functions by accident.
+    const definers = (sql.match(/create (or replace )?function[\s\S]*?\$\$;/g) ?? [])
+      .filter((fn) => /function\s+public\.\w*job_alert/.test(fn));
     expect(definers.length).toBeGreaterThan(0);
     for (const fn of definers) {
       if (!fn.includes('security definer')) continue;

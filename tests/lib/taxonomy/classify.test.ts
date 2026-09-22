@@ -235,6 +235,71 @@ describe('classify', () => {
     });
   });
 
+  describe('the non-clinical disciplines', () => {
+    it('reads food services roles', () => {
+      expect(classify('Cook')).toBe('food_services');
+      expect(classify('Food Services Worker II')).toBe('food_services');
+      expect(classify('Dietary Aide, Bella Coola')).toBe('food_services');
+      expect(classify('Diet Aide - HSC')).toBe('food_services');
+      expect(classify('Hospitality Service Associate')).toBe('food_services');
+      expect(classify('General Worker, Food Services')).toBe('food_services');
+    });
+
+    it('reads environmental services and housekeeping roles', () => {
+      expect(classify('Environmental Services Worker')).toBe('environmental_services');
+      expect(classify('Housekeeping Aide')).toBe('environmental_services');
+      expect(classify('Environmental & Laundry Services Worker')).toBe('environmental_services');
+      expect(classify('Environmental Service Worker | Cleaner')).toBe('environmental_services');
+    });
+
+    it('reads facilities and trades roles', () => {
+      expect(classify('Maintenance Services Worker')).toBe('facilities_trades');
+      expect(classify('Engineer 5th Class')).toBe('facilities_trades');
+      expect(classify('4th Class Power Engineer - Maintenance and Operations')).toBe('facilities_trades');
+      expect(classify('Electrician - Industrial')).toBe('facilities_trades');
+      expect(classify('Biomedical Engineering Technologist')).toBe('facilities_trades');
+    });
+
+    it('reads physical security roles', () => {
+      expect(classify('Security Officer')).toBe('security');
+      expect(classify('Relational Security Officer')).toBe('security');
+      expect(classify('Patrol Officer (Security Guard) 1')).toBe('security');
+      expect(classify('Institutional Safety Officer (ISO)')).toBe('security');
+    });
+
+    it('sends their supervisors and clerks to management and admin', () => {
+      // The same guard as the mental health department phrases.
+      expect(classify('Food Services Supervisor')).toBe('management');
+      expect(classify('Manager, Environmental Services')).toBe('management');
+      expect(classify('Housekeeping Clerk')).toBe('admin_clerical');
+    });
+
+    it('lets a clinical role keep a title that also names a non-clinical department', () => {
+      expect(classify('Dietitian, Nutrition and Food Services')).toBe('allied_health');
+      expect(classify('Dietetic Technician - Nutrition & Food Services')).toBe('allied_health');
+    });
+
+    it('does not read a public health inspector as housekeeping', () => {
+      // An Environmental Health Officer inspects restaurants and water systems.
+      expect(classify('Environmental Health Officer')).not.toBe('environmental_services');
+    });
+
+    it('does not read information or cyber security as physical security', () => {
+      expect(classify('Information Security Officer')).not.toBe('security');
+      expect(classify('Cyber Security Officer')).not.toBe('security');
+      expect(classify('IT Security Officer')).not.toBe('security');
+    });
+
+    it('does not read software or data engineers as building engineers', () => {
+      expect(classify('Software Engineer')).not.toBe('facilities_trades');
+      expect(classify('Data Engineer')).not.toBe('facilities_trades');
+    });
+  });
+
+  it('reads the plural "psychologists" as the singular is read', () => {
+    expect(classify('Psychologists - 2026-2027 Graduates')).toBe('mental_health');
+  });
+
   it('still leaves titles alone that the words cannot settle', () => {
     // Care aide in some places, clerical in others.
     expect(classify('Unit Assistant')).toBeNull();

@@ -10,6 +10,13 @@ export const CATEGORIES = [
   'admin_clerical',
   'management',
   'research',
+  // Non-clinical roles at the same employers. They were already on the board and
+  // searchable, but belonged to no discipline, so no filter could reach them: at
+  // 22 Sep 2026 they were most of the uncategorised fifth of the site.
+  'food_services',
+  'environmental_services',
+  'facilities_trades',
+  'security',
 ] as const;
 
 export type Category = (typeof CATEGORIES)[number];
@@ -27,4 +34,10 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   admin_clerical: 'Admin and clerical',
   management: 'Management',
   research: 'Research',
+  food_services: 'Food services',
+  // Hospitals say "environmental services"; the people doing the job and searching
+  // for it mostly say housekeeping. Same parenthetical style as "Support care (PSW/HCA)".
+  environmental_services: 'Environmental services (housekeeping)',
+  facilities_trades: 'Facilities and trades',
+  security: 'Security',
 };

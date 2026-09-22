@@ -29,6 +29,16 @@ const MANAGEMENT_ROLE = String.raw`manager|director|chief|supervisor|vice presid
 // here: "Program Assistant - Adult Day Centre" may be an activity role.
 const ADMIN_ROLE = String.raw`clerk|secretary|administrative|receptionist|scheduler|registration|clerical|office assistant|office admin|office administration|transcription|transcriptionist`;
 
+/**
+ * Matches `words` only when the title names no management or clerical role.
+ *
+ * For words that name a department rather than a job: "Housekeeping Aide" is
+ * environmental services and "Housekeeping Supervisor" is management, and a guard
+ * says that once where a separate role list per department would say it badly.
+ */
+const unlessLeadershipOrClerical = (words: string) =>
+  new RegExp(String.raw`^(?!.*\b(${MANAGEMENT_ROLE}|${ADMIN_ROLE})\b).*\b(${words})\b`);
+
 const RULES: ReadonlyArray<{ pattern: RegExp; category: Category }> = [
   { pattern: /\b(registered nurse|practical nurse|nurse practitioner|nursing|nurse)\b/, category: 'nursing' },
   // A physician assistant is an allied-health role, not a physician. Must
@@ -45,7 +55,7 @@ const RULES: ReadonlyArray<{ pattern: RegExp; category: Category }> = [
   // "Psychologist Supervisor" stays a mental health job the way "Nurse Manager"
   // stays nursing. "Clinical counsellor" is BC's registered clinical counsellor, a
   // mental health profession — unlike bare "counsellor", which is not safe here.
-  { pattern: /\b(psychologist|crisis intervention|crisis worker|crisis counsellor|crisis counselor|clinical counsellor|clinical counselor|addictions? counsellor|addictions? counselor)\b/, category: 'mental_health' },
+  { pattern: /\b(psychologists?|crisis intervention|crisis worker|crisis counsellor|crisis counselor|clinical counsellor|clinical counselor|addictions? counsellor|addictions? counselor)\b/, category: 'mental_health' },
   // Then the department phrases — "mental health", "addictions", "substance use",
   // "withdrawal management" (detox), and "MHSU" / "MH&SU" (BC's abbreviation,
   // normalizing to "mhsu" / "mh su").
@@ -60,7 +70,7 @@ const RULES: ReadonlyArray<{ pattern: RegExp; category: Category }> = [
   // "Mental Health Therapist" is a mental health job, not a generic therapist) while
   // losing to management and admin, which themselves sit after allied health. No
   // single ordering does both.
-  { pattern: new RegExp(String.raw`^(?!.*\b(${MANAGEMENT_ROLE}|${ADMIN_ROLE})\b).*\b(mental health|psychiatric|addictions?|substance use|withdrawal management|mhsu|mh su)\b`), category: 'mental_health' },
+  { pattern: unlessLeadershipOrClerical(String.raw`mental health|psychiatric|addictions?|substance use|withdrawal management|mhsu|mh su`), category: 'mental_health' },
   // Provincial names for the same PSW/HCA job. "Continuing care assistant" is
   // Nova Scotia's and Saskatchewan's, and on its own was the largest
   // uncategorised title on the site (147 jobs). "Resident assistant" is the
@@ -90,6 +100,24 @@ const RULES: ReadonlyArray<{ pattern: RegExp; category: Category }> = [
   // its workers and aides are matched as roles, not on "recreation" alone.
   { pattern: /\b(occupational therapist|physiotherapist|respiratory therapist|speech language pathologist|speech pathologist|dietitian|audiologist|social worker|therapist|therapy assistant|rehabilitation assistant|physiotherapy assistant|occupational therapy assistant|communicative disorders assistant|genetic counsellor|genetic counselor|kinesiologist|dietetic technician|orthopaedic technician|orthopedic technician|recreation assistant|recreation worker|recreation aide|recreation coordinator|recreation therapy worker|activity worker|activity aide|activity assistant|perfusionist|anesthesia assistant)\b/, category: 'allied_health' },
   { pattern: /\b(research associate|research assistant|research coordinator|research scientist|clinical scientist|postdoctoral|clinical trial)\b/, category: 'research' },
+  // The non-clinical disciplines. After every clinical specialty, so "Dietitian, Food
+  // Services" stays allied health; guarded, so their supervisors and clerks go to
+  // management and admin like every other department's.
+  // The department phrase itself is matched, like "environmental services" below, so
+  // "General Worker - Food Services" is caught; "Dietitian, Food Services" is not,
+  // because allied health has already claimed it.
+  { pattern: unlessLeadershipOrClerical(String.raw`cook|cooks|chef|food services|food service|dietary aide|diet aide|dietary worker|dishwasher|kitchen helper|kitchen aide|hospitality service associate|hospitality services associate|nutrition services worker`), category: 'food_services' },
+  // Never bare "environmental": an Environmental Health Officer is a public health
+  // inspector. "Porter" is not here either — support care already claims it.
+  { pattern: unlessLeadershipOrClerical(String.raw`environmental services|environmental service|environmental attendant|environmental aide|housekeeping|housekeeper|cleaner|custodian|custodial|laundry|linen`), category: 'environmental_services' },
+  // Engineers only by class or as power/stationary engineers — never bare "engineer",
+  // which would claim software and data engineers. "Biomedical engineering
+  // technologist" is clinical engineering, kept out of lab and imaging on purpose.
+  { pattern: unlessLeadershipOrClerical(String.raw`maintenance|power engineer|stationary engineer|engineer (1st|2nd|3rd|4th|5th) class|building operator|electrician|plumber|pipefitter|carpenter|millwright|refrigeration mechanic|hvac|painter|groundskeeper|grounds keeper|tradesperson|biomedical engineering technologist|biomedical engineering technician|biomedical technologist|instrumentation`), category: 'facilities_trades' },
+  // Physical security by role. The lookbehind keeps information and cyber security
+  // — IT roles — out, since "Information Security Officer" names no manager and would
+  // otherwise land here.
+  { pattern: unlessLeadershipOrClerical(String.raw`(?<!(information|cyber|data|it) )(security officer|security guard|security coordinator|relational security)|patrol officer|protection services officer|protection officer|institutional safety officer`), category: 'security' },
   { pattern: new RegExp(String.raw`\b(${MANAGEMENT_ROLE})\b`), category: 'management' },
   // "Medical Office Assistant (MOA)" is BC's clinic front-desk role.
   { pattern: new RegExp(String.raw`\b(${ADMIN_ROLE})\b`), category: 'admin_clerical' },

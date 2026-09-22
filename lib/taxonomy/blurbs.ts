@@ -34,6 +34,18 @@ const ONTARIO_BLURBS: Record<Category, string> = {
     'Program manager, director and clinical leadership roles. Most postings expect a clinical background alongside leadership experience.',
   research:
     'Clinical research coordinator, data and trial support roles, usually attached to a hospital research institute and often on fixed-term contracts.',
+  // The four non-clinical disciplines, added 22 Sep 2026. None is regulated by a health
+  // college, so none varies by province and the generic set reuses them. Each claim is
+  // deliberately hedged: security licensing in particular differs between provinces and
+  // between in-house and contracted staff, so it is stated as varying rather than required.
+  food_services:
+    'Cook, food service worker and dietary aide roles in hospital and long-term care kitchens. No college registration is required; employers usually ask for a food handler certificate.',
+  environmental_services:
+    'Housekeeping, environmental services and laundry roles in hospitals and long-term care. No college registration is required.',
+  facilities_trades:
+    'Maintenance, power engineering and skilled trades roles that keep hospital buildings and equipment running. Trades and power engineering roles need the provincial certificate for that trade.',
+  security:
+    'Security officer and protection services roles in hospitals and health facilities. Licensing requirements vary by province.',
 };
 
 /** For every other province. Deliberately names no regulator: each province has its own
@@ -58,6 +70,10 @@ const GENERIC_BLURBS: Record<Category, string> = {
   admin_clerical: ONTARIO_BLURBS.admin_clerical,
   management: ONTARIO_BLURBS.management,
   research: ONTARIO_BLURBS.research,
+  food_services: ONTARIO_BLURBS.food_services,
+  environmental_services: ONTARIO_BLURBS.environmental_services,
+  facilities_trades: ONTARIO_BLURBS.facilities_trades,
+  security: ONTARIO_BLURBS.security,
 };
 
 export function categoryBlurb(category: Category, province: string | null): string {
