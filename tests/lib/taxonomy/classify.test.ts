@@ -89,4 +89,156 @@ describe('classify', () => {
   it('returns null rather than guessing for roles outside the taxonomy', () => {
     expect(classify('Data Scientist, Health Informatics')).toBeNull();
   });
+
+  // Every title below is a real posting from the live board, 22 Sep 2026.
+
+  describe('provincial names for the PSW / HCA role', () => {
+    it('reads each province’s own term as support care', () => {
+      // Nova Scotia and Saskatchewan. On its own the largest uncategorised title on the
+      // site: 147 jobs.
+      expect(classify('Continuing Care Assistant')).toBe('support_care');
+      expect(classify('Resident Assistant - Repost')).toBe('support_care');
+      expect(classify('Home Care Attendant')).toBe('support_care');
+      expect(classify('Community Care Assistant (Community Health Worker)')).toBe('support_care');
+      expect(classify('Care Aide | Long Term Care/ Community Health')).toBe('support_care');
+      expect(classify('Registered Care Aide, Med Surg')).toBe('support_care');
+    });
+
+    it('does not claim the coordinators and schedulers who share the setting', () => {
+      // The role is the test, not the program it sits in.
+      expect(classify('Continuing Care Coordinator - Continuing Care')).not.toBe('support_care');
+      expect(classify('Coordinator, Home Support Scheduling')).not.toBe('support_care');
+    });
+  });
+
+  describe('allied health', () => {
+    it('matches the rehabilitation assistant this file always named but never matched', () => {
+      expect(classify('Rehabilitation Assistant')).toBe('allied_health');
+      expect(classify('Rehabilitation Assistant (Occupational Therapy/Physiotherapy)')).toBe('allied_health');
+      // "therapy" is inside one word here, so "therapy assistant" cannot reach it.
+      expect(classify('Physiotherapy Assistant - Rehabilitation Services')).toBe('allied_health');
+    });
+
+    it('does not read an HR return-to-work consultant as rehabilitation', () => {
+      expect(classify('Rehabilitation Consultant - Occupational Health, Safety & Wellness'))
+        .not.toBe('allied_health');
+    });
+
+    it('covers therapeutic recreation and the other assistant roles', () => {
+      expect(classify('Recreation Worker')).toBe('allied_health');
+      expect(classify('Activity Worker II - The Residence in Mission')).toBe('allied_health');
+      expect(classify('Communicative Disorders Assistant, Home and Community Care')).toBe('allied_health');
+      expect(classify('Kinesiologist - Chronic Disease')).toBe('allied_health');
+    });
+
+    it('files a genetic counsellor as allied health, not mental health', () => {
+      expect(classify('Lab-Based Genetic Counsellor, Clinical Genomics')).toBe('allied_health');
+    });
+  });
+
+  describe('lab and imaging', () => {
+    it('reads BC’s "radiological" and the named modalities', () => {
+      expect(classify('Radiological Technologist - Royal Columbian Hospital')).toBe('diagnostics_lab');
+      expect(classify('MRI Specialty Technologist, Medical Imaging')).toBe('diagnostics_lab');
+      expect(classify('General Duty Cardiology Technologist')).toBe('diagnostics_lab');
+      expect(classify('CV & Pacemaker Technologist')).toBe('diagnostics_lab');
+      expect(classify('Laboratory Technician, Core Lab (OPSEU)')).toBe('diagnostics_lab');
+    });
+
+    it('reads a dotted M.R.T., which splits into single letters', () => {
+      expect(classify('M.R.T. - Radiology, CT (CEN)')).toBe('diagnostics_lab');
+    });
+
+    it('reads "radiology technologist" alongside "radiological"', () => {
+      expect(classify('General Duty Medical Radiology Technologist')).toBe('diagnostics_lab');
+    });
+
+    it('does not claim a technologist whose field is not imaging', () => {
+      expect(classify('Biomedical Engineering Technologist')).not.toBe('diagnostics_lab');
+    });
+  });
+
+  describe('physicians', () => {
+    it('recognises specialists by name', () => {
+      expect(classify('Cardiologist - Surrey Memorial Hospital')).toBe('physicians');
+      expect(classify('Locum Medical Oncologist')).toBe('physicians');
+      expect(classify('Interventional Radiologist, Markham Stouffville Hospital')).toBe('physicians');
+      expect(classify('Obstetrician/Gynecologist, Sechelt Hospital')).toBe('physicians');
+      // A physiatrist in a continuing-care program is a physician, not a care aide.
+      expect(classify('Physiatrist - Complex Continuing Care, Palliative Care and Rehabilitation'))
+        .toBe('physicians');
+    });
+
+    it('does not read "radiological" as a radiologist', () => {
+      expect(classify('Radiological Technologist')).not.toBe('physicians');
+    });
+
+    it('keeps speech pathology in allied health, which a general "-ologist" rule would steal', () => {
+      expect(classify('Speech Pathologist II')).toBe('allied_health');
+    });
+  });
+
+  describe('pharmacy', () => {
+    it('matches pharmacy roles, including the degree SK posts as a title', () => {
+      expect(classify('Pharm D Degree')).toBe('pharmacy');
+      expect(classify('Clinical Pharmacy Specialist - Vancouver General Hospital')).toBe('pharmacy');
+      expect(classify('Pharmacy Practice Assistant - Public Health')).toBe('pharmacy');
+    });
+
+    it('does not claim a coordinator merely working in pharmacy', () => {
+      expect(classify('Coordinator | Central Functions | Pharmacy')).not.toBe('pharmacy');
+    });
+  });
+
+  describe('mental health: roles against departments', () => {
+    it('reads the plural "addictions" and BC’s MHSU abbreviation', () => {
+      expect(classify('Addictions Counsellor Diploma')).toBe('mental_health');
+      expect(classify('MHSU Counselling & Treatment Clinician | Intake/Screening')).toBe('mental_health');
+      expect(classify('Primary Care Network, MH&SU Clinician/Clinical Counsellor')).toBe('mental_health');
+    });
+
+    it('files clerks in a mental health program as admin, not as mental health', () => {
+      // All three were being filed as mental health, so a seeker filtering to it saw clerks.
+      expect(classify('Clerk - 4, Inpatient Pool - Medicine and Mental Health')).toBe('admin_clerical');
+      expect(classify('Administrative Secretary - Child and Adolescent Mental Health Service'))
+        .toBe('admin_clerical');
+      expect(classify('Program Assistant (Office Admin), Child and Youth Mental Health & Substance Use'))
+        .toBe('admin_clerical');
+    });
+
+    it('reads withdrawal management — detox — as an addictions service', () => {
+      expect(classify('Withdrawal Management Worker')).toBe('mental_health');
+      // A department phrase, so it yields to a management role like the others.
+      expect(classify('Manager, Withdrawal Management Services')).toBe('management');
+    });
+
+    it('files managers of a mental health program as management', () => {
+      expect(classify('Manager, Community Based Mental Health Program')).toBe('management');
+      expect(classify('Clinical Director, Maternal Child and Mental Health Services')).toBe('management');
+    });
+
+    it('keeps a mental health role in mental health when it also leads', () => {
+      // The role noun wins over the management word, as "Nurse Manager" stays nursing.
+      expect(classify('Psychologist Supervisor')).toBe('mental_health');
+    });
+
+    it('still beats allied health, since a mental health therapist is not a generic one', () => {
+      expect(classify('Youth Therapist, Substance Use Services')).toBe('mental_health');
+      expect(classify('Social Worker, Acute Mental Health')).toBe('mental_health');
+    });
+  });
+
+  describe('admin', () => {
+    it('reads BC’s medical office assistant as clerical', () => {
+      expect(classify('Medical Office Assistant (MOA) - Urgent and Primary Care Centre (UPCC)'))
+        .toBe('admin_clerical');
+    });
+  });
+
+  it('still leaves titles alone that the words cannot settle', () => {
+    // Care aide in some places, clerical in others.
+    expect(classify('Unit Assistant')).toBeNull();
+    // Filled by nurses or by social workers.
+    expect(classify('Assessor Coordinator Degree')).toBeNull();
+  });
 });
