@@ -1,5 +1,34 @@
 import { describe, it, expect } from 'vitest';
-import { sourcePriority, pickCanonical, buildJobRow, groupIntoJobs, type RawRow } from '@/workers/dedupe';
+import { sourcePriority, pickCanonical, buildJobRow, groupIntoJobs, upsertJobChunk, type RawRow, type JobRow } from '@/workers/dedupe';
+
+/**
+ * A stand-in for the Supabase client that fails any upsert larger than `maxRows` with the
+ * statement timeout Postgres actually returns, and records the sizes it was asked for.
+ */
+function fakeAdmin(maxRows: number) {
+  const attempted: number[] = [];
+  const client = {
+    from() {
+      return {
+        upsert(rows: JobRow[]) {
+          attempted.push(rows.length);
+          return {
+            select: async () =>
+              rows.length > maxRows
+                ? { data: null, error: { message: 'canceling statement due to statement timeout' } }
+                : { data: rows.map((r) => ({ id: `id-${r.dedupe_key}`, dedupe_key: r.dedupe_key })), error: null },
+          };
+        },
+      };
+    },
+  };
+  return { client, attempted };
+}
+
+const rows = (n: number): JobRow[] =>
+  Array.from({ length: n }, (_, i) => ({ dedupe_key: `k${i}` }) as JobRow);
+
+const ctx = { sourceId: 'matcher', runId: 'test' };
 
 const posting = {
   sourceId: 'workday:shn', sourceJobId: 'JR1', sourceUrl: 'https://x.test/1',
@@ -110,5 +139,33 @@ describe('groupIntoJobs', () => {
     expect(groups).toHaveLength(1);
     expect(groups[0]).toHaveLength(2);
     expect(pickCanonical(groups[0]).id).toBe('w');
+  });
+});
+
+describe('upsertJobChunk', () => {
+  // The statement timeout moves as the table grows: 500 rows began failing at ~4,000 jobs and
+  // 200 at ~5,100. Skipping a failed chunk lost those rows silently.
+  it('writes every row by halving until the chunk fits', async () => {
+    const { client, attempted } = fakeAdmin(50);
+    const written = await upsertJobChunk(client as never, rows(200), ctx);
+
+    expect(written).toHaveLength(200);
+    expect(new Set(written.map((w) => w.dedupe_key)).size).toBe(200);
+    // 200 and its halves fail, so it retries down to 25-row chunks that succeed.
+    expect(attempted[0]).toBe(200);
+    expect(Math.max(...attempted.filter((n) => n <= 50))).toBeLessThanOrEqual(50);
+  });
+
+  it('writes the chunk unsplit when it already fits', async () => {
+    const { client, attempted } = fakeAdmin(500);
+    expect(await upsertJobChunk(client as never, rows(200), ctx)).toHaveLength(200);
+    expect(attempted).toEqual([200]);
+  });
+
+  it('gives up only on the single row that will not write, keeping the rest', async () => {
+    // maxRows 0 fails everything, so it recurses to single rows and drops each one rather
+    // than looping forever.
+    const { client } = fakeAdmin(0);
+    expect(await upsertJobChunk(client as never, rows(8), ctx)).toEqual([]);
   });
 });

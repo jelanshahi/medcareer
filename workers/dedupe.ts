@@ -9,11 +9,11 @@ import type { NormalizedPosting } from '@/lib/types';
 const EXPIRY_DAYS = 60;
 const SELECT_PAGE_SIZE = 1000;
 /**
- * Rows per upsert request. Payload size is not the binding limit — Postgres' statement
- * timeout is. At 500 a chunk of full job descriptions upserted on a unique index started
- * failing with "canceling statement due to statement timeout" once the table passed ~4,000
- * jobs (Manitoba's 853 took it there), silently dropping 500 jobs from a run that otherwise
- * reported success.
+ * Rows per upsert request, as a starting size rather than a fixed one. Payload size is not the
+ * binding limit — Postgres' statement timeout is, and the limit moves as the table grows: 500
+ * began failing with "canceling statement due to statement timeout" once the table passed
+ * ~4,000 jobs, and 200 began failing at ~5,100. `upsertJobChunk` halves on failure rather than
+ * leaving this number to be lowered again after the next silent loss.
  */
 const WRITE_CHUNK_SIZE = 200;
 
@@ -168,6 +168,47 @@ export function buildJobRow(row: RawRow, employerId: string | null, dedupeKey: s
   };
 }
 
+type WrittenJob = { id: string; dedupe_key: string };
+
+/**
+ * Upserts a chunk of jobs, halving and retrying on failure instead of skipping it.
+ *
+ * Skipping was the old behaviour and it lost jobs quietly: a 200-row chunk timed out on a run
+ * that still reported success, and 200 jobs kept whatever row they already had — stale
+ * categories, in the run that was meant to fix them. Halving adapts to whatever the statement
+ * timeout currently allows, so the fix does not expire the next time the table grows. Only a
+ * single row that still fails is given up on, and that is a real error about that row rather
+ * than a size problem, so it stays at `error`.
+ */
+export async function upsertJobChunk(
+  admin: ReturnType<typeof createAdminClient>,
+  chunk: JobRow[],
+  ctx: { sourceId: string; runId: string },
+): Promise<WrittenJob[]> {
+  const { data, error } = await admin
+    .from('jobs')
+    .upsert(chunk, { onConflict: 'dedupe_key' })
+    .select('id,dedupe_key');
+
+  if (!error) return (data ?? []) as unknown as WrittenJob[];
+
+  if (chunk.length === 1) {
+    log(ctx, 'error', 'job upsert failed for a single row', {
+      dedupe_key: chunk[0]?.dedupe_key, error: error.message,
+    });
+    return [];
+  }
+
+  const mid = Math.floor(chunk.length / 2);
+  log(ctx, 'warn', 'job upsert chunk failed, halving and retrying', {
+    size: chunk.length, error: error.message,
+  });
+  return [
+    ...(await upsertJobChunk(admin, chunk.slice(0, mid), ctx)),
+    ...(await upsertJobChunk(admin, chunk.slice(mid), ctx)),
+  ];
+}
+
 async function main() {
   const admin = createAdminClient();
   const ctx = { sourceId: 'matcher', runId: 'dedupe' };
@@ -246,21 +287,10 @@ async function main() {
   let linksWritten = 0;
   for (let i = 0; i < jobRows.length; i += WRITE_CHUNK_SIZE) {
     const chunk = jobRows.slice(i, i + WRITE_CHUNK_SIZE);
-    const { data: written, error: upsertError } = await admin
-      .from('jobs')
-      .upsert(chunk, { onConflict: 'dedupe_key' })
-      .select('id,dedupe_key');
-    if (upsertError) {
-      // Logged and skipped, like the per-row version before it: one bad chunk must not cost
-      // the rest of the run. The affected jobs keep whatever row they already had.
-      log(ctx, 'error', 'job upsert chunk failed', {
-        first_dedupe_key: chunk[0]?.dedupe_key, size: chunk.length, error: upsertError.message,
-      });
-      continue;
-    }
-    jobsWritten += written?.length ?? 0;
+    const written = await upsertJobChunk(admin, chunk, ctx);
+    jobsWritten += written.length;
 
-    const links = (written ?? []).flatMap((job) =>
+    const links = written.flatMap((job) =>
       (sourceIdsByDedupeKey.get(job.dedupe_key) ?? []).map((rawPostingId) => ({
         job_id: job.id as string,
         raw_posting_id: rawPostingId,
