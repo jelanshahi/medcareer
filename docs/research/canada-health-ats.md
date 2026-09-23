@@ -671,3 +671,42 @@ Things any connector will need, recorded so they are not rediscovered:
 
 Other Quebec platforms seen but not pursued: DigitalRecruiters at `emplois.sante.quebec` and at
 `emploi.recrutementcisssme.com` (Montérégie-Est), and `emplois.santeestrie.qc.ca` (Estrie).
+
+### The request to send Santé Québec
+
+MUHC is live. The seven Santé Québec sites are seeded with `is_active = false` and need written
+permission before they are switched on, because of the copyright clause above. Their career sites
+carry no general enquiry address, so this goes to the recruitment contact on the regional site, or
+through the "demande d'autorisation de reproduction" form the copyright page links:
+
+> **Objet :** Demande d'autorisation — diffusion des offres d'emploi de Santé Québec sur medcareer.ca
+>
+> Bonjour,
+>
+> J'exploite medcareer.ca, un site d'emplois en santé au Canada. Nous regroupons les offres
+> publiées par les employeurs du réseau de la santé et dirigeons les candidats directement vers
+> l'affichage original de l'employeur pour postuler. Nous n'hébergeons aucune candidature et nous
+> ne vendons pas d'espace publicitaire sur vos affichages.
+>
+> Nous souhaitons inclure les offres de Santé Québec. Vos sites de carrières autorisent
+> l'indexation (robots.txt), mais la Politique de droit d'auteur du gouvernement du Québec interdit
+> de reproduire, stocker ou publier vos contenus sans autorisation préalable. Nous préférons
+> demander plutôt que présumer.
+>
+> Nous demandons donc l'autorisation de reproduire le titre, le lieu, la date d'affichage et le
+> texte descriptif de vos offres, avec un lien vers l'affichage original. Nos engagements : une
+> requête par seconde au maximum, un robot identifié (MedCareerBot) avec une adresse de contact,
+> retrait immédiat de toute offre sur demande, et arrêt complet du traitement si vous le demandez.
+>
+> Si une portée plus limitée vous convient mieux — par exemple le titre et le lien seulement, sans
+> le texte descriptif — nous nous y conformerons volontiers.
+>
+> Merci de votre considération,
+> [nom, coordonnées]
+
+If they decline the description but allow the facts, the fallback is a title-and-link-only variant
+of the connector; the fields are already separated in `normalizeWpJobManager`, so that is a change
+to what is stored, not to how it is fetched.
+
+**Asked: not yet sent (as of 23 Sep 2026).** Record the date here when it goes out, as the Alberta
+and Newfoundland asks are recorded.
