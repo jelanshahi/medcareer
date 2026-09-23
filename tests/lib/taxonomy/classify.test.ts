@@ -300,6 +300,67 @@ describe('classify', () => {
     expect(classify('Psychologists - 2026-2027 Graduates')).toBe('mental_health');
   });
 
+  describe('French titles', () => {
+    // Quebec posts only in French, and Manitoba posts bilingually, so these decide whether a
+    // Quebec job lands in a discipline at all. normalizeTitle strips the accents first.
+    it('reads the common French clinical roles', () => {
+      expect(classify('Candidat / candidate à l’exercice de la profession d’infirmier / infirmière')).toBe('nursing');
+      expect(classify('Préposé aux bénéficiaires')).toBe('support_care');
+      expect(classify('Auxiliaires aux services de santé et sociaux (ASSS)')).toBe('support_care');
+      expect(classify('Pharmacien(ne)')).toBe('pharmacy');
+      expect(classify('Ergothérapeute')).toBe('allied_health');
+      expect(classify('Psychologue')).toBe('mental_health');
+      expect(classify('Technologiste médical')).toBe('diagnostics_lab');
+    });
+
+    it('reads the French non-clinical roles', () => {
+      expect(classify('Préposé ou préposée au service alimentaire')).toBe('food_services');
+      expect(classify('Préposé à l’entretien ménager')).toBe('environmental_services');
+      expect(classify('Secrétaire médicale')).toBe('admin_clerical');
+    });
+
+    it('reads a bilingual Manitoba title from either half', () => {
+      expect(classify('Licensed Practical Nurse-Infirmier ère auxiliaire autorisé e')).toBe('nursing');
+      expect(classify('Clerk II - Primary Care-Commis 2-Soins primaires')).toBe('admin_clerical');
+      expect(classify('Pharmacy Site Manager-Gestionnaire de site-Pharmacie')).toBe('management');
+    });
+
+    it('tells an aide-diététiste from a diététiste', () => {
+      // "Aide-diététiste" is a dietary aide, not a dietitian — the same distinction English
+      // draws between "Dietary Aide" and "Dietitian", and it moved a real job out of food
+      // services until the French term was guarded.
+      expect(classify('Dietary Aide-Aide - diététiste')).toBe('food_services');
+      expect(classify('Diététiste-nutritionniste | Soutien à domicile')).toBe('allied_health');
+    });
+
+    it('reads Quebec’s public-sector classification titles', () => {
+      // MUHC posts these; they are a vocabulary of their own, not translations of the
+      // English titles the rest of the board uses.
+      expect(classify('Hygiéniste dentaire – Temps partiel – Jour')).toBe('allied_health');
+      expect(classify('Récréologue – temps complet temporaire')).toBe('allied_health');
+      expect(classify('Technicien / technicienne en diététique – Liste de rappel')).toBe('allied_health');
+      expect(classify('Menuisier / menuisière – Permanent – Jour (Multisites)')).toBe('facilities_trades');
+      expect(classify('Mécanicien / mécanicienne de machines fixes')).toBe('facilities_trades');
+      expect(classify('Spécialiste en procédés administratifs – Service de la paie')).toBe('admin_clerical');
+      expect(classify('Adjoint / Adjointe au directeur – Bureau de projet')).toBe('management');
+      expect(classify('Chef / Cheffe de secteur – Numérisation')).toBe('management');
+    });
+
+    it('leaves Quebec’s catch-all classifications alone', () => {
+      // "Agent de planification, de programmation et de recherche" is one classification
+      // covering planning, programming and research alike, and "Technicien classe B" names
+      // only a pay class. Neither says which discipline.
+      expect(classify('Agent / agente de planification, de programmation et de recherche')).toBeNull();
+      expect(classify('Technicien / technicienne classe B')).toBeNull();
+    });
+
+    it('sends a French department head to management, like its English equivalent', () => {
+      expect(classify('Chef de service - Ressources humaines')).toBe('management');
+      // But a clinical role still wins, as "Nurse Manager" does.
+      expect(classify('Chef de service - Soins infirmiers')).toBe('nursing');
+    });
+  });
+
   it('still leaves titles alone that the words cannot settle', () => {
     // Care aide in some places, clerical in others.
     expect(classify('Unit Assistant')).toBeNull();

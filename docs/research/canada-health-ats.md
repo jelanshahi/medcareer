@@ -55,14 +55,14 @@ connector yet; **unchecked** = system identified, crawl permission not tested.
 | **NS** | Nova Scotia Health **and** IWK Health | SAP SuccessFactors (`jobs.nshealth.ca`) | live | Both employers on one site — see below |
 | **NB** | Horizon and Vitalité | **iTacit** (`horizonnb.itacit.com`, `vitalitenb.itacit.com`) | **blocked** | Not Salesforce — that site is only for internationally educated professionals. See below |
 | **NL** | NL Health Services | ServiceNow (`nlhs.service-now.com/nlhsjobs`) | **blocked** | One authority for the whole province. robots.txt is `Disallow: /`. See below |
-| **PE** | Health PEI | PEI government job site (`jobspei.ca`) | unchecked | Site blocked automated requests during research |
+| **PE** | Health PEI | PeopleSoft Candidate Gateway (`psgateway.gov.pe.ca`) behind Radware | **blocked** | Radware serves a JavaScript challenge to every non-browser client, even a browser User-Agent. See below |
 | **QC** | MUHC | WordPress WP Job Manager (`carrieres.cusm.ca`) | available | 86 postings, crawlable. Same setup as the CISSS sites below |
 | **QC** | Public network (~34 CISSS/CIUSSS) | **Four platforms, no single site** | available | All crawlable, but fragmented and entirely in French — see below |
 | **QC** | Santé Québec central portal | DigitalRecruiters (`emplois.sante.quebec`) | available | Only ~61 postings — a thin layer over the regional sites. `Allow: /`, `Crawl-delay: 10` |
 | **QC** | Montréal health network | **Njoyn** (`emplois.santemontreal.qc.ca`, CLID 54327) | **blocked** | Njoyn serves a Radware bot-detection CAPTCHA after a few requests. See below |
-| **YT** | Yukon Hospitals | UKG UltiPro | unchecked | |
-| **NT** | NTHSSA | Territorial government site | unchecked | |
-| **NU** | Government of Nunavut | Territorial government site | unchecked | |
+| **YT** | Yukon Hospital Corporation | UKG UltiPro (`recruiting.ultipro.ca/YUK5001YUHC`) | **blocked** | robots.txt disallows `*/JobBoardView`, the only endpoint that lists postings. See below |
+| **NT** | NTHSSA | GNWT careers (`gov.nt.ca/careers`) | **blocked** | robots.txt disallows `/careers/en/search/job/*` by name. See below |
+| **NU** | Government of Nunavut | Drupal (`gov.nu.ca`); nurse listing on `nunavutnurses.ca` | **blocked** | `gov.nu.ca` is `Disallow: /`; the nurse site lists titles only, with no posted date. See below |
 | *national* | *(any employer, any province)* | Job Bank (`jobbank.gc.ca`) | **ruled out** | Terms of Use forbid crawlers, and the owner has declined it as a source outright. Do not propose it again — see below |
 
 ## Employers who refuse our crawler
@@ -601,3 +601,73 @@ There is a pattern here worth naming: **robots.txt is no longer the binding cons
 Canadian health ATSs.** Four of our blocks now come from a WAF or an anti-bot service that
 contradicts a permissive or silent robots.txt — Alberta Health Services, PHSA, Providence Health
 Care and now Njoyn. Check for one early; a clean robots.txt means very little on its own.
+
+## PEI and the territories — checked 22 Sep 2026, all blocked
+
+All four were checked against the full pre-flight checklist, including a listing page and a detail
+page with our own User-Agent. Each is closed in a different way, and none by a technical problem
+we could solve without pretending not to be a crawler.
+
+| | Where the postings are | What closes it |
+|---|---|---|
+| **PEI** | PeopleSoft Candidate Gateway, `psgateway.gov.pe.ca` | **Radware.** robots.txt is a 404, which RFC 9309 reads as "no restrictions" — but the first request returns a Radware page, and so does a browser User-Agent. It is a JavaScript challenge, not a User-Agent rule, so the only way past is a headless browser posing as a person. `healthjobspei.ca`, `healthpeicareers.ca` and `jobspei.ca/pei-health-jobs` are all crawlable and all marketing pages that link out to the gateway |
+| **Yukon** | UKG UltiPro, `recruiting.ultipro.ca/YUK5001YUHC` | **robots.txt, precisely.** It is `Disallow: /` with `Allow: */JobBoard/` and `Disallow: */JobBoardView`. The board page embeds no job IDs — only a zeroed placeholder — and loads its list from `JobBoardView/LoadSearchResults`, which the longer Disallow rule covers. Single postings are open; there is no permitted way to find them. It reads as deliberate: search engines may index postings they reach by link, and bulk listing is refused |
+| **NWT** | GNWT careers, `gov.nt.ca/careers` | **robots.txt, by name**: `Disallow: /careers/en/search/job/*`. The NTHSSA site carries no posting links of its own. A URL shaped to slip past the pattern would defeat the obvious intent of a rule written about job listings |
+| **Nunavut** | `gov.nu.ca/en/jobs/…` | **robots.txt**: `gov.nu.ca` ends with `Disallow: /`. `nunavutnurses.ca/jobs/opportunities` *is* crawlable and lists ~20 nursing postings, but only title, closing date and competition number — the Community column is empty on every row, and there is no posted date and no description. Every row links out to the disallowed host |
+
+Nunavut's nurse table has the same shape as Njoyn: the list is reachable and everything a job page
+needs is on the page we may not fetch. Using "first seen" as the posted date would stamp
+open-until-filled roles as new on the first crawl, which step 6 of the checklist exists to prevent.
+
+PEI is now the fifth WAF block (after AHS, PHSA, Providence and Njoyn), and the second Radware one.
+
+### Quebec, revisited 22 Sep 2026: crawlable, but a copyright clause stands in the way
+
+A second pass found **eight** CISSS/CIUSSS and hospital sites on the one WordPress WP Job Manager
+setup — **857 postings**, of which ~530 were edited within 30 days. Every one allows crawling, serves
+our User-Agent on both listing and detail pages, and carries JobPosting JSON-LD with a real
+`datePosted`. Technically this is the best remaining source in the country.
+
+| Site | Postings | `lastmod` within 30 days | Sitemap |
+|---|---|---|---|
+| `cissslaval.carrieresante.gouv.qc.ca` | 156 | 126 | WordPress core, `wp-sitemap-posts-job_listing-1.xml` |
+| `laurentides.carrieresante.gouv.qc.ca` | 136 | 90 | Yoast, `job_listing-sitemap.xml` |
+| `cn.carrieresante.gouv.qc.ca` | 121 | 101 | Yoast |
+| `cisssca.carrieresante.gouv.qc.ca` | 109 | 38 | Yoast |
+| `lanaudiere.carrieresante.gouv.qc.ca` | 106 | 44 | Yoast |
+| `emplois.cisssbsl.com` | 92 | 30 | Yoast |
+| `carrieres.cusm.ca` (MUHC) | 79 | 47 | Yoast |
+| `chudequebec.carrieresante.gouv.qc.ca` | 58 | 54 | Yoast |
+
+**The blocker is licensing, not access.** The seven `carrieresante.gouv.qc.ca` sites link from their
+footers to the Government of Quebec's copyright policy, which says:
+
+> Il est interdit de reproduire, télécharger, stocker, traduire, adapter, publier ou représenter en
+> public les contenus du gouvernement du Québec sans autorisation préalable.
+
+It covers "tous les documents, données, compilations et autres œuvres qu'il produit, publie ou
+diffuse". Storing and publishing a posting's description is exactly what the pipeline does. It is
+stricter than canada.ca, which at least permits non-commercial reproduction — this one names
+storage itself. MUHC is the exception: `carrieres.cusm.ca` links only privacy notices and publishes
+no terms of use at all, so nothing explicit restricts it.
+
+The policy's own heading offers a way through — "demande d'autorisation de reproduction", a
+request for authorization — so this is a permission question with a named process, not a closed
+door. Nothing has been built or ingested for Quebec pending the owner's decision.
+
+Things any connector will need, recorded so they are not rediscovered:
+
+- **`lastmod` is not the posted date here.** WordPress bumps it on every edit; it matched
+  `datePosted` on 6 of 16 samples. It is still a safe *upper bound* — nothing is modified before it
+  is posted — so it can skip old postings before fetching, with `datePosted` deciding afterwards.
+  The runner already checks both (`workers/run.ts`, the stub check and the post-hydration check).
+- **Parse sitemaps by `<url>` block.** `cn` puts `<xhtml:link hreflang>` alternates between `<loc>`
+  and `<lastmod>`, so any pattern assuming they are adjacent reads zero postings and reports success.
+- **Titles are double-encoded** (`l&amp;rsquo;exercice`) — decode twice. Descriptions arrive
+  HTML-escaped. `hiringOrganization.name` is empty, so the employer comes from the registry.
+  `jobLocation.address` is a bare string ("Montréal"), not a PostalAddress.
+- **`validThrough` looks like a year-end placeholder** (2026-12-31); treat it as iCIMS's is treated.
+- Pages carry Google reCAPTCHA on their forms, which a naive block-page check mistakes for a WAF.
+
+Other Quebec platforms seen but not pursued: DigitalRecruiters at `emplois.sante.quebec` and at
+`emploi.recrutementcisssme.com` (Montérégie-Est), and `emplois.santeestrie.qc.ca` (Estrie).

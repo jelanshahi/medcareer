@@ -10,6 +10,7 @@ import { createOracleCloudConnector, type OracleCloudEmployer } from '@/workers/
 import { createSuccessFactorsConnector, type SuccessFactorsEmployer } from '@/workers/connectors/successfactors';
 import { createSuccessFactorsMbConnector, type SuccessFactorsMbEmployer } from '@/workers/connectors/successfactors-mb';
 import { createTaleoConnector, type TaleoEmployer } from '@/workers/connectors/taleo';
+import { createWpJobManagerConnector, type WpJobManagerEmployer } from '@/workers/connectors/wpjobmanager';
 import type { Connector } from '@/workers/connectors/types';
 import { createWorkdayConnector, type WorkdayEmployer } from '@/workers/connectors/workday';
 import { fingerprint } from '@/lib/normalize/fingerprint';
@@ -62,6 +63,13 @@ const SuccessFactorsMbAtsConfigSchema = z.object({
   host: z.string().min(1),
 });
 
+/** WP Job Manager: Yoast's sitemap path by default, overridden for WordPress core sitemaps. */
+const WpJobManagerAtsConfigSchema = z.object({
+  key: z.string().min(1),
+  host: z.string().min(1),
+  sitemapPath: z.string().min(1).optional(),
+});
+
 /** The shared BC careers app: one host per authority, every posting listed in its sitemap. */
 const BcHealthJobsAtsConfigSchema = z.object({
   key: z.string().min(1),
@@ -90,6 +98,7 @@ const EmployerRowSchema = z.discriminatedUnion('ats_platform', [
   EmployerBaseSchema.extend({ ats_platform: z.literal('successfactors'), ats_config: SuccessFactorsAtsConfigSchema }),
   EmployerBaseSchema.extend({ ats_platform: z.literal('successfactors_mb'), ats_config: SuccessFactorsMbAtsConfigSchema }),
   EmployerBaseSchema.extend({ ats_platform: z.literal('bchealthjobs'), ats_config: BcHealthJobsAtsConfigSchema }),
+  EmployerBaseSchema.extend({ ats_platform: z.literal('wpjobmanager'), ats_config: WpJobManagerAtsConfigSchema }),
   EmployerBaseSchema.extend({ ats_platform: z.literal('oraclecloud'), ats_config: OracleCloudAtsConfigSchema }),
 ]);
 
@@ -291,7 +300,7 @@ async function main() {
     .from('employers')
     .select('slug,name,province,default_city,ats_platform,ats_config')
     .eq('is_active', true)
-    .in('ats_platform', ['workday', 'taleo', 'icims', 'jibe', 'successfactors', 'successfactors_mb', 'bchealthjobs', 'oraclecloud']);
+    .in('ats_platform', ['workday', 'taleo', 'icims', 'jibe', 'successfactors', 'successfactors_mb', 'bchealthjobs', 'wpjobmanager', 'oraclecloud']);
 
   if (error) throw error;
 
@@ -340,6 +349,10 @@ async function main() {
       const employer: BcHealthJobsEmployer = { ...base, config: parsed.data.ats_config };
       sourceId = `bchealthjobs:${employer.config.key}`;
       createConnector = (ctx) => createBcHealthJobsConnector(employer, ctx);
+    } else if (parsed.data.ats_platform === 'wpjobmanager') {
+      const employer: WpJobManagerEmployer = { ...base, config: parsed.data.ats_config };
+      sourceId = `wpjobmanager:${employer.config.key}`;
+      createConnector = (ctx) => createWpJobManagerConnector(employer, ctx);
     } else {
       const employer: OracleCloudEmployer = { ...base, config: parsed.data.ats_config };
       sourceId = `oraclecloud:${employer.config.key}`;
