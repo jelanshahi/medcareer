@@ -137,10 +137,19 @@ export function employmentTypeFromWp(value: string | string[] | undefined): Empl
   }
 }
 
+/**
+ * Quebec appends the administrative region in brackets — "LaSarre (Abitibi-Témiscamingue)",
+ * "Val d'Or (Abitibi-Témiscamingue)" — on every city but Montréal. Left alone each becomes its
+ * own city on the site, with a slug to match, so the same town splits from itself as soon as a
+ * second employer writes it plainly.
+ */
+const stripRegion = (city: string) => city.replace(/\s*\([^)]*\)\s*$/, '').trim();
+
 export function cityFromAddress(address: unknown, fallback: string): string {
-  if (typeof address === 'string') return decode(address).trim() || fallback;
-  const locality = (address as { addressLocality?: string } | undefined)?.addressLocality;
-  return (locality ? decode(locality).trim() : '') || fallback;
+  const raw = typeof address === 'string'
+    ? address
+    : (address as { addressLocality?: string } | undefined)?.addressLocality ?? '';
+  return stripRegion(decode(raw).trim()) || fallback;
 }
 
 export function normalizeWpJobManager(raw: unknown, employer: WpJobManagerEmployer): NormalizedPosting {

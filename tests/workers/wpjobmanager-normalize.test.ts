@@ -153,4 +153,19 @@ describe('cityFromAddress', () => {
     expect(cityFromAddress(undefined, 'Québec')).toBe('Québec');
     expect(cityFromAddress('', 'Québec')).toBe('Québec');
   });
+
+  it('strips the administrative region Quebec appends in brackets', () => {
+    // Six of the seven Quebec cities on the board carried one. Left in, the same town splits
+    // from itself the moment another employer writes it plainly.
+    expect(cityFromAddress('LaSarre (Abitibi-Témiscamingue)', 'Québec')).toBe('LaSarre');
+    expect(cityFromAddress("Val d'Or (Abitibi-Témiscamingue)", 'Québec')).toBe("Val d'Or");
+    expect(cityFromAddress('Témiscaming-et-de-Kipawa (Abitibi-Témiscamingue)', 'Québec'))
+      .toBe('Témiscaming-et-de-Kipawa');
+    // Montréal has none and must be left exactly as it is.
+    expect(cityFromAddress('Montréal', 'Québec')).toBe('Montréal');
+  });
+
+  it('falls back rather than returning an empty city when brackets are all there is', () => {
+    expect(cityFromAddress('(Abitibi-Témiscamingue)', 'Québec')).toBe('Québec');
+  });
 });
