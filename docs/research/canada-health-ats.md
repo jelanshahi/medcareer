@@ -810,3 +810,64 @@ Permission: no tenant serves a robots.txt (all answer with HTML), nor does `ats.
 the page bundle are TPB's contract with the hospitals about paying to syndicate postings to job
 boards, which is itself a sign these employers want to be aggregated. Repeat requests to the list
 API and to a detail page were served normally.
+
+## Long-term care and home care — started 24 Sep 2026
+
+Everything above is hospitals and health authorities. This is the first pass at the other big
+piece of the healthcare labour market: long-term care homes, retirement living and home care —
+where the PSW and care-aide shortage is sharpest. The taxonomy already had the categories for it
+(`support_care` carries most of the volume); what was missing was the employers.
+
+Two employers checked out and are live. Three were checked and ruled out.
+
+### Live
+
+**CarePartners** (home care, Ontario-wide) needed no new connector — it runs iCIMS on
+`careers-carepartners.icims.com`, the same platform as Vancouver Coastal and Humber River.
+robots.txt names its own sitemap and disallows only the referral/login/candidate paths. 136
+postings, in towns none of the hospital connectors ever reach — Kapuskasing, Penetanguishene,
+Arnprior. `facility_type: 'home_care'`.
+
+**Sienna Senior Living** (long-term care and retirement living, multi-province) needed a new
+connector: [phenom.ts](../../workers/connectors/phenom.ts). Its board, `careers.siennaliving.ca`,
+runs **Phenom** — an SPA, but every posting is also a real page carrying a complete schema.org
+JobPosting, and a sitemap lists ~490 of them. robots.txt disallows only apply/chatbot/job-cart/
+tracking paths; the job pages and sitemap are open. `datePosted` and the sitemap's `lastmod`
+matched on the postings sampled, so `lastmod` filters the fetch before hydration, the same
+pattern as the BC and Quebec connectors. Sienna runs homes in more than one province, so
+**province comes from each posting**, not the registry row — the one connector so far where that
+matters. `facility_type: 'long_term_care'`.
+
+### Checked and not pursued
+
+- **Chartwell** (`jobs.chartwell.com`) — robots.txt is `Disallow: /`. Blocked.
+- **Revera** — `careers.reveraliving.com` no longer resolves. They appear to have rebranded or
+  moved career sites since the last check; worth another look under a new name.
+- **Extendicare** (~100 homes) — crawlable (`Allow: /`) and its own sitemaps name ~454 job posts
+  across three files, but **every one of those URLs now redirects to the homepage**, and every
+  sitemap `lastmod` is the same date (2026-07-08) — a stale sitemap of dead links, not a live
+  feed. The real postings are server-rendered onto a `/job-posts/` index with city/address query
+  filters instead. Worth a connector, but it needs its own investigation of that index page
+  rather than reusing the sitemap pattern; not attempted here.
+
+### Taxonomy gap this rollout exposed
+
+Retirement-living operators use a vocabulary hospitals don't: 140 of Sienna's first 475 postings
+(29%) came back uncategorised on the first ingest. Most were retirement-industry synonyms for
+roles the taxonomy already had — "Guest Attendant", "Care Support Assistant" and "Resident
+Attendant" are PSW/HCA work, "Server" and "Hospitality Aide" are dining and combined dietary/
+housekeeping roles, "Concierge" is front desk, "Activation Aide" and "Resident Engagement
+Assistant" are recreation. Added to [classify.ts](../../lib/taxonomy/classify.ts); coverage is
+now 95%. The remainder — Sales Coordinator, Financial Analyst, HR Business Partner, Bus Driver —
+are genuinely non-clinical corporate roles with no category to guess into, left unmatched on
+purpose. The next chain (Schlegel, VON, SE Health, Bayshore) will likely reuse most of these
+terms, since "guest attendant" and "concierge" are retirement-industry-wide, not Sienna-specific.
+
+### What's next in this direction
+
+The long-term care chains are worth more scouting: Schlegel Villages showed ADP/UltiPro signage
+on its careers page but wasn't pre-flighted. VON, SE Health, Bayshore and ParaMed (home care)
+weren't checked past a robots.txt probe — `jobs.sehc.com` returned a real robots.txt worth
+following up. Each needs the full pre-flight (robots.txt, our UA on a listing *and* a detail
+page, terms of use) before any connector work — Njoyn and Extendicare both looked promising on
+a first pass and turned out not to be.

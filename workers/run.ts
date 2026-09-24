@@ -9,6 +9,7 @@ import { createJibeConnector, type JibeEmployer } from '@/workers/connectors/jib
 import { createOracleCloudConnector, type OracleCloudEmployer } from '@/workers/connectors/oraclecloud';
 import { createSuccessFactorsConnector, type SuccessFactorsEmployer } from '@/workers/connectors/successfactors';
 import { createSuccessFactorsMbConnector, type SuccessFactorsMbEmployer } from '@/workers/connectors/successfactors-mb';
+import { createPhenomConnector, type PhenomEmployer } from '@/workers/connectors/phenom';
 import { createTalentPoolBuilderConnector, type TalentPoolBuilderEmployer } from '@/workers/connectors/talentpoolbuilder';
 import { createTaleoConnector, type TaleoEmployer } from '@/workers/connectors/taleo';
 import { createWpJobManagerConnector, type WpJobManagerEmployer } from '@/workers/connectors/wpjobmanager';
@@ -65,6 +66,12 @@ const SuccessFactorsMbAtsConfigSchema = z.object({
   host: z.string().min(1),
 });
 
+/** Phenom: the sitemap and JSON-LD carry everything, so only the host is needed. */
+const PhenomAtsConfigSchema = z.object({
+  key: z.string().min(1),
+  host: z.string().min(1),
+});
+
 /** TalentPoolBuilder: cpId, brands and type come from the board's ng-init, per tenant. */
 const TalentPoolBuilderAtsConfigSchema = z.object({
   key: z.string().min(1),
@@ -111,6 +118,7 @@ const EmployerRowSchema = z.discriminatedUnion('ats_platform', [
   EmployerBaseSchema.extend({ ats_platform: z.literal('bchealthjobs'), ats_config: BcHealthJobsAtsConfigSchema }),
   EmployerBaseSchema.extend({ ats_platform: z.literal('wpjobmanager'), ats_config: WpJobManagerAtsConfigSchema }),
   EmployerBaseSchema.extend({ ats_platform: z.literal('talentpoolbuilder'), ats_config: TalentPoolBuilderAtsConfigSchema }),
+  EmployerBaseSchema.extend({ ats_platform: z.literal('phenom'), ats_config: PhenomAtsConfigSchema }),
   EmployerBaseSchema.extend({ ats_platform: z.literal('oraclecloud'), ats_config: OracleCloudAtsConfigSchema }),
 ]);
 
@@ -312,7 +320,7 @@ async function main() {
     .from('employers')
     .select('slug,name,province,default_city,ats_platform,ats_config')
     .eq('is_active', true)
-    .in('ats_platform', ['workday', 'taleo', 'icims', 'jibe', 'successfactors', 'successfactors_mb', 'bchealthjobs', 'wpjobmanager', 'talentpoolbuilder', 'oraclecloud']);
+    .in('ats_platform', ['workday', 'taleo', 'icims', 'jibe', 'successfactors', 'successfactors_mb', 'bchealthjobs', 'wpjobmanager', 'talentpoolbuilder', 'phenom', 'oraclecloud']);
 
   if (error) throw error;
 
@@ -369,6 +377,10 @@ async function main() {
       const employer: TalentPoolBuilderEmployer = { ...base, config: parsed.data.ats_config };
       sourceId = `talentpoolbuilder:${employer.config.key}`;
       createConnector = (ctx) => createTalentPoolBuilderConnector(employer, ctx);
+    } else if (parsed.data.ats_platform === 'phenom') {
+      const employer: PhenomEmployer = { ...base, config: parsed.data.ats_config };
+      sourceId = `phenom:${employer.config.key}`;
+      createConnector = (ctx) => createPhenomConnector(employer, ctx);
     } else {
       const employer: OracleCloudEmployer = { ...base, config: parsed.data.ats_config };
       sourceId = `oraclecloud:${employer.config.key}`;

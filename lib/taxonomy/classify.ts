@@ -33,7 +33,9 @@ const MANAGEMENT_ROLE = String.raw`manager|director|chief|supervisor|vice presid
 // clerical post that carries a clinical program's name ("Program Assistant (Office
 // Admin), Child and Youth Mental Health"). Bare "program assistant" is not safe
 // here: "Program Assistant - Adult Day Centre" may be an activity role.
-const ADMIN_ROLE = String.raw`clerk|secretary|administrative|receptionist|scheduler|registration|clerical|office assistant|agent administratif|agente administrative|secretaire medicale|commis|procedes administratifs|office admin|office administration|transcription|transcriptionist`;
+// "Concierge" and "payroll" are retirement-living and hospital HR terms for the
+// same front-desk and payroll-clerk work the other words already name.
+const ADMIN_ROLE = String.raw`clerk|secretary|administrative|receptionist|scheduler|registration|clerical|office assistant|agent administratif|agente administrative|secretaire medicale|commis|procedes administratifs|office admin|office administration|transcription|transcriptionist|concierge|payroll`;
 
 /**
  * Matches `words` only when the title names no management or clerical role.
@@ -83,7 +85,11 @@ const RULES: ReadonlyArray<{ pattern: RegExp; category: Category }> = [
   // long-term-care term; one employer writes it "Resident Assistant (Personal
   // Support Worker)". "Care aide" is BC's. Matched as roles: "Continuing Care
   // Coordinator" and "Home Support Scheduling" must not land here.
-  { pattern: /\b(personal support worker|health care aide|care aide|continuing care assistant|resident assistant|home care attendant|community care assistant|home support worker|patient support assistant|patient attendant|porter|orderly|prepose aux beneficiaires|preposee aux beneficiaires|auxiliaire aux services de sante|auxiliaires aux services de sante|aide soignant|aide soignante)\b/, category: 'support_care' },
+  // Retirement-living terms for the same job: Sienna's own posting field calls
+  // it "PSW, HCA and Guest Attendant" — the three are one role under three names.
+  // "Care Support Assistant", "Resident Attendant" and "Medication Care Partner"
+  // are the same operator's other titles for care-aide-level work.
+  { pattern: /\b(personal support worker|health care aide|care aide|continuing care assistant|resident assistant|resident attendant|home care attendant|community care assistant|home support worker|patient support assistant|patient attendant|porter|orderly|guest attendant|care support assistant|unregulated care provider|medication care partner|prepose aux beneficiaires|preposee aux beneficiaires|auxiliaire aux services de sante|auxiliaires aux services de sante|aide soignant|aide soignante)\b/, category: 'support_care' },
   // Ahead of management like every specialty: "Paramedic Supervisor" is still a paramedic role.
   { pattern: /\b(paramedics?|emergency medical responder|emergency med responder|emergency medical technician)\b/, category: 'paramedics' },
   // Alberta titles: "Nuclear Medicine Technologist I", "Combined Laboratory / X-Ray Technologist I".
@@ -104,7 +110,7 @@ const RULES: ReadonlyArray<{ pattern: RegExp; category: Category }> = [
   // "therapy assistant" cannot reach it. "Communicative disorders assistant" is
   // Ontario's speech-language assistant. Therapeutic recreation is allied health;
   // its workers and aides are matched as roles, not on "recreation" alone.
-  { pattern: /\b(occupational therapist|physiotherapist|respiratory therapist|speech language pathologist|speech pathologist|dietitian|audiologist|social worker|therapist|therapy assistant|rehabilitation assistant|physiotherapy assistant|occupational therapy assistant|communicative disorders assistant|genetic counsellor|genetic counselor|kinesiologist|dietetic technician|orthopaedic technician|orthopedic technician|recreation assistant|recreation worker|recreation aide|recreation coordinator|recreation therapy worker|activity worker|activity aide|activity assistant|perfusionist|anesthesia assistant|anaesthesia assistant|ergotherapeute|physiotherapeute|inhalotherapeute|orthophoniste|(?<!aide )dietetiste|(?<!aide )nutritionniste|travailleur social|travailleuse sociale|audiologiste|kinesiologue|hygieniste dentaire|recreologue|en dietetique)\b/, category: 'allied_health' },
+  { pattern: /\b(occupational therapist|physiotherapist|respiratory therapist|speech language pathologist|speech pathologist|dietitian|audiologist|social worker|therapist|therapy assistant|rehabilitation assistant|physiotherapy assistant|occupational therapy assistant|communicative disorders assistant|genetic counsellor|genetic counselor|kinesiologist|dietetic technician|orthopaedic technician|orthopedic technician|recreation assistant|recreation worker|recreation aide|recreation coordinator|recreation therapy worker|activity worker|activity aide|activity assistant|activation aide|leisure service aide|resident engagement assistant|perfusionist|anesthesia assistant|anaesthesia assistant|ergotherapeute|physiotherapeute|inhalotherapeute|orthophoniste|(?<!aide )dietetiste|(?<!aide )nutritionniste|travailleur social|travailleuse sociale|audiologiste|kinesiologue|hygieniste dentaire|recreologue|en dietetique)\b/, category: 'allied_health' },
   { pattern: /\b(research associate|research assistant|research coordinator|research scientist|clinical scientist|postdoctoral|clinical trial)\b/, category: 'research' },
   // The non-clinical disciplines. After every clinical specialty, so "Dietitian, Food
   // Services" stays allied health; guarded, so their supervisors and clerks go to
@@ -112,14 +118,19 @@ const RULES: ReadonlyArray<{ pattern: RegExp; category: Category }> = [
   // The department phrase itself is matched, like "environmental services" below, so
   // "General Worker - Food Services" is caught; "Dietitian, Food Services" is not,
   // because allied health has already claimed it.
-  { pattern: unlessLeadershipOrClerical(String.raw`cook|cooks|cuisinier|cuisiniere|chef cuisinier|aide dietetiste|aide nutritionniste|food services|food service|service alimentaire|services alimentaires|aide alimentaire|dietary aide|diet aide|dietary worker|dishwasher|kitchen helper|kitchen aide|hospitality service associate|hospitality services associate|nutrition services worker`), category: 'food_services' },
+  // "Server" and "hospitality aide" are the dining-room and combined dietary/
+  // housekeeping roles retirement homes post under those names. Bare "chef" is
+  // safe here: a French management title like "Chef de secteur" is already
+  // excluded by the guard below, and "Assistant-chef technicien... en diététique"
+  // is claimed first by the allied-health rule above it.
+  { pattern: unlessLeadershipOrClerical(String.raw`cook|cooks|cuisinier|cuisiniere|chef cuisinier|chef|aide dietetiste|aide nutritionniste|food services|food service|service alimentaire|services alimentaires|aide alimentaire|dietary aide|diet aide|dietary worker|dishwasher|kitchen helper|kitchen aide|kitchen assistant|hospitality service associate|hospitality services associate|hospitality aide|server|nutrition services worker`), category: 'food_services' },
   // Never bare "environmental": an Environmental Health Officer is a public health
   // inspector. "Porter" is not here either — support care already claims it.
   { pattern: unlessLeadershipOrClerical(String.raw`environmental services|environmental service|environmental attendant|environmental aide|housekeeping|housekeeper|cleaner|custodian|custodial|laundry|linen|entretien menager|hygiene et salubrite|salubrite|buanderie`), category: 'environmental_services' },
   // Engineers only by class or as power/stationary engineers — never bare "engineer",
   // which would claim software and data engineers. "Biomedical engineering
   // technologist" is clinical engineering, kept out of lab and imaging on purpose.
-  { pattern: unlessLeadershipOrClerical(String.raw`maintenance|power engineer|stationary engineer|engineer (1st|2nd|3rd|4th|5th) class|building operator|electrician|plumber|pipefitter|carpenter|millwright|refrigeration mechanic|hvac|painter|groundskeeper|grounds keeper|tradesperson|menuisier|menuisiere|mecanicien de machines fixes|machines fixes|biomedical engineering technologist|biomedical engineering technician|biomedical technologist|instrumentation`), category: 'facilities_trades' },
+  { pattern: unlessLeadershipOrClerical(String.raw`maintenance|power engineer|stationary engineer|engineer (1st|2nd|3rd|4th|5th) class|building operator|electrician|plumber|pipefitter|carpenter|millwright|refrigeration mechanic|hvac|painter|groundskeeper|grounds keeper|handyman|tradesperson|menuisier|menuisiere|mecanicien de machines fixes|machines fixes|biomedical engineering technologist|biomedical engineering technician|biomedical technologist|instrumentation`), category: 'facilities_trades' },
   // Physical security by role. The lookbehind keeps information and cyber security
   // — IT roles — out, since "Information Security Officer" names no manager and would
   // otherwise land here.

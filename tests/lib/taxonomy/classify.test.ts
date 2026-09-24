@@ -363,6 +363,34 @@ describe('classify', () => {
       expect(classify('Chef / Cheffe de secteur – Numérisation')).toBe('management');
     });
 
+    it('reads retirement-living and long-term-care titles', () => {
+      // Sienna Senior Living's own posting field calls this role "PSW, HCA and
+      // Guest Attendant" — three names for the same job across three of its titles.
+      expect(classify('Guest Attendant')).toBe('support_care');
+      expect(classify('Care Support Assistant UN(HIN)-Permanent Part Time')).toBe('support_care');
+      expect(classify('Resident Attendant')).toBe('support_care');
+      expect(classify('Unregulated Care Provider')).toBe('support_care');
+      expect(classify('Medication Care Partner')).toBe('support_care');
+      expect(classify('Server- Retirement')).toBe('food_services');
+      expect(classify('Hospitality Aide | Casual')).toBe('food_services');
+      expect(classify('Kitchen Assistant')).toBe('food_services');
+      expect(classify('Executive Chef')).toBe('food_services');
+      expect(classify('Concierge')).toBe('admin_clerical');
+      expect(classify('Payroll Administrator')).toBe('admin_clerical');
+      expect(classify('Handyman - Casual')).toBe('facilities_trades');
+      expect(classify('Activation Aide Certified')).toBe('allied_health');
+      expect(classify('Leisure Service Aide')).toBe('allied_health');
+      expect(classify('Resident Engagement Assistant')).toBe('allied_health');
+    });
+
+    it('does not let bare "chef" or "server" escape their leadership and clerical guards', () => {
+      // Bare "chef" must still lose to a French management title, and a plain
+      // "coordinator" or "advisor" alone should stay unmatched rather than guessed.
+      expect(classify('Chef / Cheffe de secteur – Numérisation')).toBe('management');
+      expect(classify('Sales Coordinator')).toBeNull();
+      expect(classify('Human Resources Advisor')).toBeNull();
+    });
+
     it('leaves Quebec’s catch-all classifications alone', () => {
       // "Agent de planification, de programmation et de recherche" is one classification
       // covering planning, programming and research alike, and "Technicien classe B" names
