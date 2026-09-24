@@ -16,9 +16,10 @@ re-check a row before trusting it.
 | [taleo.ts](../../workers/connectors/taleo.ts) | Alberta Health Services, Covenant Health (**inactive — blocked, see below**) | HTML search pages + one page per posting | ~110 list pages + new postings |
 | [icims.ts](../../workers/connectors/icims.ts) | Vancouver Coastal Health, Humber River, Mackenzie, Cambridge Memorial | Sitemap + one page per posting | 1 sitemap + new postings |
 | [jibe.ts](../../workers/connectors/jibe.ts) | Fraser Health | JSON API, whole postings, 100 at a time | ~22, no per-posting fetches |
-| [successfactors.ts](../../workers/connectors/successfactors.ts) | Nova Scotia Health, IWK Health | Paged search HTML + one page per posting | ~10 search pages + new postings |
+| [successfactors.ts](../../workers/connectors/successfactors.ts) | Nova Scotia Health, IWK Health, Health Sciences North | Paged search HTML + one page per posting | ~10 search pages + new postings |
 | [successfactors-mb.ts](../../workers/connectors/successfactors-mb.ts) | The shared Manitoba site — ~30 employers | Paged search HTML + one page per posting | ~35 search pages + new postings |
 | [bchealthjobs.ts](../../workers/connectors/bchealthjobs.ts) | Interior Health, Northern Health | Sitemap + one page per posting | 1 sitemap + new postings |
+| [talentpoolbuilder.ts](../../workers/connectors/talentpoolbuilder.ts) | 5 Ontario hospitals: Providence Care, Windsor Regional, Montfort, Georgian Bay, Guelph General | JSON API, whole list in one request | 1 list + new postings |
 | [oraclecloud.ts](../../workers/connectors/oraclecloud.ts) | Saskatchewan Health Authority | REST API, 200 requisitions per request | ~11 list requests + new postings |
 
 ## Province by province
@@ -30,6 +31,9 @@ connector yet; **unchecked** = system identified, crawl permission not tested.
 | Province | Employer | Job system | Status | Notes |
 |---|---|---|---|---|
 | **ON** | 6 hospitals (above) | Workday | live | |
+| **ON** | 5 hospitals on TalentPoolBuilder | NetHire (`*.talentpoolbuilder.com`) | live | Providence Care, Windsor Regional, Montfort, Georgian Bay, Guelph General — 235 open |
+| **ON** | Health Sciences North (Sudbury) | SAP SuccessFactors (`careers.hsnsudbury.ca`) | live | Same template as Nova Scotia — no new connector, 81 postings |
+| **ON** | Kingston Health Sciences Centre, Hotel Dieu Hospital | SAP SuccessFactors on `career012.successfactors.eu` | **blocked** | SAP’s own hosted domain disallows everything but `/login`. See below |
 | **ON** | Humber River, Mackenzie, Cambridge Memorial | iCIMS | live | |
 | **ON** | ~14 hospitals incl. Bluewater, Brant, Cornwall, Erie Shores, Hawkesbury | njoyn | unchecked | Biggest Ontario cluster left |
 | **ON** | Health Sciences North, Kingston Health Sciences, Hotel Dieu | SAP SuccessFactors | unchecked | Same system as Nova Scotia |
@@ -710,3 +714,99 @@ to what is stored, not to how it is fetched.
 
 **Asked: not yet sent (as of 23 Sep 2026).** Record the date here when it goes out, as the Alberta
 and Newfoundland asks are recorded.
+
+## Ontario's long tail — started 24 Sep 2026
+
+Njoyn's 14 hospitals are blocked (above), so what remains in Ontario is genuine long tail. The
+cheapest wins are hospitals already running a platform we have a connector for; the first of
+those is now live.
+
+**Health Sciences North (Sudbury) is live, with no new code.** It runs the same SAP
+SuccessFactors career-site template as Nova Scotia Health, and its robots.txt is *byte-identical*
+to `jobs.nshealth.ca`'s. Detail pages carry the same microdata, and repeat requests with our own
+User-Agent were served normally. 81 postings, all inside the 30-day window.
+
+Two things it taught the connector:
+
+- **A single-employer tenant has no site segment.** `/search/`, `/hsn/search/` and
+  `/definitely-not-a-real-site/search/` all return the same 25 results — the segment is ignored
+  entirely. So `sites` is `[""]` rather than a made-up name that would mislead the next reader,
+  and `searchUrl()` omits the segment when the site is empty. The old loop guarded with
+  `if (!site) return` and would have read `""` as "no more sites".
+- **Canadian spelling.** HSN posts "Anaesthesia Assistant"; the rules carried only the American
+  "anesthesia". The -ae- forms (anaesthesia, paediatrician, haematologist, gynaecologist) are now
+  matched alongside the American ones, which picked up 8 more jobs across the provinces already
+  live, not just Sudbury.
+
+### `careerNNN.successfactors.eu` is closed, for every tenant
+
+Kingston Health Sciences Centre and Hotel Dieu Hospital share the `KGH` tenant on
+`career012.successfactors.eu`. Its robots.txt is 59 bytes:
+
+```
+User-agent: *
+Disallow: /
+Disallow: /*company
+Allow: /login
+```
+
+Their career URL is `/career?company=KGH`, disallowed twice over. This is **SAP's own hosted
+domain**, not an employer's — so every employer on a `careerNNN.successfactors.eu` tenant is
+closed the same way, and it is worth checking which domain a SuccessFactors employer uses before
+counting it. An employer on its own custom domain (Nova Scotia, Health Sciences North) is
+crawlable; the same software on SAP's domain is not.
+
+### What is worth doing next in Ontario
+
+| Cluster | Hospitals | Note |
+|---|---|---|
+| ~~TalentPoolBuilder~~ | ~~6~~ | **Done** — 5 live. Lake of the Woods has no jobs widget on its board |
+| SmartRecruiters | 4 | |
+| UKG (UltiPro / UKG Pro) | 4 | Yukon's UltiPro board was blocked at the listing endpoint; check whether these tenants are the same shape before building |
+| eRecruit | 4 | Not one vendor — separately hosted instances, likely per-instance work despite the shared name |
+| PeopleSoft | 3 | London Health Sciences, Ottawa Hospital, SickKids, each self-hosted. PEI's PeopleSoft sat behind a Radware challenge |
+| Dayforce, SilkRoad, StartDate, BambooHR | 2 each | |
+
+48 Ontario hospitals have **no ATS at all** — postings are PDFs, inline forms or "email your
+resume". No connector can reach those regardless of effort.
+
+Every one of these needs the pre-flight before any code: Njoyn looked like the best cluster in
+the province until its detail pages turned out to be behind a WAF.
+
+### TalentPoolBuilder — live 24 Sep 2026, and the trap that hides in it
+
+Five of the six hospitals are live: Providence Care (83 open), Windsor Regional (54), Hôpital
+Montfort (41), Georgian Bay General (31), Guelph General (26). Lake of the Woods District
+Hospital is **not** seeded — its board carries no jobs widget at all, so there is nothing to list.
+
+TalentPoolBuilder is **NetHire's** ATS. The board is an AngularJS page that lists nothing in its
+HTML; the postings come from `POST /jbApi/v1/jobs/list`.
+
+**Two ways to get an answer that looks like "no openings":**
+
+1. The page sends that request as **multipart form data**, not JSON — its `httpService.makeCall`
+   builds a `FormData` and sets `Content-Type: undefined`. Post JSON and the API replies
+   `{"result":true,"jobs":[]}`: a *success* with nothing in it.
+2. The three parameters that select the postings — `cpId`, `brands`, `type` — sit in a
+   **multi-line `ng-init`** on the jobs widget. Omit `brands` and the same empty success comes
+   back. A single-line grep for `ng-init` captures only the first of the three, which is how
+   this was nearly written off as six hospitals with no jobs.
+
+Both failures are silent and both look like the employer, not the request. Sibling endpoints are
+the way to tell them apart: an unknown endpoint answers `{"result":false,"error":"No Endpoint:…"}`,
+so a `result:true` with an empty array means the request was accepted and the parameters were
+wrong.
+
+**The data is the richest of any source here.** Every open posting carries a wage range *with the
+period named* (`wage_type`: "Hourly" or "Annually"), so nothing is inferred from magnitude, plus
+city, province, department, brand, employment status and a real posted timestamp. Descriptions
+are server-rendered into `.cp-job-description` on `/job/{campaign_id}`.
+
+**Filter on `status`.** The API returns `"Hiring"` and `"Hired"` side by side, and `"Hired"` is a
+filled post. Listing one sends an applicant at a job that no longer exists.
+
+Permission: no tenant serves a robots.txt (all answer with HTML), nor does `ats.nethire.com`;
+`nethire.com` itself is `Allow: /`. No terms of use are published to visitors — the terms inside
+the page bundle are TPB's contract with the hospitals about paying to syndicate postings to job
+boards, which is itself a sign these employers want to be aggregated. Repeat requests to the list
+API and to a detail page were served normally.

@@ -296,6 +296,23 @@ describe('classify', () => {
     });
   });
 
+  it('reads Canadian spellings, not only the American ones', () => {
+    // Health Sciences North posts "Anaesthesia Assistant"; the rules carried only
+    // "anesthesia". Canadian health employers use the -ae- forms throughout.
+    expect(classify('Anaesthesia Assistant')).toBe('allied_health');
+    expect(classify('Anaesthesiologist - Perioperative')).toBe('physicians');
+    expect(classify('Paediatrician, General Paediatrics')).toBe('physicians');
+    expect(classify('Haematologist')).toBe('physicians');
+    expect(classify('Obstetrician/Gynaecologist')).toBe('physicians');
+    // The American spellings must keep working.
+    expect(classify('Anesthesia Assistant')).toBe('allied_health');
+    expect(classify('Pediatrician')).toBe('physicians');
+  });
+
+  it('reads sleep-study technologists as lab and imaging', () => {
+    expect(classify('Polysomnographic Technologist')).toBe('diagnostics_lab');
+  });
+
   it('reads the plural "psychologists" as the singular is read', () => {
     expect(classify('Psychologists - 2026-2027 Graduates')).toBe('mental_health');
   });

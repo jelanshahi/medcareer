@@ -4,6 +4,7 @@ import {
   extractSuccessFactorsDetail,
   normalizeSuccessFactors,
   parseSearchPage,
+  searchUrl,
   parseListDate,
   parseDescriptionFields,
   employmentTypeFromSuccessFactors,
@@ -32,7 +33,7 @@ const iwk: SuccessFactorsEmployer = {
 const detail = (name: string) => extractSuccessFactorsDetail(fixture(name));
 
 describe('parseSearchPage', () => {
-  const stubs = parseSearchPage(fixture('nsha-search.html'), nsh.config.host, 'nsha');
+  const stubs = parseSearchPage(fixture('nsha-search.html'), nsh.config.host);
 
   it('returns one stub per row, with the posted date the list shows', () => {
     expect(stubs).toHaveLength(25);
@@ -49,7 +50,7 @@ describe('parseSearchPage', () => {
     // The real rows link relatively, so this is the shape that could smuggle in another host.
     const doctored = '<tr class="data-row"><a href="https://jobs.example.com/nsha/job/Some-Role/12345/">'
       + 'Some Role</a><td>Sep 18, 2026</td></tr>';
-    expect(() => parseSearchPage(doctored, nsh.config.host, 'nsha')).toThrow(/registry host/);
+    expect(() => parseSearchPage(doctored, nsh.config.host)).toThrow(/registry host/);
   });
 });
 
@@ -154,5 +155,20 @@ describe('parseSalary', () => {
 
   it('returns nothing when no rate is stated', () => {
     expect(parseSalary('Come work with us.', {})).toEqual({});
+  });
+});
+
+describe('searchUrl', () => {
+  it('puts the site segment in the path when the host carries several boards', () => {
+    expect(searchUrl('jobs.nshealth.ca', 'nsha', 0)).toBe('https://jobs.nshealth.ca/nsha/search/?startrow=0');
+    expect(searchUrl('jobs.nshealth.ca', 'iwk', 25)).toBe('https://jobs.nshealth.ca/iwk/search/?startrow=25');
+  });
+
+  it('omits the segment for a board that lives at the host root', () => {
+    // Health Sciences North is one employer on its own tenant: /search/, /hsn/search/ and
+    // /definitely-not-a-real-site/search/ all return the same 25 results, so a made-up
+    // segment would only mislead. "" is configured instead, and must not leave a double slash.
+    expect(searchUrl('careers.hsnsudbury.ca', '', 0)).toBe('https://careers.hsnsudbury.ca/search/?startrow=0');
+    expect(searchUrl('careers.hsnsudbury.ca', '', 50)).not.toContain('//search');
   });
 });

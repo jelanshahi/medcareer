@@ -29,12 +29,12 @@ Each row's "Careers/Jobs URL" is the actual evidence for its ATS determination �
 | **njoyn (CGI)** | 14 | 11% | **BLOCKED — do not build this connector.** Radware bot protection serves a CAPTCHA on every job *detail* page while leaving the listing open, and the listing carries neither a description nor a posted date. Verified 21 Sep 2026; see canada-health-ats.md. |
 | **Unclear — needs manual check** | 12 | 9% | Agent couldn't confirm within its lookup budget (site errors, JS-rendered listings, ad-hoc LinkedIn links). Needs a human/deeper look, not a guess. |
 | **Workday** | 3 | 2% | Already have a connector. +3 more found here (see above). |
-| **TalentPoolBuilder** | 6 | 5% | Second-largest cluster worth a dedicated connector. |
+| **TalentPoolBuilder** | 6 | 5% | **The largest reachable cluster now that njoyn is out** — the next connector to build, after a WAF pre-flight. |
 | **SmartRecruiters** | 4 | 3% | |
 | **UKG (UltiPro / UKG Pro Recruiting)** | 4 | 3% | |
 | **eRecruit / eRecruiter (various regional instances)** | 4 | 3% | Not one vendor — several differently-hosted "eRecruit"-branded instances (Lakeridge, Niagara Health, Queensway Carleton, St. Joseph's Care Group). Would likely need per-instance handling despite the shared name. |
 | **iCIMS** | 3 | 2% | |
-| **SAP SuccessFactors** | 3 | 2% | Hotel Dieu Hospital and Kingston Health Sciences Centre share one KHSC tenant. |
+| **SAP SuccessFactors** | 3 | 2% | **Health Sciences North is LIVE** — same template as Nova Scotia, no new connector needed. Hotel Dieu and Kingston Health Sciences Centre share the KGH tenant on `career012.successfactors.eu`, which is **blocked**: SAP’s own hosted domain allows only `/login`. Verified 24 Sep 2026. |
 | **Oracle PeopleSoft HCM** | 3 | 2% | London Health Sciences Centre, Ottawa Hospital, SickKids — each self-hosted separately. |
 | **Dayforce (Ceridian)** | 2 | 2% | Sinai Health System, Women's College Hospital. |
 | **SilkRoad** | 2 | 2% | Baycrest, Muskoka Algonquin Healthcare. |

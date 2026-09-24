@@ -23,7 +23,14 @@ export type SuccessFactorsEmployer = {
   config: {
     key: string;
     host: string;
-    /** URL segments of this employer's career sites, e.g. ["nsha", "physicians"]. */
+    /**
+     * URL segments of this employer's career sites, e.g. ["nsha", "physicians"].
+     *
+     * A single empty string means the board lives at the host root, which is how a
+     * one-employer tenant is set up: Health Sciences North serves the same 25 results for
+     * `/search/`, `/hsn/search/` and `/definitely-not-a-real-site/search/`, so inventing a
+     * segment there would only mislead whoever reads the registry next.
+     */
     sites: string[];
   };
 };
@@ -66,7 +73,17 @@ export function parseListDate(value: string): Date | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
-export function parseSearchPage(html: string, host: string, site: string): JobStub[] {
+/**
+ * The search URL for one career site. An empty `site` means the board is at the host root,
+ * which is how a single-employer tenant is configured — see the `sites` note above.
+ */
+export function searchUrl(host: string, site: string, startRow: number): string {
+  return `https://${host}/${site ? `${site}/` : ''}search/?startrow=${startRow}`;
+}
+
+// `site` was a third parameter here and was never read — the path comes from each row's own
+// href. Dropped rather than left to sit as a standing lint warning.
+export function parseSearchPage(html: string, host: string): JobStub[] {
   const stubs: JobStub[] = [];
   for (const row of html.split(/<tr class="data-row/).slice(1)) {
     const href = row.match(/href="([^"]*\/job\/[^"]*)"/)?.[1]?.replace(/&amp;/g, '&');
@@ -241,14 +258,16 @@ export function createSuccessFactorsConnector(
     async fetchPage(cursor?: string) {
       // "<site index>:<startrow>" — one employer can span several career sites on one host.
       const [siteIndex, startRow] = (cursor ?? '0:0').split(':').map(Number);
+      // Bounds, not truthiness: "" is a legitimate segment meaning the host root, and a
+      // falsy check would read it as "no more sites" and return nothing.
+      if (siteIndex >= sites.length) return { items: [] };
       const site = sites[siteIndex];
-      if (!site) return { items: [] };
 
-      const url = `https://${host}/${site}/search/?startrow=${startRow}`;
+      const url = searchUrl(host, site, startRow);
       const res = await limit(host, () => fetchWithBackoff(url, { headers }));
       if (!res.ok) throw new Error(`Search fetch failed ${res.status} for ${url}`);
 
-      const items = parseSearchPage(await res.text(), host, site);
+      const items = parseSearchPage(await res.text(), host);
       log(ctx, 'info', 'fetched search page', { site, startRow, returned: items.length });
 
       const morePages = items.length === LIST_PAGE_SIZE && startRow / LIST_PAGE_SIZE < MAX_PAGES_PER_SITE;

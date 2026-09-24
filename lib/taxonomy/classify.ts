@@ -20,12 +20,15 @@ import type { Category } from './categories';
 // "Unit Assistant" (care aide in some places, clerical in others), "Assessor
 // Coordinator" (filled by nurses or social workers), and bare "counsellor"
 // (the pool holds genetic, addictions and employment counsellors side by side).
+
 // Shared by the management and admin rules and by the mental-health department
 // guard below, so the three cannot drift apart.
-const MANAGEMENT_ROLE = String.raw`manager|director|chief|supervisor|vice president|gestionnaire|chef de service|chef d equipe|chef de secteur|cheffe de service|cheffe d equipe|cheffe de secteur|directeur|directrice`;
-// The feminine forms are listed beside the masculine ones because Quebec titles pair them:
+//
+// The feminine forms sit beside the masculine ones because Quebec titles pair them:
 // "Chef / Cheffe de secteur" normalizes to "chef cheffe de secteur", so "chef de secteur"
 // never appears contiguously and only "cheffe de secteur" can match.
+const MANAGEMENT_ROLE = String.raw`manager|director|chief|supervisor|vice president|gestionnaire|chef de service|chef d equipe|chef de secteur|cheffe de service|cheffe d equipe|cheffe de secteur|directeur|directrice`;
+
 // "Office admin", "office administration" and "transcription" are how BC marks a
 // clerical post that carries a clinical program's name ("Program Assistant (Office
 // Admin), Child and Youth Mental Health"). Bare "program assistant" is not safe
@@ -51,7 +54,7 @@ const RULES: ReadonlyArray<{ pattern: RegExp; category: Category }> = [
   // technologists and kinesiologists, and "speech pathologist" — which is
   // allied health — ahead of its own rule. "pathologist" is left out for that
   // reason.
-  { pattern: /\b(physician(?!\s+(assistant|recruitment|liaison|services|relations|advisor))|surgeon|anesthesiologist|hospitalist|psychiatrist|cardiologist|oncologist|radiologist|gastroenterologist|otolaryngologist|physiatrist|obstetrician|gynecologist|neurologist|nephrologist|dermatologist|urologist|internist|intensivist|pediatrician|geriatrician|endocrinologist|rheumatologist|hematologist|respirologist|pulmonologist|ophthalmologist|medecin|medecins)\b/, category: 'physicians' },
+  { pattern: /\b(physician(?!\s+(assistant|recruitment|liaison|services|relations|advisor))|surgeon|anesthesiologist|anaesthesiologist|anaesthetist|hospitalist|psychiatrist|cardiologist|oncologist|radiologist|gastroenterologist|otolaryngologist|physiatrist|obstetrician|gynecologist|gynaecologist|neurologist|nephrologist|dermatologist|urologist|internist|intensivist|pediatrician|paediatrician|geriatrician|endocrinologist|rheumatologist|hematologist|haematologist|respirologist|pulmonologist|ophthalmologist|medecin|medecins)\b/, category: 'physicians' },
   // Mental health is split in two, because its words are of two kinds.
   //
   // Roles first, with the same precedence as every specialty, so that
@@ -89,7 +92,7 @@ const RULES: ReadonlyArray<{ pattern: RegExp; category: Category }> = [
   // so the "mrt" alias in normalizeTitle never fires on it. Named imaging and
   // cardiac modalities rather than bare "technologist", which would also claim
   // "Biomedical Engineering Technologist".
-  { pattern: /\b(laboratory technologist|laboratory assistant|laboratory technician|lab technician|radiation technologist|radiological technologist|radiology technologist|m r t|mri technologist|mri specialty technologist|ct technologist|ultrasound technologist|cardiology technologist|cardiovascular technologist|pacemaker technologist|echocardiographer|sonographer|ultrasonographer|phlebotomist|cytotechnologist|imaging technologist|nuclear medicine technologist|x ray technologist|technologiste medical|technologiste medicale|technologue en radiologie|technologue en imagerie|technologue en electrophysiologie|cytotechnologiste)\b/, category: 'diagnostics_lab' },
+  { pattern: /\b(laboratory technologist|laboratory assistant|laboratory technician|lab technician|radiation technologist|radiological technologist|radiology technologist|m r t|mri technologist|mri specialty technologist|ct technologist|ultrasound technologist|cardiology technologist|cardiovascular technologist|pacemaker technologist|echocardiographer|sonographer|ultrasonographer|phlebotomist|cytotechnologist|imaging technologist|nuclear medicine technologist|polysomnographic technologist|polysomnography|x ray technologist|technologiste medical|technologiste medicale|technologue en radiologie|technologue en imagerie|technologue en electrophysiologie|cytotechnologiste)\b/, category: 'diagnostics_lab' },
   // Roles only. "Coordinator | Central Functions | Pharmacy" is the department
   // trap this file's header warns about, so bare "pharmacy" never matches.
   // "Pharm D" is the pharmacist degree, and SK posts it as a title.
@@ -101,7 +104,7 @@ const RULES: ReadonlyArray<{ pattern: RegExp; category: Category }> = [
   // "therapy assistant" cannot reach it. "Communicative disorders assistant" is
   // Ontario's speech-language assistant. Therapeutic recreation is allied health;
   // its workers and aides are matched as roles, not on "recreation" alone.
-  { pattern: /\b(occupational therapist|physiotherapist|respiratory therapist|speech language pathologist|speech pathologist|dietitian|audiologist|social worker|therapist|therapy assistant|rehabilitation assistant|physiotherapy assistant|occupational therapy assistant|communicative disorders assistant|genetic counsellor|genetic counselor|kinesiologist|dietetic technician|orthopaedic technician|orthopedic technician|recreation assistant|recreation worker|recreation aide|recreation coordinator|recreation therapy worker|activity worker|activity aide|activity assistant|perfusionist|anesthesia assistant|ergotherapeute|physiotherapeute|inhalotherapeute|orthophoniste|(?<!aide )dietetiste|(?<!aide )nutritionniste|travailleur social|travailleuse sociale|audiologiste|kinesiologue|hygieniste dentaire|recreologue|en dietetique)\b/, category: 'allied_health' },
+  { pattern: /\b(occupational therapist|physiotherapist|respiratory therapist|speech language pathologist|speech pathologist|dietitian|audiologist|social worker|therapist|therapy assistant|rehabilitation assistant|physiotherapy assistant|occupational therapy assistant|communicative disorders assistant|genetic counsellor|genetic counselor|kinesiologist|dietetic technician|orthopaedic technician|orthopedic technician|recreation assistant|recreation worker|recreation aide|recreation coordinator|recreation therapy worker|activity worker|activity aide|activity assistant|perfusionist|anesthesia assistant|anaesthesia assistant|ergotherapeute|physiotherapeute|inhalotherapeute|orthophoniste|(?<!aide )dietetiste|(?<!aide )nutritionniste|travailleur social|travailleuse sociale|audiologiste|kinesiologue|hygieniste dentaire|recreologue|en dietetique)\b/, category: 'allied_health' },
   { pattern: /\b(research associate|research assistant|research coordinator|research scientist|clinical scientist|postdoctoral|clinical trial)\b/, category: 'research' },
   // The non-clinical disciplines. After every clinical specialty, so "Dietitian, Food
   // Services" stays allied health; guarded, so their supervisors and clerks go to
