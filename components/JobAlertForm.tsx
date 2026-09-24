@@ -82,7 +82,7 @@ export function JobAlertForm({
           name="category"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className={`${FIELD} min-h-[46px] flex-1 basis-[140px] py-[9px]`}
+          className={`${FIELD} min-h-[46px] min-w-0 flex-1 basis-[140px] py-[9px]`}
         >
           <option value="">All disciplines</option>
           {CATEGORIES.map((c) => (
@@ -97,7 +97,7 @@ export function JobAlertForm({
           idPrefix="alert-city"
           allCityLabel={`All of ${region}`}
           onCityChange={setCity}
-          selectClassName={`${FIELD} min-h-[46px] flex-1 basis-[140px] py-[9px]`}
+          selectClassName={`${FIELD} min-h-[46px] min-w-0 flex-1 basis-[140px] py-[9px]`}
         />
       </div>
 

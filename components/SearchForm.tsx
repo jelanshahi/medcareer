@@ -53,11 +53,11 @@ export function SearchForm({
         cityName="city"
         allCityLabel={`All of ${region}`}
         defaultCity={params.city?.[0] ?? ''}
-        selectClassName={`${FIELD} flex-1 basis-[130px]`}
+        selectClassName={`${FIELD} min-w-0 flex-1 basis-[130px]`}
       />
 
       <label htmlFor="sort" className="sr-only">Sort by</label>
-      <select id="sort" name="sort" defaultValue={params.sort} className={`${FIELD} flex-1 basis-[150px]`}>
+      <select id="sort" name="sort" defaultValue={params.sort} className={`${FIELD} min-w-0 flex-1 basis-[150px]`}>
         {SORTS.map((s) => <option key={s} value={s}>{SORT_LABELS[s]}</option>)}
       </select>
 

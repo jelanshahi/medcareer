@@ -137,7 +137,7 @@ export default async function HomePage() {
               cityName="city"
               idPrefix="hero-city"
               allCityLabel={`All of ${region}`}
-              selectClassName={`${FIELD} flex-1 basis-[130px]`}
+              selectClassName={`${FIELD} min-w-0 flex-1 basis-[130px]`}
             />
             <button type="submit" className={`${PILL_PRIMARY} flex-1 basis-[130px] rounded-xl`}>
               Search
@@ -206,7 +206,7 @@ export default async function HomePage() {
 
       <section id="job-alerts" className="mx-auto w-full max-w-[1240px] px-[22px] pb-[clamp(48px,7vw,80px)] pt-[clamp(36px,5vw,56px)]">
         <div className="reveal rounded-[26px] border border-[var(--color-rule)] bg-[var(--color-surface)] px-[clamp(20px,4vw,44px)] py-[clamp(24px,4vw,42px)] shadow-[0_1px_0_rgba(15,23,42,0.02)]">
-          <div className="grid items-center gap-[clamp(24px,5vw,64px)] lg:grid-cols-[1.05fr_1.2fr]">
+          <div className="grid grid-cols-1 items-center gap-[clamp(24px,5vw,64px)] lg:grid-cols-[1.05fr_1.2fr]">
             <div>
               <h2 className="m-0 max-w-[560px] text-[clamp(38px,4vw,64px)] font-semibold leading-[0.96] tracking-[-0.04em] text-[var(--color-ink)]">
                 Tell us what you&apos;re
