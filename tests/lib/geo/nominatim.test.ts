@@ -11,7 +11,7 @@ describe('reverseGeocode', () => {
   });
 
   it('resolves city + province from a full address response', async () => {
-    const stub = vi.fn(async () => jsonResponse({
+    const stub = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => jsonResponse({
       address: { city: 'Kitchener', state: 'Ontario' },
     }));
     vi.stubGlobal('fetch', stub);
