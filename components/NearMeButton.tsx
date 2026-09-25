@@ -27,10 +27,14 @@ export function NearMeButton({ className = PILL_OUTLINE }: { className?: string 
     setStatus('locating');
     navigator.geolocation.getCurrentPosition(
       async (position) => {
-        const city = await resolveNearestCity(position.coords.latitude, position.coords.longitude);
-        if (city) {
-          window.location.href = buildJobsQuery({ city: [city] });
-        } else {
+        try {
+          const city = await resolveNearestCity(position.coords.latitude, position.coords.longitude);
+          if (city) {
+            window.location.href = buildJobsQuery({ city: [city] });
+          } else {
+            setStatus('error');
+          }
+        } catch {
           setStatus('error');
         }
       },
