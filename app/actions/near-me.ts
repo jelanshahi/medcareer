@@ -1,6 +1,7 @@
 'use server';
 
 import { createServerClient } from '@/lib/db/server';
+import { selectAll } from '@/lib/db/select-all';
 import { reverseGeocode } from '@/lib/geo/nominatim';
 import { matchCity } from '@/lib/geo/match-city';
 import type { ProvinceCode } from '@/lib/types';
@@ -25,12 +26,18 @@ export async function resolveNearestCity(lat: number, lng: number): Promise<stri
 
   return matchCity(geocoded, async (provinceCode: ProvinceCode) => {
     const db = createServerClient();
-    const { data, error } = await db
-      .from('jobs')
-      .select('city')
-      .eq('is_active', true)
-      .eq('province', provinceCode);
-    if (error) throw error;
-    return [...new Set((data ?? []).map((row) => row.city))];
+    // Paginated: a province's active job count can exceed PostgREST's
+    // 1000-row cap, and an unpaged read would quietly stop there — the
+    // same reasoning as the facet query in app/jobs/page.tsx.
+    const rows = await selectAll<{ city: string }>((from, to) =>
+      db
+        .from('jobs')
+        .select('city')
+        .eq('is_active', true)
+        .eq('province', provinceCode)
+        .order('id')
+        .range(from, to),
+    );
+    return [...new Set(rows.map((row) => row.city))];
   });
 }
