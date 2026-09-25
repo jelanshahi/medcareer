@@ -11,7 +11,7 @@ describe('reverseGeocode', () => {
   });
 
   it('resolves city + province from a full address response', async () => {
-    const stub = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => jsonResponse({
+    const stub = vi.fn(async () => jsonResponse({
       address: { city: 'Kitchener', state: 'Ontario' },
     }));
     vi.stubGlobal('fetch', stub);
@@ -19,9 +19,9 @@ describe('reverseGeocode', () => {
     const result = await reverseGeocode(43.45, -80.49);
     expect(result).toEqual({ city: 'Kitchener', provinceCode: 'ON' });
 
-    const [url, init] = stub.mock.calls[0];
+    const [url, init] = stub.mock.calls[0] as unknown as [string | URL | Request, RequestInit | undefined];
     expect(String(url)).toContain('zoom=10');
-    expect((init as RequestInit).headers).toMatchObject({ 'User-Agent': expect.any(String) });
+    expect(init?.headers).toMatchObject({ 'User-Agent': expect.any(String) });
   });
 
   it('falls back through town, village, then municipality when city is absent', async () => {
