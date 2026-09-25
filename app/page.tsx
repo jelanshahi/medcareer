@@ -11,6 +11,7 @@ import { Stat } from '@/components/Stat';
 import { DisciplineTile } from '@/components/DisciplineTile';
 import { JobAlertForm } from '@/components/JobAlertForm';
 import { ProvinceCitySelect } from '@/components/ProvinceCitySelect';
+import { NearMeButton } from '@/components/NearMeButton';
 import { EYEBROW, FIELD, H2, PILL_OUTLINE, PILL_PRIMARY, SECTION } from '@/lib/ui/styles';
 
 export const dynamic = 'force-dynamic';
@@ -139,6 +140,7 @@ export default async function HomePage() {
               allCityLabel={`All of ${region}`}
               selectClassName={`${FIELD} min-w-0 flex-1 basis-[130px]`}
             />
+            <NearMeButton />
             <button type="submit" className={`${PILL_PRIMARY} flex-1 basis-[130px] rounded-xl`}>
               Search
             </button>
