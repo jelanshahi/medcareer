@@ -46,6 +46,13 @@ describe('reverseGeocode', () => {
     expect(await reverseGeocode(0, 0)).toBeNull();
   });
 
+  it('resolves an accented French province name (Nominatim returns Quebec in French)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({
+      address: { city: 'Montréal', state: 'Québec' },
+    })));
+    expect(await reverseGeocode(45.50, -73.57)).toEqual({ city: 'Montréal', provinceCode: 'QC' });
+  });
+
   it('returns null when the province name does not resolve to a known code', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({
       address: { city: 'Buffalo', state: 'New York' },

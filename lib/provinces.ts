@@ -18,13 +18,20 @@ export const PROVINCE_NAMES: Record<ProvinceCode, string> = {
   YT: 'Yukon',
 };
 
+/** Strips accents so "Québec" and "Quebec" compare equal — Nominatim and some
+ *  scraped postings return place names in French, unaccented `PROVINCE_NAMES`
+ *  does not. */
+function deaccent(value: string): string {
+  return value.normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
 /** "British Columbia" → "BC". Also accepts a code. Null when it is neither. */
 export function provinceCodeFromName(value: string): ProvinceCode | null {
-  const wanted = value.trim().toLowerCase();
+  const wanted = deaccent(value.trim().toLowerCase());
   const asCode = wanted.toUpperCase() as ProvinceCode;
   if (PROVINCE_NAMES[asCode]) return asCode;
   const found = (Object.keys(PROVINCE_NAMES) as ProvinceCode[])
-    .find((code) => PROVINCE_NAMES[code].toLowerCase() === wanted);
+    .find((code) => deaccent(PROVINCE_NAMES[code].toLowerCase()) === wanted);
   return found ?? null;
 }
 

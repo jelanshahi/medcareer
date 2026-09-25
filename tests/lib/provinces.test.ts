@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { groupCitiesByProvince, PROVINCE_NAMES, provinceName, provinceOfCity, regionName } from '@/lib/provinces';
+import { groupCitiesByProvince, PROVINCE_NAMES, provinceCodeFromName, provinceName, provinceOfCity, regionName } from '@/lib/provinces';
 import { PROVINCE_CODES } from '@/lib/types';
 import { categoryBlurb } from '@/lib/taxonomy/blurbs';
 
@@ -15,6 +15,30 @@ describe('regionName', () => {
 
   it('keeps saying Canada as a fourth, fifth province joins — not written against a count of two', () => {
     expect(regionName(['ON', 'AB', 'BC', 'MB'])).toBe('Canada');
+  });
+});
+
+describe('provinceCodeFromName', () => {
+  it('matches an unaccented name', () => {
+    expect(provinceCodeFromName('Quebec')).toBe('QC');
+  });
+
+  it('matches the accented French name', () => {
+    expect(provinceCodeFromName('Québec')).toBe('QC');
+  });
+
+  it('is case-insensitive', () => {
+    expect(provinceCodeFromName('QUÉBEC')).toBe('QC');
+    expect(provinceCodeFromName('ontario')).toBe('ON');
+  });
+
+  it('accepts a province code directly', () => {
+    expect(provinceCodeFromName('ON')).toBe('ON');
+    expect(provinceCodeFromName('on')).toBe('ON');
+  });
+
+  it('returns null for an unrecognized value', () => {
+    expect(provinceCodeFromName('New York')).toBeNull();
   });
 });
 
