@@ -62,23 +62,37 @@ and the `/jobs` search bar (`components/SearchForm.tsx`).
       level) and `addressdetails=1`. Lives in a new **`lib/geo/nominatim.ts`**.
    b. Parses the response's locality name, trying address fields in order:
       `city ?? town ?? village ?? municipality`. Normalizes the province via
-      the existing `provinceCodeFromName` (`lib/provinces.ts`), which already
-      handles the accented "Québec" case.
-   c. Queries `jobs` for an active row matching that province exactly and
-      that city case-insensitively (`ilike`), reusing the existing
-      `(is_active, city)` index. The match returns the **DB's own stored
-      `city` value** (not Nominatim's casing/spelling) — this matters
-      because `/jobs?city=` is a case-sensitive exact match against stored
-      values (`parseSearchParams` → `.in('city', params.city)`), so the
-      redirect must carry the exact string already in the database. Matching
-      logic lives in a new pure, unit-testable **`lib/geo/match-city.ts`**
-      (input: geocoded city name + province code + the query function;
-      output: matched city string or `null` — kept free of React/Next so
-      it's testable in isolation).
-   d. Returns `{ city: string }` on a match, `null` otherwise (no match, no
-      address components resolved, or the Nominatim call failed/timed out —
-      all caught and folded into `null` rather than thrown, since the client
-      only ever needs to distinguish "matched" from "didn't").
+      the existing `provinceCodeFromName` (`lib/provinces.ts`). **Correction
+      (found during final review, fixed in commit `e763f8a`):** this function
+      did *not* already handle the accented "Québec" case as originally
+      claimed here — it did a plain lowercase comparison with no
+      accent-folding, so Nominatim's unaccented-French response ("Québec")
+      never matched the stored "Quebec" and every Quebec visitor silently got
+      the fallback. Fixed with NFD accent-folding, with regression tests
+      added for both the function itself and this reverse-geocoding path.
+   c. Queries `jobs` for every active city in that province (paginated with
+      the existing `selectAll` helper, past PostgREST's 1000-row cap — added
+      during final review, commit `fc0668d`, after an initial unpaged version
+      would have silently truncated a large province's city list) and matches
+      the geocoded city against them case-insensitively **in JavaScript**,
+      not via SQL `ilike` as originally planned here — this sidesteps
+      `ilike`'s `%`/`_` escaping concerns entirely. The match returns the
+      **DB's own stored `city` value** (not Nominatim's casing/spelling) —
+      this matters because `/jobs?city=` is a case-sensitive exact match
+      against stored values (`parseSearchParams` → `.in('city', params.city)`),
+      so the redirect must carry the exact string already in the database.
+      Matching logic lives in a new pure, unit-testable
+      **`lib/geo/match-city.ts`** (input: geocoded city name + province code
+      + an injected async lookup function returning that province's active
+      city list; output: matched city string or `null` — kept free of
+      React/Next/Supabase so it's testable in isolation with a stub lookup).
+   d. Returns `string | null` on a match (not the `{ city: string }` object
+      shape originally planned here — the implementation simplified to a bare
+      string since no other field was ever needed), `null` otherwise (no
+      match, no address components resolved, or the Nominatim call
+      failed/timed out — all caught and folded into `null` rather than
+      thrown, since the client only ever needs to distinguish "matched" from
+      "didn't").
 5. **Raw coordinates are never persisted anywhere** — they pass from the
    browser to the server action to Nominatim and are discarded once resolved
    to a city name. No logging of exact coordinates.
@@ -89,7 +103,11 @@ and the `/jobs` search bar (`components/SearchForm.tsx`).
 
 ## Client UX & error handling
 
-- **Idle**: location-pin icon + "Near me" text button.
+- **Idle**: a plain text "Near me" button (no icon glyph — implementation
+  simplified from this spec's original "location-pin icon + text" to avoid
+  picking a Unicode glyph with uncertain cross-platform rendering, matching
+  the site's existing icon-light button style, e.g. the plain-text
+  "Clear all"/"Show"/"Hide" controls already on `/jobs`).
 - **Resolving**: button shows a disabled/loading state while
   `getCurrentPosition` and the server round-trip are in flight (typically
   1–3s).
@@ -121,8 +139,13 @@ and the `/jobs` search bar (`components/SearchForm.tsx`).
 
 - Unit tests (`tests/lib/`, matching the existing convention e.g.
   `tests/lib/search-params.test.ts`):
-  - `lib/geo/match-city.ts` — exact match, case-insensitivity, no match,
-    same city name present in two different provinces.
+  - `lib/geo/match-city.ts` — exact match (returning the lookup's own
+    casing, not the geocoded input's), case-insensitivity, whitespace
+    trimming, no match, and a null geocoded input short-circuiting before
+    the lookup is ever called. ("Same city name in two different provinces"
+    isn't a distinct case at this layer — the injected lookup is already
+    scoped to one province by its caller, so there's nothing for this
+    function itself to disambiguate.)
   - `lib/geo/nominatim.ts`'s response parsing — mocked fetch, covering the
     `city`/`town`/`village`/`municipality` fallback chain and a
     failed/timeout response.
