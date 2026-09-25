@@ -2,6 +2,7 @@ import { SORTS, type SearchParams } from '@/lib/schemas/search-params';
 import type { ProvinceCode } from '@/lib/types';
 import { HiddenFilterFields } from '@/components/HiddenFilterFields';
 import { ProvinceCitySelect } from '@/components/ProvinceCitySelect';
+import { NearMeButton } from '@/components/NearMeButton';
 import { CONTAINER, FIELD, PILL_PRIMARY } from '@/lib/ui/styles';
 
 const SORT_LABELS: Record<(typeof SORTS)[number], string> = {
@@ -55,6 +56,8 @@ export function SearchForm({
         defaultCity={params.city?.[0] ?? ''}
         selectClassName={`${FIELD} min-w-0 flex-1 basis-[130px]`}
       />
+
+      <NearMeButton />
 
       <label htmlFor="sort" className="sr-only">Sort by</label>
       <select id="sort" name="sort" defaultValue={params.sort} className={`${FIELD} min-w-0 flex-1 basis-[150px]`}>
