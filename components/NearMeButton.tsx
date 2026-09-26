@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { resolveNearestCity } from '@/app/actions/near-me';
 import { buildJobsQuery } from '@/lib/jobs/query-string';
-import { PILL_OUTLINE } from '@/lib/ui/styles';
+import { PILL_PRIMARY } from '@/lib/ui/styles';
 
 type Status = 'idle' | 'locating' | 'error';
 
@@ -14,8 +14,11 @@ type Status = 'idle' | 'locating' | 'error';
  * denied permission, a geocoding failure, or no matching city — converges
  * on the same inline fallback message; none of those distinctions are
  * actionable for the visitor, so there's no branching copy for them.
+ *
+ * Uses PILL_PRIMARY (the same style as the "Search" submit button beside it)
+ * rather than PILL_OUTLINE, so the two controls match in size and type.
  */
-export function NearMeButton({ className = PILL_OUTLINE }: { className?: string }) {
+export function NearMeButton({ className = PILL_PRIMARY }: { className?: string }) {
   const [status, setStatus] = useState<Status>('idle');
 
   function handleClick() {
