@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { createAdminClient } from '@/lib/db/admin';
 import { classify } from '@/lib/taxonomy/classify';
 import { deaccent } from '@/lib/normalize/title';
+import { cleanCity } from '@/lib/normalize/city';
 import { log } from '@/workers/logger';
 import type { NormalizedPosting } from '@/lib/types';
 
@@ -130,7 +131,17 @@ function slugify(title: string): string {
     .slice(0, 60);
 }
 
-export function buildJobRow(row: RawRow, employerId: string | null, dedupeKey: string): JobRow {
+/**
+ * `fallbackCity` is the employer's registered default city, used when the feed's own city
+ * value is not a place ("TBD", a sentence) and none can be salvaged from it — see
+ * lib/normalize/city.ts.
+ */
+export function buildJobRow(
+  row: RawRow,
+  employerId: string | null,
+  dedupeKey: string,
+  fallbackCity?: string | null,
+): JobRow {
   const n = row.normalized;
   const postedAt = new Date(n.postedAt);
   const hardExpiry = new Date(postedAt.getTime() + EXPIRY_DAYS * 86_400_000);
@@ -150,7 +161,7 @@ export function buildJobRow(row: RawRow, employerId: string | null, dedupeKey: s
     employer_name: n.employerName,
     facility_name: n.facilityName ?? null,
     description: n.description,
-    city: n.city,
+    city: cleanCity(n.city, fallbackCity),
     province: n.province,
     category: classify(n.title),
     employment_type: n.employmentType ?? null,
@@ -233,9 +244,10 @@ async function main() {
   // select silently yields an empty map and every job gets `employer_id: null`.
   const { data: employers, error: employersError } = await admin
     .from('employers')
-    .select('id,slug,name');
+    .select('id,slug,name,default_city');
   if (employersError) throw employersError;
   const employerIdByName = new Map((employers ?? []).map((e) => [e.name, e.id as string]));
+  const defaultCityByName = new Map((employers ?? []).map((e) => [e.name, e.default_city as string]));
 
   const jobGroups = groupIntoJobs(raws);
 
@@ -275,6 +287,7 @@ async function main() {
       canonical,
       employerIdByName.get(canonical.normalized.employerName) ?? null,
       dedupeKey,
+      defaultCityByName.get(canonical.normalized.employerName) ?? null,
     );
 
     jobRows.push(jobRow);

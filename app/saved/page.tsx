@@ -11,6 +11,9 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: `Saved jobs | ${SITE.name}`,
   description: 'Healthcare jobs you have bookmarked, kept in this browser.',
+  // Saved jobs live in the visitor's own browser, so a crawler only ever sees
+  // the empty state. Nothing here is worth indexing.
+  robots: { index: false, follow: true },
 };
 
 export default function SavedPage() {

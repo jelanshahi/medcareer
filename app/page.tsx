@@ -13,8 +13,16 @@ import { JobAlertForm } from '@/components/JobAlertForm';
 import { ProvinceCitySelect } from '@/components/ProvinceCitySelect';
 import { NearMeButton } from '@/components/NearMeButton';
 import { EYEBROW, FIELD, H2, PILL_OUTLINE, PILL_PRIMARY, SECTION } from '@/lib/ui/styles';
+import { SITE } from '@/lib/site';
+import { HOME_DESCRIPTION, pageMeta } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
+
+export const metadata = pageMeta({
+  title: `${SITE.name} — ${SITE.tagline}`,
+  description: HOME_DESCRIPTION,
+  path: '/',
+});
 
 // Ingestion runs on a fixed 4x/day cadence (.github/workflows/ingest.yml:
 // `cron: '0 */6 * * *'`) — a true operational fact, not user data, so it is

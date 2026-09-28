@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { SITE } from "@/lib/site";
+import { HOME_DESCRIPTION } from "@/lib/seo";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import "./globals.css";
@@ -16,7 +17,12 @@ export const metadata: Metadata = {
   // whatever host the request happened to arrive on.
   metadataBase: new URL(SITE.url),
   title: `${SITE.name} — ${SITE.tagline}`,
-  description: SITE.tagline,
+  description: HOME_DESCRIPTION,
+  // Fallback for routes that set no openGraph of their own. Pages that do
+  // (via lib/seo.ts pageMeta) replace this object wholesale, which is why
+  // pageMeta repeats siteName and locale. No canonical here on purpose: a
+  // layout-level canonical would point every page without its own at "/".
+  openGraph: { type: "website", siteName: SITE.name, locale: "en_CA" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

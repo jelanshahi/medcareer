@@ -35,6 +35,9 @@ jobs:
       # into lib/site.ts, and every request to a hospital would advertise a contact
       # nobody can reach -- which is the entire point of identifying the bot.
       CONTACT_EMAIL: ${{ secrets.CONTACT_EMAIL }}
+      # Optional. A Google service account key (JSON, or base64 of it) that is an Owner of
+      # the site in Search Console. Unset, the notify step logs and skips. See README.md.
+      GOOGLE_INDEXING_CREDENTIALS: ${{ secrets.GOOGLE_INDEXING_CREDENTIALS }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -59,3 +62,9 @@ jobs:
       - name: Purge delisted jobs
         if: ${{ !cancelled() }}
         run: npm run purge
+      # Last, so it sees this run's new and closed jobs. Its failure never blocks the
+      # stages above; it only means Google hears about them from the sitemap instead.
+      - name: Notify Google Indexing API
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: npm run notify-google

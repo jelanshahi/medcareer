@@ -15,6 +15,7 @@ import { HiddenFilterFields } from '@/components/HiddenFilterFields';
 import { Pagination } from '@/components/Pagination';
 import { CARD, CHIP, CONTAINER, H2, LIST, PILL_OUTLINE, PILL_PRIMARY } from '@/lib/ui/styles';
 import { SITE } from '@/lib/site';
+import { pageMeta } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,18 +44,22 @@ export async function generateMetadata(props: PageProps<'/jobs'>): Promise<Metad
     ? `Search results for “${params.q}” across active healthcare job listings in ${region}, pulled from hospital career systems and refreshed every six hours.`
     : `Browse ${subject.toLowerCase()} ${location}, pulled from hospital career systems and refreshed every six hours.`;
 
-  // A keyword search or a page past the first produces thin, near-duplicate
-  // content that shouldn't compete with the canonical facet pages (plain
-  // /jobs, /jobs?city=..., /jobs?category=...) for ranking — keep those out
-  // of the index while still letting Google follow the links on them.
-  const noindex = Boolean(params.q) || params.page > 1;
+  // Only two shapes of /jobs are indexable: the plain list, and a single
+  // discipline nationwide (/jobs?category=nursing), which has no /browse
+  // equivalent. Everything else is thin or a near-duplicate of a better page —
+  // a keyword search, a page past the first, a salary sort, or any city /
+  // employer / employment-type filter (the city views duplicate the /browse
+  // landing pages, and the combinations are effectively unbounded). Those stay
+  // out of the index while Google still follows the job links on them.
+  const isPlainOrSingleDiscipline =
+    !params.city?.length &&
+    !params.employer?.length &&
+    !params.employment_type?.length &&
+    (params.category?.length ?? 0) <= 1 &&
+    params.sort === 'newest';
+  const noindex = Boolean(params.q) || params.page > 1 || !isPlainOrSingleDiscipline;
 
-  return {
-    title,
-    description,
-    alternates: { canonical: buildJobsQuery(params) },
-    ...(noindex ? { robots: { index: false, follow: true } } : {}),
-  };
+  return pageMeta({ title, description, path: buildJobsQuery(params), noindex });
 }
 
 const RESULT_COLUMNS =

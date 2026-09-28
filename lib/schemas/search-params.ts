@@ -73,6 +73,11 @@ function parseNameArray(value: string | string[] | undefined): string[] | undefi
   return kept.length ? kept : undefined;
 }
 
+function toCategoryKeys(value: string | string[] | undefined): string | string[] | undefined {
+  if (value === undefined) return undefined;
+  return Array.isArray(value) ? value.map((v) => v.replace(/-/g, '_')) : value.replace(/-/g, '_');
+}
+
 /** Never trust the query string. Unparseable input degrades to defaults. */
 export function parseSearchParams(
   input: Record<string, string | string[] | undefined>,
@@ -80,7 +85,9 @@ export function parseSearchParams(
   return {
     q: QSchema.safeParse(toScalar(input.q)).data,
     city: parseNameArray(input.city),
-    category: parseEnumArray(input.category, CATEGORIES),
+    // URLs carry the hyphenated slug (lib/taxonomy/categories.ts categorySlug); forms and
+    // legacy links may still send the snake_case key. Both map to the same key.
+    category: parseEnumArray(toCategoryKeys(input.category), CATEGORIES),
     employment_type: parseEnumArray(input.employment_type, EMPLOYMENT_TYPES),
     employer: parseNameArray(input.employer),
     sort: SortSchema.parse(toScalar(input.sort)),

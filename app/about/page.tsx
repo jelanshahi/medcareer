@@ -2,6 +2,7 @@ import { createServerClient } from '@/lib/db/server';
 import { selectAll } from '@/lib/db/select-all';
 import { regionName } from '@/lib/provinces';
 import { SITE } from '@/lib/site';
+import { pageMeta } from '@/lib/seo';
 import { CARD } from '@/lib/ui/styles';
 
 // The canvas's inline <code> treatment: chip-grey, rounded, monospace.
@@ -17,7 +18,13 @@ const CODE =
 // scripts carried no nonce.
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: `About ${SITE.name}` };
+export const metadata = pageMeta({
+  title: `About ${SITE.name}`,
+  description:
+    `How ${SITE.name} finds healthcare jobs across Canada: which hospitals and health authorities it reads, ` +
+    'how often listings refresh, and how employers can ask for removal.',
+  path: '/about',
+});
 
 type Employer = { name: string; count: number; cities: string[] };
 

@@ -7,6 +7,12 @@ import { postedAgo, formatSalary, employerLine } from '@/lib/format';
 import { CATEGORY_LABELS, type Category } from '@/lib/taxonomy/categories';
 import { EMPLOYMENT_LABELS, type EmploymentType } from '@/lib/taxonomy/employment';
 import { SITE } from '@/lib/site';
+import { pageMeta } from '@/lib/seo';
+import { sourceJobIdFromDedupeKey } from '@/lib/jobs/identifier';
+import { paths } from '@/lib/jobs/links';
+import { slugifyCity } from '@/lib/jobs/city-slug';
+import { provinceName } from '@/lib/provinces';
+import { roleOf } from '@/lib/taxonomy/roles';
 import { buildJobsQuery } from '@/lib/jobs/query-string';
 import { SaveButton } from '@/components/SaveButton';
 import { CARD, CONTAINER, H3, PILL_PRIMARY } from '@/lib/ui/styles';
@@ -16,7 +22,7 @@ export const dynamic = 'force-dynamic';
 // Explicit columns rather than '*': '*' would also pull search_vector, a
 // large generated tsvector column that is never rendered on this page.
 const COLUMNS =
-  'slug,title,description,employer_name,facility_name,city,province,category,employment_type,salary_min,salary_max,salary_period,posted_at,expires_at,apply_url';
+  'slug,title,description,employer_name,facility_name,city,province,category,employment_type,salary_min,salary_max,salary_period,posted_at,expires_at,apply_url,dedupe_key';
 
 type JobDetail = {
   slug: string;
@@ -34,9 +40,23 @@ type JobDetail = {
   posted_at: string;
   expires_at: string;
   apply_url: string;
+  dedupe_key: string;
 };
 
 type SimilarJob = { slug: string; title: string; employer_name: string; city: string };
+
+const SIMILAR_LIMIT = 3;
+
+/** Google's JobPosting employmentType only accepts its own enum. "casual" and
+ * "contract" upper-cased (CASUAL, CONTRACT) are not in it, so they are mapped
+ * to the nearest value rather than emitted as invalid markup. */
+const SCHEMA_EMPLOYMENT_TYPE: Record<EmploymentType, string> = {
+  full_time: 'FULL_TIME',
+  part_time: 'PART_TIME',
+  casual: 'PER_DIEM',
+  temporary: 'TEMPORARY',
+  contract: 'CONTRACTOR',
+};
 
 function isCategory(value: string | null): value is Category {
   return value !== null && value in CATEGORY_LABELS;
@@ -44,6 +64,12 @@ function isCategory(value: string | null): value is Category {
 
 function isEmploymentType(value: string | null): value is EmploymentType {
   return value !== null && value in EMPLOYMENT_LABELS;
+}
+
+/** JSON.stringify alone lets a "</script>" inside a job title or description
+ * close the tag early; escaping "<" keeps the JSON identical once parsed. */
+function jsonLdString(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
 }
 
 function applyHost(url: string): string | null {
@@ -82,14 +108,14 @@ export async function generateMetadata(props: PageProps<'/jobs/[slug]'>): Promis
     : null;
   const detail = [employmentLabel, salary].filter((v): v is string => v !== null).join(' · ');
 
-  return {
+  return pageMeta({
     title: `${job.title} — ${job.employer_name}, ${job.city} | ${SITE.name}`,
     description:
       `${job.title} at ${employerLine(job.employer_name, job.facility_name, job.city)} in ` +
       `${job.city}, ${job.province}.${detail ? ` ${detail}.` : ''} ` +
       `Apply on the employer's own careers site.`,
-    alternates: { canonical: `/jobs/${job.slug}` },
-  };
+    path: `/jobs/${job.slug}`,
+  });
 }
 
 export default async function JobPage(props: PageProps<'/jobs/[slug]'>) {
@@ -99,20 +125,38 @@ export default async function JobPage(props: PageProps<'/jobs/[slug]'>) {
   const job = await loadJob(slug);
   if (!job) notFound();
 
-  // Similar openings: same discipline first (what the design intends); if the
-  // job has no category (about a third of listings — Workday doesn't
-  // classify all of them), fall back to same city rather than showing
-  // nothing.
-  let similar: SimilarJob[] = [];
+  // Similar openings, nearest first: same discipline in the same city, then
+  // the same province, then anywhere. Matching on discipline alone returned an
+  // arbitrary three rows — a Rosetown, SK posting suggested jobs in Fort
+  // Saskatchewan, AB. Jobs with no category (Workday doesn't classify all of
+  // them) fall back to same city, then same province.
+  const similar: SimilarJob[] = [];
   {
-    const similarColumns = 'slug,title,employer_name,city';
-    let similarQuery = db.from('jobs').select(similarColumns).eq('is_active', true).neq('slug', job.slug).limit(3);
-    similarQuery = isCategory(job.category)
-      ? similarQuery.eq('category', job.category)
-      : similarQuery.eq('city', job.city);
-    const { data: similarData, error: similarError } = await similarQuery;
-    if (similarError) throw similarError;
-    similar = (similarData ?? []) as SimilarJob[];
+    const tiers: Array<{ category?: string; city?: string; province?: string }> = isCategory(job.category)
+      ? [
+          { category: job.category, city: job.city },
+          { category: job.category, province: job.province },
+          { category: job.category },
+        ]
+      : [{ city: job.city }, { province: job.province }];
+    const seen = new Set([job.slug]);
+    for (const tier of tiers) {
+      if (similar.length >= SIMILAR_LIMIT) break;
+      let q = db.from('jobs').select('slug,title,employer_name,city').eq('is_active', true).neq('slug', job.slug);
+      if (tier.category) q = q.eq('category', tier.category);
+      if (tier.city) q = q.eq('city', tier.city);
+      if (tier.province) q = q.eq('province', tier.province);
+      const { data: similarData, error: similarError } = await q
+        .order('posted_at', { ascending: false })
+        .limit(SIMILAR_LIMIT + seen.size);
+      if (similarError) throw similarError;
+      for (const s of (similarData ?? []) as SimilarJob[]) {
+        if (similar.length >= SIMILAR_LIMIT) break;
+        if (seen.has(s.slug)) continue;
+        seen.add(s.slug);
+        similar.push(s);
+      }
+    }
   }
 
   const nonce = (await headers()).get('x-nonce');
@@ -120,6 +164,8 @@ export default async function JobPage(props: PageProps<'/jobs/[slug]'>) {
   const employmentLabel = isEmploymentType(job.employment_type) ? EMPLOYMENT_LABELS[job.employment_type] : null;
   const categoryLabel = isCategory(job.category) ? CATEGORY_LABELS[job.category] : null;
   const host = applyHost(job.apply_url);
+  const identifier = sourceJobIdFromDedupeKey(job.dedupe_key);
+  const role = roleOf(job.title);
 
   const facts = [
     salary ? { label: 'Pay band', value: salary } : null,
@@ -133,6 +179,13 @@ export default async function JobPage(props: PageProps<'/jobs/[slug]'>) {
     '@type': 'JobPosting',
     title: job.title,
     description: job.description,
+    url: `${SITE.url}/jobs/${job.slug}`,
+    // Applications happen on the employer's site, not here — Google asks
+    // aggregators to say so rather than leave it unset.
+    directApply: false,
+    ...(identifier
+      ? { identifier: { '@type': 'PropertyValue', name: job.employer_name, value: identifier } }
+      : {}),
     datePosted: job.posted_at,
     validThrough: job.expires_at,
     hiringOrganization: { '@type': 'Organization', name: job.employer_name },
@@ -145,7 +198,9 @@ export default async function JobPage(props: PageProps<'/jobs/[slug]'>) {
         addressCountry: 'CA',
       },
     },
-    ...(job.employment_type ? { employmentType: job.employment_type.toUpperCase() } : {}),
+    ...(isEmploymentType(job.employment_type)
+      ? { employmentType: SCHEMA_EMPLOYMENT_TYPE[job.employment_type] }
+      : {}),
     ...(job.salary_min && job.salary_max
       ? {
           baseSalary: {
@@ -162,12 +217,37 @@ export default async function JobPage(props: PageProps<'/jobs/[slug]'>) {
       : {}),
   };
 
+  // Mirrors the visible breadcrumb trail above the title.
+  const breadcrumbLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'All jobs', item: `${SITE.url}/jobs` },
+      ...(categoryLabel
+        ? [
+            {
+              '@type': 'ListItem',
+              position: 2,
+              name: categoryLabel,
+              item: `${SITE.url}${buildJobsQuery({ category: [job.category as Category] })}`,
+            },
+          ]
+        : []),
+      { '@type': 'ListItem', position: categoryLabel ? 3 : 2, name: job.title },
+    ],
+  };
+
   return (
     <>
       <script
         nonce={nonce ?? undefined}
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdString(jsonLd) }}
+      />
+      <script
+        nonce={nonce ?? undefined}
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbLd) }}
       />
 
       <div className="border-b border-[var(--color-rule)] bg-[var(--color-surface)]">
@@ -264,6 +344,21 @@ export default async function JobPage(props: PageProps<'/jobs/[slug]'>) {
               </div>
             </div>
           )}
+
+          {/* Links into the landing pages, so every job page passes crawlers (and readers)
+              on to the employer, role and province hubs above it. */}
+          <div className={`${CARD} p-5`}>
+            <div className={H3}>Explore</div>
+            <div className="mt-3 flex flex-col gap-2.5 text-base">
+              <Link href={paths.employer(slugifyCity(job.employer_name))}>More jobs at {job.employer_name}</Link>
+              {role && (
+                <Link href={paths.roleProvince(role.slug, job.province)}>
+                  {role.label} jobs in {provinceName(job.province)}
+                </Link>
+              )}
+              <Link href={paths.province(job.province)}>Healthcare jobs in {provinceName(job.province)}</Link>
+            </div>
+          </div>
         </aside>
       </div>
     </>

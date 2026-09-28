@@ -101,7 +101,29 @@ async function checkJobGone(request: NextRequest): Promise<NextResponse | null> 
   return null;
 }
 
+/**
+ * Category slugs in URLs switched from snake_case to hyphens (lib/taxonomy/categories.ts
+ * categorySlug). /jobs?category=allied_health still parses, but is permanently redirected
+ * to /jobs?category=allied-health so search engines consolidate on one URL. The
+ * /browse/[city]/[discipline] path form is redirected in its page, where the category
+ * is already resolved.
+ */
+function redirectLegacyCategoryQuery(request: NextRequest): NextResponse | null {
+  const { pathname, searchParams } = request.nextUrl;
+  if (pathname !== '/jobs') return null;
+  const categories = searchParams.getAll('category');
+  if (!categories.some((c) => c.includes('_'))) return null;
+
+  const url = request.nextUrl.clone();
+  url.searchParams.delete('category');
+  for (const c of categories) url.searchParams.append('category', c.replace(/_/g, '-'));
+  return NextResponse.redirect(url, 308);
+}
+
 export async function proxy(request: NextRequest) {
+  const legacy = redirectLegacyCategoryQuery(request);
+  if (legacy) return legacy;
+
   const gone = await checkJobGone(request);
   if (gone) return gone;
 

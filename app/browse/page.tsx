@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { CATEGORIES, CATEGORY_LABELS } from '@/lib/taxonomy/categories';
+import { CATEGORIES, CATEGORY_LABELS, categorySlug, type Category } from '@/lib/taxonomy/categories';
 import { buildJobsQuery } from '@/lib/jobs/query-string';
 import { slugifyCity } from '@/lib/jobs/city-slug';
 import {
@@ -12,7 +12,11 @@ import {
 } from '@/lib/jobs/landing';
 import { DisciplineTile } from '@/components/DisciplineTile';
 import { SITE } from '@/lib/site';
-import { regionName } from '@/lib/provinces';
+import { isIndexableCity, pageMeta } from '@/lib/seo';
+import { provinceName, regionName } from '@/lib/provinces';
+import { paths } from '@/lib/jobs/links';
+import { countBy } from '@/lib/jobs/catalog';
+import { TileGrid } from '@/components/TileGrid';
 import { EYEBROW, H2, SECTION, TILE } from '@/lib/ui/styles';
 
 // Nonce-based CSP requires dynamic rendering — a prerendered route bakes its
@@ -22,10 +26,11 @@ export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(): Promise<Metadata> {
   const region = regionName((await loadLandingRows()).map((r) => r.province));
-  return {
+  return pageMeta({
     title: `Browse healthcare jobs in ${region} | ${SITE.name}`,
-    description: 'Every active healthcare listing on MedCareer, grouped by city and by discipline.',
-  };
+    description: `Every active healthcare listing on ${SITE.name}, grouped by city and by discipline.`,
+    path: '/browse',
+  });
 }
 
 export default async function BrowsePage() {
@@ -34,7 +39,9 @@ export default async function BrowsePage() {
   const cityCounts = countsByCity(rows);
   const categoryCounts = countsByCategory(rows);
 
-  const cities = Object.keys(cityCounts).sort();
+  // Placeholder values from employer feeds ("TBD", a sentence listing towns)
+  // are not places; their jobs stay searchable on /jobs but get no tile here.
+  const cities = Object.keys(cityCounts).filter(isIndexableCity).sort();
   const disciplines = CATEGORIES.filter((c) => (categoryCounts[c] ?? 0) > 0).sort(
     (a, b) => (categoryCounts[b] ?? 0) - (categoryCounts[a] ?? 0),
   );
@@ -57,10 +64,24 @@ export default async function BrowsePage() {
             Browse healthcare jobs in {region}
           </h1>
           <p className="mx-auto mt-3.5 max-w-[34em] text-[clamp(18px,2.2vw,21px)] leading-[1.4] text-[var(--color-slate)]">
-            {rows.length} active listings, grouped by city and by discipline.
+            {rows.length} active listings, grouped by province, city and discipline.
           </p>
         </div>
       </section>
+
+      <TileGrid
+        title="By province"
+        tiles={countBy(rows, (r) => r.province).map(([p, count]) => ({ href: paths.province(p), label: provinceName(p), count }))}
+      />
+
+      <TileGrid
+        title="More ways to browse"
+        tiles={[
+          { href: paths.roles(), label: 'Jobs by role' },
+          { href: paths.employers(), label: 'Employers hiring now' },
+          { href: paths.salaries(), label: 'Pay by role' },
+        ]}
+      />
 
       <section className={SECTION}>
         <h2 className={`m-0 ${H2}`}>By city</h2>
@@ -97,7 +118,7 @@ export default async function BrowsePage() {
             {pairs.map((p) => (
               <Link
                 key={`${p.city}-${p.category}`}
-                href={`/browse/${slugifyCity(p.city)}/${p.category}`}
+                href={`/browse/${slugifyCity(p.city)}/${categorySlug(p.category as Category)}`}
                 className={TILE}
               >
                 <span className="text-[17px] font-medium tracking-[-0.012em]">

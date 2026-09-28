@@ -35,6 +35,17 @@ export function provinceCodeFromName(value: string): ProvinceCode | null {
   return found ?? null;
 }
 
+/** URL slug for a province page: "BC" → "british-columbia". */
+export function provinceSlug(code: string): string {
+  return deaccent(provinceName(code).toLowerCase()).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+/** "british-columbia" → "BC". Null for anything that is not a province slug. */
+export function provinceFromSlug(slug: string): ProvinceCode | null {
+  const wanted = slug.trim().toLowerCase();
+  return (Object.keys(PROVINCE_NAMES) as ProvinceCode[]).find((code) => provinceSlug(code) === wanted) ?? null;
+}
+
 /** "AB" → "Alberta". Unknown codes pass through rather than rendering blank. */
 export function provinceName(code: string): string {
   return PROVINCE_NAMES[code as ProvinceCode] ?? code;

@@ -1,17 +1,18 @@
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { createServerClient } from '@/lib/db/server';
-import { CATEGORIES, CATEGORY_LABELS } from '@/lib/taxonomy/categories';
+import { CATEGORIES, CATEGORY_LABELS, categoryFromSlug, categorySlug } from '@/lib/taxonomy/categories';
 import { categoryBlurb } from '@/lib/taxonomy/blurbs';
 import { provinceName, provinceOfCity } from '@/lib/provinces';
 import { buildJobsQuery } from '@/lib/jobs/query-string';
-import { resolveCity, slugifyCity, isCategorySlug } from '@/lib/jobs/city-slug';
+import { resolveCity, slugifyCity } from '@/lib/jobs/city-slug';
 import { buildGlance, type GlanceJob } from '@/lib/jobs/glance';
 import { loadLandingRows, countsByCity, pairCount, LINK_THRESHOLD } from '@/lib/jobs/landing';
 import { LandingJobList, type LandingJob } from '@/components/LandingJobList';
 import { LinkCountCard, type CountLink } from '@/components/LinkCountCard';
 import { GlancePanel } from '@/components/GlancePanel';
 import { SITE } from '@/lib/site';
+import { isIndexableCity, isIndexableLanding, pageMeta } from '@/lib/seo';
 import { CONTAINER, EYEBROW, H1, H2 } from '@/lib/ui/styles';
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +24,7 @@ const JOB_COLUMNS =
 async function resolve(citySlug: string, disciplineSlug: string) {
   const rows = await loadLandingRows();
   const city = resolveCity(citySlug, Object.keys(countsByCity(rows)));
-  const category = isCategorySlug(disciplineSlug) ? disciplineSlug : null;
+  const category = categoryFromSlug(disciplineSlug);
   const count = city && category ? pairCount(rows, city, category) : 0;
   return { rows, city, category, count };
 }
@@ -37,10 +38,13 @@ export async function generateMetadata(
   const province = provinceOfCity(rows, city);
 
   const label = CATEGORY_LABELS[category];
-  return {
+  return pageMeta({
     title: `${label} jobs in ${province ? `${city}, ${provinceName(province)}` : city} | ${SITE.name}`,
     description: `${count} active ${label.toLowerCase()} ${count === 1 ? 'listing' : 'listings'} in ${city}, pulled from hospital career systems and refreshed every six hours.`,
-  };
+    path: `/browse/${slugifyCity(city)}/${categorySlug(category)}`,
+    // Thin or placeholder-city pages still render but stay out of the index.
+    noindex: !isIndexableLanding(city, count),
+  });
 }
 
 export default async function PairLandingPage(props: PageProps<'/browse/[city]/[discipline]'>) {
@@ -50,6 +54,12 @@ export default async function PairLandingPage(props: PageProps<'/browse/[city]/[
   // Unknown city, unknown discipline, or a valid pair with nothing active —
   // all 404. No empty landing pages.
   if (!city || !category || count === 0) notFound();
+
+  // Legacy underscore URLs (/browse/toronto/allied_health) move permanently to the
+  // hyphenated form, so links and rankings earned by the old URL carry over.
+  if (discipline !== categorySlug(category)) {
+    permanentRedirect(`/browse/${slugifyCity(city)}/${categorySlug(category)}`);
+  }
 
   const label = CATEGORY_LABELS[category];
 
@@ -78,7 +88,7 @@ export default async function PairLandingPage(props: PageProps<'/browse/[city]/[
 
   const otherDisciplines: CountLink[] = CATEGORIES.filter((c) => c !== category)
     .map((c) => ({
-      href: `/browse/${slugifyCity(city)}/${c}`,
+      href: `/browse/${slugifyCity(city)}/${categorySlug(c)}`,
       label: CATEGORY_LABELS[c],
       count: pairCount(rows, city, c),
     }))
@@ -86,9 +96,9 @@ export default async function PairLandingPage(props: PageProps<'/browse/[city]/[
     .sort((a, b) => b.count - a.count);
 
   const sameDisciplineElsewhere: CountLink[] = Object.keys(countsByCity(rows))
-    .filter((name) => name !== city)
+    .filter((name) => name !== city && isIndexableCity(name))
     .map((name) => ({
-      href: `/browse/${slugifyCity(name)}/${category}`,
+      href: `/browse/${slugifyCity(name)}/${categorySlug(category)}`,
       label: `${label} in ${name}`,
       count: pairCount(rows, name, category),
     }))

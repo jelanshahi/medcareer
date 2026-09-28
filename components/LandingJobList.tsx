@@ -13,6 +13,9 @@ export type LandingJob = {
   salary_max: number | null;
   salary_period: string | null;
   posted_at: string;
+  /** Present on lists that span several cities (province, role, employer pages). */
+  city?: string;
+  province?: string;
 };
 
 function isEmploymentType(value: string | null): value is EmploymentType {
@@ -32,10 +35,11 @@ export function LandingJobList({
   jobs: LandingJob[];
   /** The city these listings are scoped to. Not on LandingJob itself — the
    * rows are already filtered to one city — but employerLine needs it to
-   * suppress a facility_name that merely repeats the city. */
-  city: string;
-  seeAllHref: string;
-  seeAllLabel: string;
+   * suppress a facility_name that merely repeats the city. Omitted on lists
+   * spanning several cities, where each row shows its own city instead. */
+  city?: string;
+  seeAllHref?: string;
+  seeAllLabel?: string;
 }) {
   return (
     <>
@@ -57,7 +61,14 @@ export function LandingJobList({
                   {job.title}
                 </h3>
                 <p className="mt-1 text-base">
-                  {employerLine(job.employer_name, job.facility_name, city)}
+                  {employerLine(job.employer_name, job.facility_name, city ?? job.city ?? '')}
+                  {city === undefined && job.city && (
+                    <span className="text-[var(--color-slate)]">
+                      {' · '}
+                      {job.city}
+                      {job.province ? `, ${job.province}` : ''}
+                    </span>
+                  )}
                 </p>
                 <p className="mt-1.5 text-[15px] tabular-nums text-[var(--color-slate)]">{meta}</p>
               </Link>
@@ -65,9 +76,11 @@ export function LandingJobList({
           );
         })}
       </ul>
-      <p className="mt-4 text-[17px]">
-        <Link href={seeAllHref}>{seeAllLabel} ›</Link>
-      </p>
+      {seeAllHref && seeAllLabel && (
+        <p className="mt-4 text-[17px]">
+          <Link href={seeAllHref}>{seeAllLabel} ›</Link>
+        </p>
+      )}
     </>
   );
 }

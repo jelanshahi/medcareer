@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { createServerClient } from '@/lib/db/server';
-import { CATEGORIES, CATEGORY_LABELS } from '@/lib/taxonomy/categories';
+import { CATEGORIES, CATEGORY_LABELS, categorySlug } from '@/lib/taxonomy/categories';
 import { buildJobsQuery } from '@/lib/jobs/query-string';
 import { resolveCity, slugifyCity } from '@/lib/jobs/city-slug';
 import { buildGlance, type GlanceJob } from '@/lib/jobs/glance';
@@ -10,6 +10,7 @@ import { LandingJobList, type LandingJob } from '@/components/LandingJobList';
 import { LinkCountCard, type CountLink } from '@/components/LinkCountCard';
 import { GlancePanel } from '@/components/GlancePanel';
 import { SITE } from '@/lib/site';
+import { isIndexableCity, isIndexableLanding, pageMeta } from '@/lib/seo';
 import { provinceName, provinceOfCity } from '@/lib/provinces';
 import { CONTAINER, EYEBROW, H1, H2 } from '@/lib/ui/styles';
 
@@ -36,10 +37,13 @@ export async function generateMetadata(props: PageProps<'/browse/[city]'>): Prom
   if (!city) return { title: `Not found | ${SITE.name}` };
 
   const count = countsByCity(rows)[city] ?? 0;
-  return {
+  return pageMeta({
     title: `Healthcare jobs in ${cityWithProvince(rows, city)} | ${SITE.name}`,
-    description: `${count} active healthcare listings in ${city}, pulled from hospital career systems and refreshed every six hours.`,
-  };
+    description: `${count} active healthcare ${count === 1 ? 'listing' : 'listings'} in ${city}, pulled from hospital career systems and refreshed every six hours.`,
+    path: `/browse/${slugifyCity(city)}`,
+    // Thin or placeholder-city pages still render but stay out of the index.
+    noindex: !isIndexableLanding(city, count),
+  });
 }
 
 export default async function CityLandingPage(props: PageProps<'/browse/[city]'>) {
@@ -76,7 +80,7 @@ export default async function CityLandingPage(props: PageProps<'/browse/[city]'>
   const employers = [...new Set((glanceData ?? []).map((r) => r.employer_name))].sort();
 
   const disciplineLinks: CountLink[] = CATEGORIES.map((c) => ({
-    href: `/browse/${slugifyCity(city)}/${c}`,
+    href: `/browse/${slugifyCity(city)}/${categorySlug(c)}`,
     label: CATEGORY_LABELS[c],
     count: pairCount(rows, city, c),
   }))
@@ -84,7 +88,7 @@ export default async function CityLandingPage(props: PageProps<'/browse/[city]'>
     .sort((a, b) => b.count - a.count);
 
   const otherCityLinks: CountLink[] = Object.entries(countsByCity(rows))
-    .filter(([name]) => name !== city)
+    .filter(([name]) => name !== city && isIndexableCity(name))
     .map(([name, count]) => ({ href: `/browse/${slugifyCity(name)}`, label: name, count }))
     .sort((a, b) => b.count - a.count);
 

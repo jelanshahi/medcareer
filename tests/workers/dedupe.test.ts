@@ -107,6 +107,20 @@ describe('buildJobRow', () => {
     const key = dedupeKeyFor(row());
     expect(buildJobRow(row(), null, key).dedupe_key).toBe(key);
   });
+
+  it('replaces a placeholder city with the employer default city', () => {
+    const r = row({ normalized: { ...posting, city: 'TBD' } });
+    expect(buildJobRow(r, null, dedupeKeyFor(r), 'Regina').city).toBe('Regina');
+  });
+
+  it('salvages the place name from a sentence-length city', () => {
+    const r = row({ normalized: { ...posting, city: 'Killarney service will be provided to Boissevain, Cartwright' } });
+    expect(buildJobRow(r, null, dedupeKeyFor(r), 'Brandon').city).toBe('Killarney');
+  });
+
+  it('keeps a real city untouched', () => {
+    expect(buildJobRow(row(), null, dedupeKeyFor(row()), 'Regina').city).toBe('Toronto');
+  });
 });
 
 // Regression tests for the Task 10 fix-round-1 decision: fingerprint alone is

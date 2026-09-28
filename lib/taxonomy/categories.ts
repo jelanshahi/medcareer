@@ -21,6 +21,23 @@ export const CATEGORIES = [
 
 export type Category = (typeof CATEGORIES)[number];
 
+/**
+ * The URL form of a category. Keys stay snake_case everywhere they are stored (jobs,
+ * job_alerts), but URLs use hyphens: search engines read a hyphen as a word break and an
+ * underscore as part of the word, so "allied-health" matches "allied health" searches and
+ * "allied_health" does not.
+ */
+export function categorySlug(category: Category): string {
+  return category.replace(/_/g, '-');
+}
+
+/** Accepts either URL form — the current hyphenated one or the legacy underscore one —
+ * and returns the category key, or null for anything that is not a category. */
+export function categoryFromSlug(value: string): Category | null {
+  const key = value.trim().toLowerCase().replace(/-/g, '_');
+  return (CATEGORIES as readonly string[]).includes(key) ? (key as Category) : null;
+}
+
 /** User-facing labels. Job seekers do not say "support_care". */
 export const CATEGORY_LABELS: Record<Category, string> = {
   nursing: 'Nursing',

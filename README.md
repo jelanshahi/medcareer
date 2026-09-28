@@ -43,6 +43,7 @@ npm run ingest   # fetch postings from employer ATS feeds -> raw_postings
 npm run dedupe   # project raw_postings -> the canonical jobs table
 npm run expire   # deactivate stale and past-expiry jobs
 npm run purge    # delete delisted jobs past the retention window
+npm run notify-google  # optional: tell Google's Indexing API about opened/closed jobs
 ```
 
 Each stage loads `.env.local`:
@@ -51,7 +52,11 @@ Each stage loads `.env.local`:
 set -a && . ./.env.local && set +a && npm run ingest
 ```
 
-`.github/workflows/ingest.yml` runs all four every six hours.
+`.github/workflows/ingest.yml` runs all five every six hours.
+
+`dedupe` also cleans city values that are not places ("TBD", a sentence listing towns):
+it salvages the leading place name, or falls back to the employer's `default_city`
+(`lib/normalize/city.ts`). `raw_postings` keeps the original.
 
 ### How the pipeline treats duplicates
 
@@ -60,6 +65,36 @@ different sources*. It deliberately does **not** identify a job on its own: a ho
 have several concurrent openings for one role, and collapsing those would hide real
 vacancies. Identity is `dedupe_key` = `fingerprint:requisition_id`. Rows only merge when a
 fingerprint group spans more than one source.
+
+### Google Indexing API
+
+`npm run notify-google` sends `URL_UPDATED` for jobs created since its last successful run
+and `URL_DELETED` for jobs deactivated since then, at most `INDEXING_MAX_PER_RUN` (default
+45) per run to stay inside Google's default 200-a-day quota. It is off until the
+`GOOGLE_INDEXING_CREDENTIALS` secret is set. To turn it on:
+
+1. In Google Cloud, create a project, enable the **Web Search Indexing API**, and create a
+   service account with a JSON key.
+2. In Search Console, open the `https://www.medcareer.ca/` property → Settings → Users and
+   permissions, and add the service account's email as an **Owner**.
+3. Add the key file's contents (or its base64) as the repository secret
+   `GOOGLE_INDEXING_CREDENTIALS`.
+
+Runs are recorded in `ingest_runs` under `source_id = 'google-indexing'`.
+
+## SEO landing pages
+
+| Route | What it is | Indexed when |
+| --- | --- | --- |
+| `/province/[province]`, `/province/[province]/[discipline]` | Province hubs | ≥ 3 jobs |
+| `/roles`, `/roles/[role]`, `/roles/[role]/[province]` | Job-title pages (`lib/taxonomy/roles.ts`) | ≥ 3 jobs |
+| `/employers`, `/employers/[employer]` | Employer pages | ≥ 3 jobs |
+| `/salary`, `/salary/[role]` | Pay guides from posted bands (`lib/jobs/pay.ts`) | ≥ 5 postings with pay |
+| `/browse/[city]`, `/browse/[city]/[discipline]` | City pages | ≥ 3 jobs and a real city name |
+
+Pages under the threshold still render but are `noindex` and left out of the sitemap.
+Category slugs in URLs use hyphens (`allied-health`); the old underscore URLs redirect
+permanently.
 
 ## Crawling conduct
 
