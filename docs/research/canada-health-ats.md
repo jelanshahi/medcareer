@@ -951,3 +951,33 @@ changes on its own, since vendors do sometimes loosen these over time as other j
 
 **Asked: not yet sent (as of 1 Oct 2026).** Record the date here when it goes out, as the Alberta,
 Newfoundland and Quebec asks are recorded above.
+
+## UKG/UltiPro and Dayforce — checked 1 Oct 2026, both need a headless browser, neither built
+
+Investigated as SilkRoad alternatives for the remaining Ontario UKG/Dayforce hospitals
+(Bruyère, Homewood, Huron Perth, Ontario Shores on UKG; Sinai Health, Women's College on
+Dayforce). Both are React/Next.js SPAs with no server-rendered job data, so neither works with a
+curl-and-parse connector the way SilkRoad, iCIMS or Oracle Cloud do. Recorded so nobody re-runs
+the same static analysis:
+
+- **UKG/UltiPro** (`recruiting.ultipro.ca`): robots.txt is `Disallow: /` with `Allow: */JobBoard/`
+  then `Disallow: */JobBoardView`. References to `GetOpportunityMatchCount` and other
+  `.../JobBoardView/...` endpoints were found in the page, strongly suggesting the actual
+  opportunity search/list API lives under the disallowed path — but this was not confirmed
+  against the real public-facing bundle (the 3MB+ JS files checked turned out to be the
+  recruiter/admin-side tooling, not the candidate search widget). A dozen plausible endpoint
+  names were probed directly and all 404'd.
+- **Dayforce** (`jobs.dayforcehcm.com`): robots.txt uses the newer "content signals" format with
+  no actual `Disallow` lines — not blocked. Confirmed real tenant identifiers for Sinai Health
+  (`clientNamespace: sinaihealth`, `jobBoardCode: sinaihealthcareers`, `jobBoardId: 4`) from the
+  page's embedded Next.js `__NEXT_DATA__`, and confirmed the app has a page-specific JS chunk at
+  `pages/[clientNamespace]/[careerSiteXRefCode]`. Downloaded and grepped ~1.4MB across that chunk
+  and every shared chunk for a literal `/api/...` job-fetch URL — none found (the path is built
+  dynamically, not as a string literal). A handful of plausible REST patterns were probed: `GET`
+  variants returned 500 (route may exist, wrong params) and `POST` variants returned 403
+  (likely a WAF rule on the method, not proof of an auth requirement).
+
+**Next step for either, if revisited:** open the real job-search page in an actual browser with
+dev tools open, watch the Network tab while the job list loads, and copy the real request
+(method, URL, headers, body). That single piece of information is what static `curl`/`grep`
+analysis couldn't produce for either platform.
