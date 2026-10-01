@@ -9,6 +9,7 @@ import { createJibeConnector, type JibeEmployer } from '@/workers/connectors/jib
 import { createOracleCloudConnector, type OracleCloudEmployer } from '@/workers/connectors/oraclecloud';
 import { createSuccessFactorsConnector, type SuccessFactorsEmployer } from '@/workers/connectors/successfactors';
 import { createSuccessFactorsMbConnector, type SuccessFactorsMbEmployer } from '@/workers/connectors/successfactors-mb';
+import { createSmartRecruitersConnector, type SmartRecruitersEmployer } from '@/workers/connectors/smartrecruiters';
 import { createPhenomConnector, type PhenomEmployer } from '@/workers/connectors/phenom';
 import { createTalentPoolBuilderConnector, type TalentPoolBuilderEmployer } from '@/workers/connectors/talentpoolbuilder';
 import { createTaleoConnector, type TaleoEmployer } from '@/workers/connectors/taleo';
@@ -94,6 +95,13 @@ const BcHealthJobsAtsConfigSchema = z.object({
   host: z.string().min(1),
 });
 
+/** SmartRecruiters: the API host is constant, the company identifier (`key`) is per tenant. */
+const SmartRecruitersAtsConfigSchema = z.object({
+  key: z.string().min(1),
+  host: z.string().min(1),
+  cityAliases: z.record(z.string(), z.string()).optional(),
+});
+
 /** Oracle Cloud Recruiting: `site` is the career site number, e.g. "CX_1001". */
 const OracleCloudAtsConfigSchema = z.object({
   key: z.string().min(1),
@@ -120,6 +128,7 @@ const EmployerRowSchema = z.discriminatedUnion('ats_platform', [
   EmployerBaseSchema.extend({ ats_platform: z.literal('talentpoolbuilder'), ats_config: TalentPoolBuilderAtsConfigSchema }),
   EmployerBaseSchema.extend({ ats_platform: z.literal('phenom'), ats_config: PhenomAtsConfigSchema }),
   EmployerBaseSchema.extend({ ats_platform: z.literal('oraclecloud'), ats_config: OracleCloudAtsConfigSchema }),
+  EmployerBaseSchema.extend({ ats_platform: z.literal('smartrecruiters'), ats_config: SmartRecruitersAtsConfigSchema }),
 ]);
 
 /** Updates in chunks so a long `in (...)` list stays well under URL length limits. */
@@ -320,7 +329,7 @@ async function main() {
     .from('employers')
     .select('slug,name,province,default_city,ats_platform,ats_config')
     .eq('is_active', true)
-    .in('ats_platform', ['workday', 'taleo', 'icims', 'jibe', 'successfactors', 'successfactors_mb', 'bchealthjobs', 'wpjobmanager', 'talentpoolbuilder', 'phenom', 'oraclecloud']);
+    .in('ats_platform', ['workday', 'taleo', 'icims', 'jibe', 'successfactors', 'successfactors_mb', 'bchealthjobs', 'wpjobmanager', 'talentpoolbuilder', 'phenom', 'oraclecloud', 'smartrecruiters']);
 
   if (error) throw error;
 
@@ -381,10 +390,14 @@ async function main() {
       const employer: PhenomEmployer = { ...base, config: parsed.data.ats_config };
       sourceId = `phenom:${employer.config.key}`;
       createConnector = (ctx) => createPhenomConnector(employer, ctx);
-    } else {
+    } else if (parsed.data.ats_platform === 'oraclecloud') {
       const employer: OracleCloudEmployer = { ...base, config: parsed.data.ats_config };
       sourceId = `oraclecloud:${employer.config.key}`;
       createConnector = (ctx) => createOracleCloudConnector(employer, ctx);
+    } else {
+      const employer: SmartRecruitersEmployer = { ...base, config: parsed.data.ats_config };
+      sourceId = `smartrecruiters:${employer.config.key}`;
+      createConnector = (ctx) => createSmartRecruitersConnector(employer, ctx);
     }
 
     // Sequential on purpose: one connector failing must not affect the others,
