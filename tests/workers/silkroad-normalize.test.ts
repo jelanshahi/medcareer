@@ -134,3 +134,113 @@ describe('parseSilkRoadLabelDate', () => {
     expect(() => parseSilkRoadLabelDate('2026-09-03')).toThrow();
   });
 });
+
+import { sanitizeDescription } from '@/lib/normalize/sanitize';
+import { normalizeSilkRoad } from '@/workers/connectors/silkroad';
+import type { SilkRoadEmployer } from '@/workers/connectors/silkroad';
+
+const mahc: SilkRoadEmployer = {
+  slug: 'muskoka-algonquin-healthcare',
+  name: 'Muskoka Algonquin Healthcare',
+  province: 'ON',
+  defaultCity: 'Huntsville',
+  config: { host: 'jobs-ca.silkroad.com', tenant: 'MAHC', boardCode: 'MAHCCareers' },
+};
+
+const baycrest: SilkRoadEmployer = {
+  slug: 'baycrest',
+  name: 'Baycrest',
+  province: 'ON',
+  defaultCity: 'Toronto',
+  config: { host: 'jobs-ca.silkroad.com', tenant: 'Baycrest', boardCode: 'Careers' },
+};
+
+describe('normalizeSilkRoad', () => {
+  describe('label-fallback path (MAHC, no JSON-LD)', () => {
+    it('maps the detail page onto NormalizedPosting', () => {
+      const posting = normalizeSilkRoad(fixture('mahc-job-detail.html'), mahc, '1621');
+      expect(posting.sourceId).toBe('silkroad:MAHC');
+      expect(posting.sourceJobId).toBe('1621');
+      expect(posting.sourceUrl).toBe('https://jobs-ca.silkroad.com/MAHC/MAHCCareers/jobs/1621');
+      expect(posting.applyUrl).toBe(posting.sourceUrl);
+      expect(posting.employerName).toBe('Muskoka Algonquin Healthcare');
+      expect(posting.city).toBe('Huntsville');
+      expect(posting.province).toBe('ON');
+      expect(posting.postedAt).toBeInstanceOf(Date);
+      expect(Number.isNaN(posting.postedAt.getTime())).toBe(false);
+    });
+
+    it('sanitizes the description', () => {
+      const posting = normalizeSilkRoad(fixture('mahc-job-detail.html'), mahc, '1621');
+      expect(posting.description).not.toContain('<script');
+      expect(posting.description.length).toBeGreaterThan(0);
+    });
+
+    it('leaves salary, shift type, employment type, and closesAt undefined', () => {
+      const posting = normalizeSilkRoad(fixture('mahc-job-detail.html'), mahc, '1621');
+      expect(posting.salaryMin).toBeUndefined();
+      expect(posting.salaryMax).toBeUndefined();
+      expect(posting.shiftType).toBeUndefined();
+      expect(posting.employmentType).toBeUndefined();
+      expect(posting.closesAt).toBeUndefined();
+    });
+
+    it('falls back to the employer registry city/province when Job Location is absent', () => {
+      const html = fixture('mahc-job-detail.html').replace('Job Location', 'Something Else');
+      const posting = normalizeSilkRoad(html, mahc, '1621');
+      expect(posting.city).toBe('Huntsville');
+      expect(posting.province).toBe('ON');
+    });
+
+    it('throws when Posted Date is missing (no reasonable fallback for a required date)', () => {
+      const html = fixture('mahc-job-detail.html').replace('Posted Date', 'Something Else');
+      expect(() => normalizeSilkRoad(html, mahc, '1621')).toThrow();
+    });
+
+    it('throws when the title element is missing', () => {
+      const html = fixture('mahc-job-detail.html').replace('Jobs_JobDetail_TitleText', 'renamed');
+      expect(() => normalizeSilkRoad(html, mahc, '1621')).toThrow();
+    });
+  });
+
+  describe('JSON-LD path (Baycrest)', () => {
+    it('maps the detail page onto NormalizedPosting', () => {
+      const posting = normalizeSilkRoad(fixture('baycrest-job-detail.html'), baycrest, '5727');
+      expect(posting.sourceId).toBe('silkroad:Baycrest');
+      expect(posting.sourceJobId).toBe('5727');
+      expect(posting.sourceUrl).toBe('https://jobs-ca.silkroad.com/Baycrest/Careers/jobs/5727');
+      expect(posting.title).toBe('Janitor');
+      expect(posting.city).toBe('Toronto');
+      expect(posting.province).toBe('ON');
+      expect(posting.postedAt).toBeInstanceOf(Date);
+      expect(Number.isNaN(posting.postedAt.getTime())).toBe(false);
+    });
+
+    it('sanitizes the JSON-LD description', () => {
+      const posting = normalizeSilkRoad(fixture('baycrest-job-detail.html'), baycrest, '5727');
+      expect(posting.description).not.toContain('<script');
+      expect(posting.description.length).toBeGreaterThan(0);
+    });
+
+    it('ignores the JSON-LD employmentType field ("OTHER" is uninformative)', () => {
+      const posting = normalizeSilkRoad(fixture('baycrest-job-detail.html'), baycrest, '5727');
+      expect(posting.employmentType).toBeUndefined();
+    });
+
+    it('leaves salary, shift type, and closesAt undefined', () => {
+      const posting = normalizeSilkRoad(fixture('baycrest-job-detail.html'), baycrest, '5727');
+      expect(posting.salaryMin).toBeUndefined();
+      expect(posting.salaryMax).toBeUndefined();
+      expect(posting.shiftType).toBeUndefined();
+      expect(posting.closesAt).toBeUndefined();
+    });
+
+    it('throws when datePosted is unparseable', () => {
+      const html = fixture('baycrest-job-detail.html').replace(
+        /"datePosted":"[^"]*"/,
+        '"datePosted":"not-a-date"',
+      );
+      expect(() => normalizeSilkRoad(html, baycrest, '5727')).toThrow();
+    });
+  });
+});

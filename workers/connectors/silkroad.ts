@@ -1,7 +1,9 @@
 import { parse } from 'node-html-parser';
-import type { JobStub, ProvinceCode } from '@/lib/types';
+import { z } from 'zod';
+import type { JobStub, NormalizedPosting, ProvinceCode } from '@/lib/types';
 import type { Connector } from './types';
 import { provinceCodeFromName } from '@/lib/provinces';
+import { sanitizeDescription } from '@/lib/normalize/sanitize';
 
 /**
  * SilkRoad Technology career sites (jobs-ca.silkroad.com and friends) -- a classic
@@ -104,4 +106,73 @@ export function parseSilkRoadLabelDate(value: string): Date {
   const date = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T00:00:00Z`);
   if (Number.isNaN(date.getTime())) throw new Error(`Unparseable Posted Date "${value}"`);
   return date;
+}
+
+const JsonLdAddressSchema = z.object({
+  addressLocality: z.string().optional(),
+  addressRegion: z.string().optional(),
+});
+
+const JsonLdJobPostingSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().min(1),
+  datePosted: z.string().min(1),
+  jobLocation: z.object({ address: JsonLdAddressSchema }).optional(),
+});
+
+export function normalizeSilkRoad(html: string, employer: SilkRoadEmployer, sourceJobId: string): NormalizedPosting {
+  const { host, tenant, boardCode } = employer.config;
+  const url = `https://${host}/${tenant}/${boardCode}/jobs/${sourceJobId}`;
+
+  const jsonLdRaw = extractJsonLd(html);
+  const jsonLd = jsonLdRaw ? JsonLdJobPostingSchema.safeParse(jsonLdRaw) : undefined;
+
+  if (jsonLd?.success) {
+    const { title, description, datePosted, jobLocation } = jsonLd.data;
+    const postedAt = new Date(datePosted);
+    if (Number.isNaN(postedAt.getTime())) {
+      throw new Error(`Unparseable datePosted "${datePosted}" for ${sourceJobId}`);
+    }
+    const address = jobLocation?.address;
+
+    return {
+      sourceId: `silkroad:${tenant}`,
+      sourceJobId,
+      sourceUrl: url,
+      title,
+      employerName: employer.name,
+      description: sanitizeDescription(description),
+      city: address?.addressLocality || employer.defaultCity,
+      province: provinceFromIsoRegion(address?.addressRegion) ?? employer.province,
+      postedAt,
+      applyUrl: url,
+    };
+  }
+
+  // Label-based fallback: this tenant's pages carry no JSON-LD.
+  const root = parse(html);
+  const titleEl = root.getElementById('Jobs_JobDetail_TitleText');
+  const descriptionEl = root.getElementById('ConfigurablePageDetail__JobDescription');
+  if (!titleEl || !descriptionEl) {
+    throw new Error(`Missing title or description for ${sourceJobId}`);
+  }
+
+  const locationLabel = fieldByLabel(root, 'Job Location');
+  const location = locationLabel ? parseLabelLocation(locationLabel) : undefined;
+
+  const postedLabel = fieldByLabel(root, 'Posted Date');
+  if (!postedLabel) throw new Error(`No Posted Date field for ${sourceJobId}`);
+
+  return {
+    sourceId: `silkroad:${tenant}`,
+    sourceJobId,
+    sourceUrl: url,
+    title: titleEl.text.trim(),
+    employerName: employer.name,
+    description: sanitizeDescription(descriptionEl.innerHTML),
+    city: location?.city || employer.defaultCity,
+    province: location?.province ?? employer.province,
+    postedAt: parseSilkRoadLabelDate(postedLabel),
+    applyUrl: url,
+  };
 }
