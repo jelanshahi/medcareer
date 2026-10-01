@@ -1,0 +1,31 @@
+{
+  "id": "743999752619427",
+  "name": "Registered Nurse - Medicine",
+  "refNumber": "RN-24-1182",
+  "releasedDate": "2026-09-15T13:22:00.000Z",
+  "location": { "city": "Toronto", "region": "Ontario", "country": "ca", "remote": false },
+  "department": { "id": "d1", "label": "Nursing" },
+  "typeOfEmployment": { "id": "t1", "label": "Full-time" },
+  "postingUrl": "https://jobs.smartrecruiters.com/UniversityHealthNetwork/743999752619427-registered-nurse-medicine",
+  "applyUrl": "https://jobs.smartrecruiters.com/UniversityHealthNetwork/743999752619427-registered-nurse-medicine?oga=true",
+  "jobAd": {
+    "sections": {
+      "companyDescription": {
+        "title": "Company Description",
+        "text": "<p>University Health Network (UHN) is Canada's #1 hospital and the world's #1 publicly funded hospital for research impact.</p>"
+      },
+      "jobDescription": {
+        "title": "Job Description",
+        "text": "<p>The Registered Nurse provides direct patient care on the Medicine unit.</p>"
+      },
+      "qualifications": {
+        "title": "Qualifications",
+        "text": "<ul><li>Current registration with the College of Nurses of Ontario</li><li>BScN preferred</li></ul>"
+      },
+      "additionalInformation": {
+        "title": "Additional Information",
+        "text": "<p>UHN is an equal opportunity employer.</p>"
+      }
+    }
+  }
+}

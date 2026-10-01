@@ -1,0 +1,19 @@
+{
+  "id": "811122233344",
+  "name": "Patient Care Assistant",
+  "refNumber": "PCA-1029",
+  "releasedDate": "2026-09-10T08:00:00.000Z",
+  "location": { "city": "GTA", "region": "", "country": "ca", "remote": false },
+  "department": { "id": "d9", "label": "Patient Care" },
+  "typeOfEmployment": { "id": "t9", "label": "Student" },
+  "postingUrl": "https://jobs.smartrecruiters.com/williamoslerhealthsystem1/811122233344-patient-care-assistant",
+  "applyUrl": "https://jobs.smartrecruiters.com/williamoslerhealthsystem1/811122233344-patient-care-assistant?oga=true",
+  "jobAd": {
+    "sections": {
+      "jobDescription": {
+        "title": "Job Description",
+        "text": "<p>Supports patient care activities under supervision of regulated staff.</p>"
+      }
+    }
+  }
+}

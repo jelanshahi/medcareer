@@ -1,0 +1,29 @@
+{
+  "offset": 0,
+  "limit": 100,
+  "totalFound": 2,
+  "content": [
+    {
+      "id": "743999752619427",
+      "name": "Registered Nurse - Medicine",
+      "refNumber": "RN-24-1182",
+      "releasedDate": "2026-09-15T13:22:00.000Z",
+      "location": { "city": "Toronto", "region": "Ontario", "country": "ca", "remote": false },
+      "department": { "id": "d1", "label": "Nursing" },
+      "typeOfEmployment": { "id": "t1", "label": "Full-time" },
+      "postingUrl": "https://jobs.smartrecruiters.com/UniversityHealthNetwork/743999752619427-registered-nurse-medicine",
+      "applyUrl": "https://jobs.smartrecruiters.com/UniversityHealthNetwork/743999752619427-registered-nurse-medicine?oga=true"
+    },
+    {
+      "id": "743999752619999",
+      "name": "Clinical Research Coordinator",
+      "refNumber": "CRC-24-0042",
+      "releasedDate": "2026-09-14T09:00:00.000Z",
+      "location": { "city": "Toronto", "region": "Ontario", "country": "ca", "remote": false },
+      "department": { "id": "d2", "label": "Research" },
+      "typeOfEmployment": { "id": "t2", "label": "Temporary" },
+      "postingUrl": "https://jobs.smartrecruiters.com/UniversityHealthNetwork/743999752619999-clinical-research-coordinator",
+      "applyUrl": "https://jobs.smartrecruiters.com/UniversityHealthNetwork/743999752619999-clinical-research-coordinator?oga=true"
+    }
+  ]
+}
