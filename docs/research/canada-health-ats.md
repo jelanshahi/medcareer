@@ -871,3 +871,83 @@ weren't checked past a robots.txt probe — `jobs.sehc.com` returned a real robo
 following up. Each needs the full pre-flight (robots.txt, our UA on a listing *and* a detail
 page, terms of use) before any connector work — Njoyn and Extendicare both looked promising on
 a first pass and turned out not to be.
+
+## SmartRecruiters — blocked by robots.txt, checked 1 Oct 2026
+
+Four Ontario hospitals run SmartRecruiters: Halton Healthcare, University Health Network, West
+Nipissing General Hospital, and William Osler Health System (`workers/connectors/smartrecruiters.ts`,
+seeded in `supabase/migrations/0024_seed_smartrecruiters_ontario.sql`, all `is_active = false`).
+All four company identifiers were confirmed live against the public Postings API
+(`api.smartrecruiters.com/v1/companies/{key}/postings`) — it answers normally, no bot challenge,
+real JSON every time. The blocker is `api.smartrecruiters.com/robots.txt` itself:
+
+```
+User-agent: LinkedInBot
+Allow: /v1/companies/
+User-agent: *
+Disallow: /
+```
+
+This disallows every crawler but LinkedInBot by name, across the whole host, including the exact
+`/v1/companies/` path the connector calls. Unlike Alberta or NL Health Services, this robots.txt
+belongs to the **vendor**, not any one employer — so permission has to come from SmartRecruiters,
+and a yes (or a no) would apply to the pattern for any future SmartRecruiters hospital too, not
+just these four.
+
+**Not the right door:** SmartRecruiters' `developers.smartrecruiters.com` does document a "Job
+Board API" / Marketplace partner program, but it's a paid distribution product — a SmartRecruiters
+customer has to *purchase* syndication to a specific partner board before any posting data flows
+(`GET /publications` only returns postings a customer bought distribution for). That's not our use
+case: we don't sell job distribution, we aggregate and link back, same as every other connector
+here. Applying as a Marketplace partner would be the wrong ask and likely the wrong people to talk
+to for a free crawl exception.
+
+**The right door, as far as found:** `marketplace@smartrecruiters.com`, published on their API
+support page (`developers.smartrecruiters.com/docs/partners-help`) as the contact for API
+questions. No more specific "crawling permission" contact was found.
+
+### The request to send SmartRecruiters
+
+> **Subject:** Crawl permission for medcareer.ca on api.smartrecruiters.com
+>
+> Hello,
+>
+> I run medcareer.ca, a Canadian healthcare job board. We aggregate public vacancies from health
+> employers across the country and send applicants directly to the employer's own posting to
+> apply — we don't host applications, charge applicants, sell job distribution, or compete with
+> SmartRecruiters' Marketplace. (I looked into the Job Board API / Marketplace partner program
+> first and don't think it's the right fit — that's a paid syndication product for postings a
+> customer has purchased distribution for, and we're asking about the public postings every site
+> visitor can already see for free.)
+>
+> We'd like to include four of your customers: Halton Healthcare, University Health Network, West
+> Nipissing General Hospital, and William Osler Health System. Their public postings are reachable
+> at `api.smartrecruiters.com/v1/companies/{company}/postings`, which already serves data to any
+> visitor's browser — but your robots.txt disallows every user agent except LinkedInBot from the
+> whole host, so we've respected that and haven't crawled it.
+>
+> Would you be willing to permit this, either by:
+>
+> 1. Adding an exception to `api.smartrecruiters.com/robots.txt` for our crawler (identifies
+>    itself as `MedCareerBot`), the same way LinkedInBot is already allowed on `/v1/companies/`;
+>    or
+> 2. Replying with written confirmation that we may crawl the public postings for the companies
+>    above (and any other customer who separately asks us to include them).
+>
+> How we'd behave: one request per second at most, identifying ourselves with a contact address on
+> every request, re-checking postings so closed roles come down promptly, and removing anything
+> you or a customer asked us to remove, immediately.
+>
+> Happy to answer any questions or adjust scope to whatever you're comfortable with.
+>
+> Thanks for considering it,
+> [name, contact]
+
+If they say yes, no new code is needed — `workers/connectors/smartrecruiters.ts` is already built
+and tested end to end; the seed migration just needs `is_active = true` for the employers covered.
+If they say no, or don't reply, the four rows stay inactive and this is a dead end for Ontario's
+SmartRecruiters hospitals specifically — worth re-checking if SmartRecruiters' robots.txt ever
+changes on its own, since vendors do sometimes loosen these over time as other job boards ask.
+
+**Asked: not yet sent (as of 1 Oct 2026).** Record the date here when it goes out, as the Alberta,
+Newfoundland and Quebec asks are recorded above.
