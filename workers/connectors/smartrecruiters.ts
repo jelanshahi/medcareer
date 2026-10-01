@@ -30,8 +30,8 @@ export type SmartRecruitersEmployer = {
 };
 
 const LocationSchema = z.object({
-  city: z.string().default(''),
-  region: z.string().default(''),
+  city: z.string().nullish().transform((v) => v ?? ''),
+  region: z.string().nullish().transform((v) => v ?? ''),
 });
 
 const ListItemSchema = z.object({
@@ -53,7 +53,7 @@ export function parseSmartRecruitersList(payload: unknown): JobStub[] {
     return {
       sourceJobId: item.id,
       // SmartRecruiters' detail fetch is built from the id alone (see createSmartRecruitersConnector
-      // in Task 4), so this is informational only -- the same role externalPath plays for Oracle
+      // below), so this is informational only -- the same role externalPath plays for Oracle
       // Cloud postings, which also rebuild their detail URL from sourceJobId rather than this path.
       externalPath: `/postings/${item.id}`,
       title: item.name,
@@ -64,8 +64,8 @@ export function parseSmartRecruitersList(payload: unknown): JobStub[] {
 }
 
 const JobAdSectionSchema = z.object({
-  title: z.string().optional(),
-  text: z.string().min(1),
+  title: z.string().nullish(),
+  text: z.string().nullish().transform((v) => v ?? ''),
 });
 
 const JobAdSchema = z.object({
@@ -82,7 +82,7 @@ const DetailSchema = z.object({
   name: z.string().min(1),
   releasedDate: z.string().min(1),
   location: LocationSchema.default({ city: '', region: '' }),
-  typeOfEmployment: z.object({ label: z.string() }).optional(),
+  typeOfEmployment: z.object({ label: z.string() }).nullish(),
   // Outbound URLs are built from vendor JSON here, never user input (plan Global Constraints).
   // z.url() with a protocol restriction rejects javascript:/data:/http: the same way every
   // other connector's URL field does.
@@ -175,7 +175,7 @@ const limit = createHostLimiter();
 export function createSmartRecruitersConnector(employer: SmartRecruitersEmployer, ctx: LogContext): Connector {
   const { key, host } = employer.config;
   const headers = { 'User-Agent': SITE.userAgent, Accept: 'application/json' };
-  const api = `https://${host}/v1/companies/${key}`;
+  const api = `https://${host}/v1/companies/${encodeURIComponent(key)}`;
 
   return {
     id: `smartrecruiters:${key}`,
@@ -200,7 +200,7 @@ export function createSmartRecruitersConnector(employer: SmartRecruitersEmployer
     },
 
     async hydrate(stub) {
-      const url = `${api}/postings/${stub.sourceJobId}`;
+      const url = `${api}/postings/${encodeURIComponent(stub.sourceJobId)}`;
       const res = await limit(host, () => fetchWithBackoff(url, { headers }));
       if (!res.ok) throw new Error(`Detail fetch failed ${res.status} for ${stub.sourceJobId}`);
       return res.json();

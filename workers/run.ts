@@ -394,10 +394,13 @@ async function main() {
       const employer: OracleCloudEmployer = { ...base, config: parsed.data.ats_config };
       sourceId = `oraclecloud:${employer.config.key}`;
       createConnector = (ctx) => createOracleCloudConnector(employer, ctx);
-    } else {
+    } else if (parsed.data.ats_platform === 'smartrecruiters') {
       const employer: SmartRecruitersEmployer = { ...base, config: parsed.data.ats_config };
       sourceId = `smartrecruiters:${employer.config.key}`;
       createConnector = (ctx) => createSmartRecruitersConnector(employer, ctx);
+    } else {
+      const exhaustiveCheck: never = parsed.data;
+      throw new Error(`Unhandled ats_platform: ${JSON.stringify(exhaustiveCheck)}`);
     }
 
     // Sequential on purpose: one connector failing must not affect the others,

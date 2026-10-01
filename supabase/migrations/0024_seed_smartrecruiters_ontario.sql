@@ -3,7 +3,9 @@
 -- Health System. Identified in docs/research/ontario-hospitals-ats.md; company identifiers confirmed
 -- live on 1 Oct 2026 by calling https://api.smartrecruiters.com/v1/companies/{key}/postings?limit=1
 -- with our own User-Agent:
---   Halton Healthcare                -> HaltonHealthcare1        (200, 85 postings)
+--   Halton Healthcare                -> HaltonHealthcare1        (200, 85-89 postings -- count
+--                                        drifted live between this check and the later cityAliases
+--                                        full-pull check below)
 --   University Health Network        -> UniversityHealthNetwork  (200, 218 postings)
 --   West Nipissing General Hospital  -> WestNipissingGeneralHospital (200, 0 postings -- identifier
 --                                        confirmed correct via its careers.smartrecruiters.com page
