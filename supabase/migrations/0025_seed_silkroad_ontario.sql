@@ -9,6 +9,9 @@
 --   MAHC:     200 text/html at jobs-ca.silkroad.com/MAHC/MAHCCareers
 --   Baycrest: 200 text/html at jobs-ca.silkroad.com/Baycrest/Careers
 --
+-- Unlike 0024_seed_smartrecruiters_ontario.sql (left inactive because robots.txt blocked it),
+-- both rows here go in active directly: robots.txt permits both tenant paths outright.
+--
 -- Note on page structure (see docs/superpowers/specs/2026-10-01-silkroad-connector-design.md):
 -- the two tenants render detail pages two different ways -- Baycrest via a schema.org JobPosting
 -- JSON-LD block, MAHC via labelled <h2>/<div> field pairs -- and normalizeSilkRoad() handles both.

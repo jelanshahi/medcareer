@@ -135,7 +135,6 @@ describe('parseSilkRoadLabelDate', () => {
   });
 });
 
-import { sanitizeDescription } from '@/lib/normalize/sanitize';
 import { normalizeSilkRoad } from '@/workers/connectors/silkroad';
 import type { SilkRoadEmployer } from '@/workers/connectors/silkroad';
 
@@ -201,6 +200,11 @@ describe('normalizeSilkRoad', () => {
       const html = fixture('mahc-job-detail.html').replace('Jobs_JobDetail_TitleText', 'renamed');
       expect(() => normalizeSilkRoad(html, mahc, '1621')).toThrow();
     });
+
+    it('throws when the description element is missing', () => {
+      const html = fixture('mahc-job-detail.html').replace('ConfigurablePageDetail__JobDescription', 'renamed');
+      expect(() => normalizeSilkRoad(html, mahc, '1621')).toThrow();
+    });
   });
 
   describe('JSON-LD path (Baycrest)', () => {
@@ -241,6 +245,11 @@ describe('normalizeSilkRoad', () => {
         '"datePosted":"not-a-date"',
       );
       expect(() => normalizeSilkRoad(html, baycrest, '5727')).toThrow();
+    });
+
+    it('falls through to the label path when JSON-LD fails validation, and that path fails too (Baycrest has no Posted Date label)', () => {
+      const html = fixture('baycrest-job-detail.html').replace('"title":"Janitor"', '"title":""');
+      expect(() => normalizeSilkRoad(html, baycrest, '5727')).toThrow(/JSON-LD block was present but failed schema validation/);
     });
   });
 });

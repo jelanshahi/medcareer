@@ -11,7 +11,7 @@ import { log, type LogContext } from '@/workers/logger';
 /**
  * SilkRoad Technology career sites (jobs-ca.silkroad.com and friends) -- a classic
  * server-rendered ATS, not a SPA. robots.txt states `Crawl-Delay: 10`, which this connector's
- * rate limiter honours directly (see `limit` in Task 5) rather than deferring confirmation to a
+ * rate limiter honours directly (see `limit` below) rather than deferring confirmation to a
  * later pre-flight step the way SmartRecruiters' rate limit needed to be.
  */
 export type SilkRoadEmployer = {
@@ -164,7 +164,13 @@ export function normalizeSilkRoad(html: string, employer: SilkRoadEmployer, sour
   const location = locationLabel ? parseLabelLocation(locationLabel) : undefined;
 
   const postedLabel = fieldByLabel(root, 'Posted Date');
-  if (!postedLabel) throw new Error(`No Posted Date field for ${sourceJobId}`);
+  if (!postedLabel) {
+    // A JSON-LD block that exists but fails schema validation falls through to this path
+    // silently; if the label path then also can't find a date, the error should say so rather
+    // than looking like a plain "no JSON-LD, no label" case.
+    const jsonLdNote = jsonLdRaw ? ' (a JSON-LD block was present but failed schema validation)' : '';
+    throw new Error(`No Posted Date field for ${sourceJobId}${jsonLdNote}`);
+  }
 
   return {
     sourceId: `silkroad:${tenant}`,
@@ -181,6 +187,11 @@ export function normalizeSilkRoad(html: string, employer: SilkRoadEmployer, sour
 }
 
 const PAGE_SIZE = 10;
+/** Runaway guard: the largest tenant seen during design was ~3 pages (26 postings); 20 is
+ *  generous headroom. Without this, a tenant that ignores or clamps `?page=N` and keeps
+ *  returning the same full page would loop forever, eating the whole shared ingest run at
+ *  this host's 10-second crawl delay. */
+const MAX_PAGES = 20;
 
 const HydratedPageSchema = z.object({
   html: z.string().min(1),
@@ -197,6 +208,9 @@ export function createSilkRoadConnector(employer: SilkRoadEmployer, ctx: LogCont
   const { host, tenant, boardCode } = employer.config;
   const headers = { 'User-Agent': SITE.userAgent };
   const base = `https://${host}/${tenant}/${boardCode}`;
+  // Per-connector-instance state: a tenant that keeps returning the same full page (ignoring
+  // ?page=N) would otherwise look like infinite "new" pages forever.
+  const seenIds = new Set<string>();
 
   return {
     id: `silkroad:${tenant}`,
@@ -208,21 +222,26 @@ export function createSilkRoadConnector(employer: SilkRoadEmployer, ctx: LogCont
     async fetchPage(cursor?: string) {
       const page = cursor ? Number(cursor) : 1;
       const url = `${base}?page=${page}`;
-      const res = await limit(host, () => fetchWithBackoff(url, { headers }));
+      const res = await limit(host, () => fetchWithBackoff(url, { headers }, { baseDelayMs: 10_000 }));
       if (!res.ok) throw new Error(`List fetch failed ${res.status} for ${url}`);
 
-      const items = parseSilkRoadListing(await res.text(), tenant, boardCode);
-      log(ctx, 'info', 'fetched list page', { page, returned: items.length });
+      const allItems = parseSilkRoadListing(await res.text(), tenant, boardCode);
+      const items = allItems.filter((item) => !seenIds.has(item.sourceJobId));
+      for (const item of items) seenIds.add(item.sourceJobId);
+      log(ctx, 'info', 'fetched list page', {
+        page, returned: items.length, duplicatesSkipped: allItems.length - items.length,
+      });
 
-      // Stop on a short page -- this platform publishes no total count to paginate against,
-      // the same reasoning as every other connector's short-page stop rule here.
-      const hasMore = items.length === PAGE_SIZE;
+      // Stop on a short page, once a page adds nothing new, or past MAX_PAGES -- this platform
+      // publishes no total count to paginate against, so a short/duplicate page or the page cap
+      // are the only reliable end-of-list signals.
+      const hasMore = allItems.length === PAGE_SIZE && items.length > 0 && page < MAX_PAGES;
       return { items, nextCursor: hasMore ? String(page + 1) : undefined };
     },
 
     async hydrate(stub) {
       const url = `${base}/jobs/${stub.sourceJobId}`;
-      const res = await limit(host, () => fetchWithBackoff(url, { headers }));
+      const res = await limit(host, () => fetchWithBackoff(url, { headers }, { baseDelayMs: 10_000 }));
       if (!res.ok) throw new Error(`Detail fetch failed ${res.status} for ${stub.sourceJobId}`);
       return { html: await res.text(), sourceJobId: stub.sourceJobId };
     },
