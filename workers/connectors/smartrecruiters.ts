@@ -168,3 +168,46 @@ export function normalizeSmartRecruiters(raw: unknown, employer: SmartRecruiters
     applyUrl: detail.applyUrl,
   };
 }
+
+const LIST_PAGE_SIZE = 100;
+const limit = createHostLimiter();
+
+export function createSmartRecruitersConnector(employer: SmartRecruitersEmployer, ctx: LogContext): Connector {
+  const { key, host } = employer.config;
+  const headers = { 'User-Agent': SITE.userAgent, Accept: 'application/json' };
+  const api = `https://${host}/v1/companies/${key}`;
+
+  return {
+    id: `smartrecruiters:${key}`,
+    kind: 'ats',
+    // One detail fetch per posting, and postings don't change once published, so known ones
+    // are only marked as seen -- same reasoning as iCIMS and Oracle Cloud.
+    refreshKnown: false,
+
+    async fetchPage(cursor?: string) {
+      const offset = cursor ? Number(cursor) : 0;
+      const url = `${api}/postings?limit=${LIST_PAGE_SIZE}&offset=${offset}`;
+      const res = await limit(host, () => fetchWithBackoff(url, { headers }));
+      if (!res.ok) throw new Error(`List fetch failed ${res.status} for ${url}`);
+
+      const items = parseSmartRecruitersList(await res.json());
+      log(ctx, 'info', 'fetched list page', { offset, returned: items.length });
+
+      // Stop on a short page, not on `totalFound` -- the same lesson already learned from
+      // Workday (workers/connectors/workday.ts): a vendor's own total can go stale mid-crawl.
+      const hasMore = items.length === LIST_PAGE_SIZE;
+      return { items, nextCursor: hasMore ? String(offset + LIST_PAGE_SIZE) : undefined };
+    },
+
+    async hydrate(stub) {
+      const url = `${api}/postings/${stub.sourceJobId}`;
+      const res = await limit(host, () => fetchWithBackoff(url, { headers }));
+      if (!res.ok) throw new Error(`Detail fetch failed ${res.status} for ${stub.sourceJobId}`);
+      return res.json();
+    },
+
+    normalize(raw: unknown) {
+      return normalizeSmartRecruiters(raw, employer);
+    },
+  };
+}
