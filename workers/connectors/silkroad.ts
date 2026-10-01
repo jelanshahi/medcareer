@@ -4,6 +4,9 @@ import type { JobStub, NormalizedPosting, ProvinceCode } from '@/lib/types';
 import type { Connector } from './types';
 import { provinceCodeFromName } from '@/lib/provinces';
 import { sanitizeDescription } from '@/lib/normalize/sanitize';
+import { SITE } from '@/lib/site';
+import { createHostLimiter, fetchWithBackoff } from '@/workers/ratelimit';
+import { log, type LogContext } from '@/workers/logger';
 
 /**
  * SilkRoad Technology career sites (jobs-ca.silkroad.com and friends) -- a classic
@@ -174,5 +177,59 @@ export function normalizeSilkRoad(html: string, employer: SilkRoadEmployer, sour
     province: location?.province ?? employer.province,
     postedAt: parseSilkRoadLabelDate(postedLabel),
     applyUrl: url,
+  };
+}
+
+const PAGE_SIZE = 10;
+
+const HydratedPageSchema = z.object({
+  html: z.string().min(1),
+  sourceJobId: z.string().min(1),
+});
+
+// robots.txt on jobs-ca.silkroad.com states "Crawl-Delay: 10" -- a 10-second minimum interval,
+// not the default 1 second every other connector here uses. Both employers share this one host,
+// so they automatically share this one rate budget, the same shared-host behavior already
+// established for SmartRecruiters and Manitoba's SuccessFactors tenant.
+const limit = createHostLimiter(10_000);
+
+export function createSilkRoadConnector(employer: SilkRoadEmployer, ctx: LogContext): Connector {
+  const { host, tenant, boardCode } = employer.config;
+  const headers = { 'User-Agent': SITE.userAgent };
+  const base = `https://${host}/${tenant}/${boardCode}`;
+
+  return {
+    id: `silkroad:${tenant}`,
+    kind: 'ats',
+    // One detail fetch per posting, and postings don't change once published, so known ones
+    // are only marked as seen -- same reasoning as iCIMS and Oracle Cloud.
+    refreshKnown: false,
+
+    async fetchPage(cursor?: string) {
+      const page = cursor ? Number(cursor) : 1;
+      const url = `${base}?page=${page}`;
+      const res = await limit(host, () => fetchWithBackoff(url, { headers }));
+      if (!res.ok) throw new Error(`List fetch failed ${res.status} for ${url}`);
+
+      const items = parseSilkRoadListing(await res.text(), tenant, boardCode);
+      log(ctx, 'info', 'fetched list page', { page, returned: items.length });
+
+      // Stop on a short page -- this platform publishes no total count to paginate against,
+      // the same reasoning as every other connector's short-page stop rule here.
+      const hasMore = items.length === PAGE_SIZE;
+      return { items, nextCursor: hasMore ? String(page + 1) : undefined };
+    },
+
+    async hydrate(stub) {
+      const url = `${base}/jobs/${stub.sourceJobId}`;
+      const res = await limit(host, () => fetchWithBackoff(url, { headers }));
+      if (!res.ok) throw new Error(`Detail fetch failed ${res.status} for ${stub.sourceJobId}`);
+      return { html: await res.text(), sourceJobId: stub.sourceJobId };
+    },
+
+    normalize(raw: unknown) {
+      const { html, sourceJobId } = HydratedPageSchema.parse(raw);
+      return normalizeSilkRoad(html, employer, sourceJobId);
+    },
   };
 }
