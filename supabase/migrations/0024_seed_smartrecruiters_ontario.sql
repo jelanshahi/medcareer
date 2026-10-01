@@ -34,9 +34,18 @@
 -- (0019_seed_quebec_wpjobmanager.sql) sought it from Santé Québec. Until then:
 --   update employers set is_active = true where ats_platform = 'smartrecruiters' and slug in (...);
 --
--- cityAliases are omitted: the one sample posting checked per employer (Halton: Oakville, UHN:
--- Mississauga, Osler: Brampton) used real city names, not grouped region labels like iCIMS's
--- "Greater Toronto". Add cityAliases later if a grouped name turns up once ingestion actually runs.
+-- cityAliases: checked a full pull of every CURRENT posting per employer (not just the one sample
+-- the pre-flight curl above returns), via `location.city` across all pages:
+--   Halton (89 postings): Oakville / Milton / Halton Hills only -- real municipalities, no grouping.
+--   UHN (218 postings): overwhelmingly Toronto (192), plus Mississauga, Brampton, Ajax -- real
+--     cities, no grouping. (This also confirms default_city = 'Toronto' below is the right fallback,
+--     even though the single pre-flight sample above happened to be a Mississauga posting.)
+--   William Osler (87 postings): mostly Brampton/Etobicoke/Toronto, but 4 postings use a combined
+--     string -- "Brampton & Etobicoke" (x3) and "Etobicoke & Brampton" (x1) -- exactly the grouped-
+--     location case this connector's cityAliases config exists for (see the design spec's own
+--     synthetic "GTA" test fixture, written anticipating this). Mapped both variants to Brampton,
+--     Osler's primary/largest site, below.
+-- West Nipissing has no current postings to sample; revisit if a grouped name appears once it does.
 insert into employers (name, slug, facility_type, province, default_city, website, ats_platform, ats_config, is_active) values
   ('Halton Healthcare', 'halton-healthcare', 'hospital', 'ON', 'Oakville',
    'https://www.haltonhealthcare.on.ca', 'smartrecruiters',
@@ -49,5 +58,5 @@ insert into employers (name, slug, facility_type, province, default_city, websit
    '{"key":"WestNipissingGeneralHospital","host":"api.smartrecruiters.com"}', false),
   ('William Osler Health System', 'william-osler-health-system', 'hospital', 'ON', 'Brampton',
    'https://www.williamoslerhs.ca', 'smartrecruiters',
-   '{"key":"WilliamOslerHealthSystem1","host":"api.smartrecruiters.com"}', false)
+   '{"key":"WilliamOslerHealthSystem1","host":"api.smartrecruiters.com","cityAliases":{"Brampton & Etobicoke":"Brampton","Etobicoke & Brampton":"Brampton"}}', false)
 on conflict (slug) do nothing;
