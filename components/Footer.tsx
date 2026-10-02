@@ -25,6 +25,9 @@ export function Footer() {
           <Link href="/saved" className={link}>Saved jobs</Link>
           <Link href="/about" className={link}>About</Link>
           <Link href="/about#employer-removal" className={link}>Employer removal requests</Link>
+          <Link href="/privacy" className={link}>Privacy</Link>
+          <Link href="/terms" className={link}>Terms</Link>
+          <Link href="/cookies" className={link}>Cookies</Link>
         </nav>
         <p className="mt-4 border-t border-[var(--color-rule)] pt-4">
           Healthcare jobs across Canada. Listings belong to the employers who posted them;{' '}
