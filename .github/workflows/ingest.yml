@@ -53,6 +53,11 @@ jobs:
       # that cancelling a run actually stops it.
       - name: Fetch postings
         run: npm run ingest
+        env:
+          # careers.sehc.com serves an incomplete certificate chain (the Sectigo root where the
+          # R36 intermediate belongs), which Node cannot verify. This adds the real intermediate
+          # and keeps verification on. See workers/connectors/sehc.ts.
+          NODE_EXTRA_CA_CERTS: ${{ github.workspace }}/workers/certs/sectigo-ov-r36.pem
       - name: Rebuild canonical jobs
         if: ${{ !cancelled() }}
         run: npm run dedupe

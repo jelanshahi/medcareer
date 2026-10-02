@@ -21,6 +21,7 @@ re-check a row before trusting it.
 | [bchealthjobs.ts](../../workers/connectors/bchealthjobs.ts) | Interior Health, Northern Health | Sitemap + one page per posting | 1 sitemap + new postings |
 | [talentpoolbuilder.ts](../../workers/connectors/talentpoolbuilder.ts) | 5 Ontario hospitals: Providence Care, Windsor Regional, Montfort, Georgian Bay, Guelph General | JSON API, whole list in one request | 1 list + new postings |
 | [oraclecloud.ts](../../workers/connectors/oraclecloud.ts) | Saskatchewan Health Authority | REST API, 200 requisitions per request | ~11 list requests + new postings |
+| [sehc.ts](../../workers/connectors/sehc.ts) | SE Health (**inactive — WAF challenge, see below**) | Paged HTML list + one page per posting | 33 list pages + new postings |
 
 ## Province by province
 
@@ -951,6 +952,51 @@ changes on its own, since vendors do sometimes loosen these over time as other j
 
 **Asked: not yet sent (as of 1 Oct 2026).** Record the date here when it goes out, as the Alberta,
 Newfoundland and Quebec asks are recorded above.
+
+## SE Health — connector built, not enabled: the WAF challenged us, checked 2 Oct 2026
+
+SE Health (home care, nursing, PSW, rehab) posts on its own Kentico site, `careers.sehc.com`:
+~311 open postings, ON 272, AB 27, BC 5. robots.txt is `Disallow:` (nothing) with a sitemap, our
+User-Agent was served normally, and every posting page carries a JobPosting with a real
+`datePosted` (checked against the list's "Posted N Days Ago" on six samples). The connector is
+[sehc.ts](../../workers/connectors/sehc.ts), tested against real captured pages, and the row is
+seeded inactive in `0026_seed_se_health.sql`.
+
+**Why it is off.** After about 350 requests in half an hour from one address — three full crawls of
+the list plus a sample of posting pages, while building it — every request began returning an F5
+CAPTCHA page with HTTP 200, a browser User-Agent included:
+
+> Validation needed due to the detection of invalid input from this client IP address, error code 338
+
+That is the same pattern as Njoyn (Radware) and the other WAF blocks above. A production first run is
+about 345 requests, so it would likely trip the same rule, and we do not disguise the crawler. Not
+established: whether it is a rate threshold or a stricter rule, and whether it clears on its own.
+Re-check from a clean address with a handful of requests before spending more. The ask is to SE Health:
+allowlist `MedCareerBot`, then `update employers set is_active = true where slug = 'se-health'`.
+
+Traps the connector already handles, for whoever enables it:
+
+- **The list wraps.** `?page=N` past the last page serves page 1 again instead of an empty page, so
+  the crawl ends when a page starts with page 1's first posting. 33 pages are read to find 32.
+- **Incomplete certificate chain.** The server sends the Sectigo root where the `OV R36` intermediate
+  belongs; browsers fetch the missing piece, Node does not ("unable to verify the first certificate").
+  `workers/certs/sectigo-ov-r36.pem` is that intermediate, fetched from the leaf's own CA Issuers link
+  and checked to chain to a root Node trusts; `ingest.yml` sets `NODE_EXTRA_CA_CERTS` to it. Verification
+  stays on. Do not turn it off.
+- **The CAPTCHA page is HTTP 200 and parses as zero postings.** Left alone that would report a successful
+  empty crawl, so an empty first page throws.
+- **Ages are coarse.** The list says "3 Weeks Ago", "2 Months Ago"; about half the board is months old.
+  Two months or more is skipped from the list; the rest is decided by `datePosted`, which is a date with a
+  midnight placeholder and no zone.
+- **Job id is the URL slug** (`registered-nurse-(4)`), because the list gives nothing else and the runner
+  needs the stub and the stored id to match. The numeric requisition (`rid=43948`, in the apply link) is
+  stabler but only visible on the posting page. If those counters ever turn out to be renumbered when
+  similar postings close, this is where the churn would come from.
+- Province is in the location text ("Calgary, AB"), `addressRegion` is empty; a few say only "Ontario".
+
+Looked at in the same pass and **not** pursued: **Bayshore** posts on Taleo (`bayshore.taleo.net`) and
+UltiPro, the latter disallowed at its listing endpoint (above) and the former classic JavaScript-driven
+Taleo; **VON**'s and **Schlegel**'s boards were not located.
 
 ## UKG/UltiPro and Dayforce — checked 1 Oct 2026, both need a headless browser, neither built
 

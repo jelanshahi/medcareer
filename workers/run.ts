@@ -11,6 +11,7 @@ import { createSuccessFactorsConnector, type SuccessFactorsEmployer } from '@/wo
 import { createSuccessFactorsMbConnector, type SuccessFactorsMbEmployer } from '@/workers/connectors/successfactors-mb';
 import { createSmartRecruitersConnector, type SmartRecruitersEmployer } from '@/workers/connectors/smartrecruiters';
 import { createSilkRoadConnector, type SilkRoadEmployer } from '@/workers/connectors/silkroad';
+import { createSeHealthConnector, type SeHealthEmployer } from '@/workers/connectors/sehc';
 import { createPhenomConnector, type PhenomEmployer } from '@/workers/connectors/phenom';
 import { createTalentPoolBuilderConnector, type TalentPoolBuilderEmployer } from '@/workers/connectors/talentpoolbuilder';
 import { createTaleoConnector, type TaleoEmployer } from '@/workers/connectors/taleo';
@@ -117,6 +118,13 @@ const SilkRoadAtsConfigSchema = z.object({
   boardCode: z.string().min(1),
 });
 
+/** SE Health's own careers site: one host, postings listed in a paged, server-rendered list. */
+const SeHealthAtsConfigSchema = z.object({
+  key: z.string().min(1),
+  host: z.string().min(1),
+  cityAliases: z.record(z.string(), z.string()).optional(),
+});
+
 const EmployerBaseSchema = z.object({
   slug: z.string().min(1),
   name: z.string().min(1),
@@ -138,6 +146,7 @@ const EmployerRowSchema = z.discriminatedUnion('ats_platform', [
   EmployerBaseSchema.extend({ ats_platform: z.literal('oraclecloud'), ats_config: OracleCloudAtsConfigSchema }),
   EmployerBaseSchema.extend({ ats_platform: z.literal('smartrecruiters'), ats_config: SmartRecruitersAtsConfigSchema }),
   EmployerBaseSchema.extend({ ats_platform: z.literal('silkroad'), ats_config: SilkRoadAtsConfigSchema }),
+  EmployerBaseSchema.extend({ ats_platform: z.literal('sehc'), ats_config: SeHealthAtsConfigSchema }),
 ]);
 
 /** Updates in chunks so a long `in (...)` list stays well under URL length limits. */
@@ -338,7 +347,7 @@ async function main() {
     .from('employers')
     .select('slug,name,province,default_city,ats_platform,ats_config')
     .eq('is_active', true)
-    .in('ats_platform', ['workday', 'taleo', 'icims', 'jibe', 'successfactors', 'successfactors_mb', 'bchealthjobs', 'wpjobmanager', 'talentpoolbuilder', 'phenom', 'oraclecloud', 'smartrecruiters', 'silkroad']);
+    .in('ats_platform', ['workday', 'taleo', 'icims', 'jibe', 'successfactors', 'successfactors_mb', 'bchealthjobs', 'wpjobmanager', 'talentpoolbuilder', 'phenom', 'oraclecloud', 'smartrecruiters', 'silkroad', 'sehc']);
 
   if (error) throw error;
 
@@ -411,6 +420,10 @@ async function main() {
       const employer: SilkRoadEmployer = { ...base, config: parsed.data.ats_config };
       sourceId = `silkroad:${employer.config.tenant}`;
       createConnector = (ctx) => createSilkRoadConnector(employer, ctx);
+    } else if (parsed.data.ats_platform === 'sehc') {
+      const employer: SeHealthEmployer = { ...base, config: parsed.data.ats_config };
+      sourceId = `sehc:${employer.config.key}`;
+      createConnector = (ctx) => createSeHealthConnector(employer, ctx);
     } else {
       const exhaustiveCheck: never = parsed.data;
       throw new Error(`Unhandled ats_platform: ${JSON.stringify(exhaustiveCheck)}`);

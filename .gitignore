@@ -23,6 +23,8 @@
 # misc
 .DS_Store
 *.pem
+# Public CA certificates the crawler trusts (never a private key); see workers/connectors/sehc.ts.
+!workers/certs/*.pem
 
 # debug
 npm-debug.log*
