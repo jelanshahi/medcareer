@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { postedAgo, formatSalary, employerLine } from '@/lib/format';
+import { postedAgo, formatSalary, employerLine, lowerFirst } from '@/lib/format';
 
 describe('postedAgo', () => {
   const now = new Date('2026-09-08T12:00:00Z');
@@ -57,5 +57,13 @@ describe('employerLine', () => {
     expect(employerLine('Oak Valley Health', 'Uxbridge, Ontario', 'Markham')).toBe(
       'Oak Valley Health · Uxbridge, Ontario',
     );
+  });
+});
+
+describe('lowerFirst', () => {
+  it('lower-cases a sentence-case label but keeps acronyms', () => {
+    expect(lowerFirst('Personal support worker (PSW / HCA)')).toBe('personal support worker (PSW / HCA)');
+    expect(lowerFirst('PSW jobs in Canada')).toBe('PSW jobs in Canada');
+    expect(lowerFirst('LPN and RPN jobs')).toBe('LPN and RPN jobs');
   });
 });

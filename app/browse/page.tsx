@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { CATEGORIES, CATEGORY_LABELS, categorySlug, type Category } from '@/lib/taxonomy/categories';
-import { buildJobsQuery } from '@/lib/jobs/query-string';
 import { slugifyCity } from '@/lib/jobs/city-slug';
 import {
   loadLandingRows,
@@ -103,7 +102,7 @@ export default async function BrowsePage() {
           {disciplines.map((c) => (
             <DisciplineTile
               key={c}
-              href={buildJobsQuery({ category: [c] })}
+              href={paths.nationalDiscipline(c)}
               label={CATEGORY_LABELS[c]}
               count={categoryCounts[c] ?? 0}
             />

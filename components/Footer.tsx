@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { SITE } from '@/lib/site';
+import { paths } from '@/lib/jobs/links';
 import { CONTAINER } from '@/lib/ui/styles';
 
 // Light footer from the v2 canvas (v1's was dark). All four destinations are
@@ -28,6 +29,14 @@ export function Footer() {
           <Link href="/privacy" className={link}>Privacy</Link>
           <Link href="/terms" className={link}>Terms</Link>
           <Link href="/cookies" className={link}>Cookies</Link>
+        </nav>
+        {/* Site-wide links to the pages for the searches this site most wants to rank for. */}
+        <nav aria-label="Popular searches" className="mt-3 flex flex-wrap items-center gap-x-[26px] gap-y-1">
+          <Link href={paths.nationalDiscipline('nursing')} className={link}>Nurse jobs in Canada</Link>
+          <Link href={paths.role('registered-nurse')} className={link}>RN jobs</Link>
+          <Link href={paths.role('practical-nurse')} className={link}>LPN and RPN jobs</Link>
+          <Link href={paths.role('nurse-practitioner')} className={link}>Nurse practitioner jobs</Link>
+          <Link href={paths.role('personal-support-worker')} className={link}>PSW and HCA jobs</Link>
         </nav>
         <p className="mt-4 border-t border-[var(--color-rule)] pt-4">
           Healthcare jobs across Canada. Listings belong to the employers who posted them;{' '}

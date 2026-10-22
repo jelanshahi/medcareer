@@ -7,13 +7,12 @@ import { postedAgo, formatSalary, employerLine } from '@/lib/format';
 import { CATEGORY_LABELS, type Category } from '@/lib/taxonomy/categories';
 import { EMPLOYMENT_LABELS, type EmploymentType } from '@/lib/taxonomy/employment';
 import { SITE } from '@/lib/site';
-import { pageMeta } from '@/lib/seo';
+import { breadcrumbLd, jsonLdString, pageMeta } from '@/lib/seo';
 import { sourceJobIdFromDedupeKey } from '@/lib/jobs/identifier';
 import { paths } from '@/lib/jobs/links';
 import { slugifyCity } from '@/lib/jobs/city-slug';
 import { provinceName } from '@/lib/provinces';
 import { roleOf } from '@/lib/taxonomy/roles';
-import { buildJobsQuery } from '@/lib/jobs/query-string';
 import { SaveButton } from '@/components/SaveButton';
 import { CARD, CONTAINER, H3, PILL_PRIMARY } from '@/lib/ui/styles';
 
@@ -64,12 +63,6 @@ function isCategory(value: string | null): value is Category {
 
 function isEmploymentType(value: string | null): value is EmploymentType {
   return value !== null && value in EMPLOYMENT_LABELS;
-}
-
-/** JSON.stringify alone lets a "</script>" inside a job title or description
- * close the tag early; escaping "<" keeps the JSON identical once parsed. */
-function jsonLdString(value: unknown): string {
-  return JSON.stringify(value).replace(/</g, '\\u003c');
 }
 
 function applyHost(url: string): string | null {
@@ -162,7 +155,6 @@ export default async function JobPage(props: PageProps<'/jobs/[slug]'>) {
   const nonce = (await headers()).get('x-nonce');
   const salary = formatSalary(job.salary_min, job.salary_max, job.salary_period);
   const employmentLabel = isEmploymentType(job.employment_type) ? EMPLOYMENT_LABELS[job.employment_type] : null;
-  const categoryLabel = isCategory(job.category) ? CATEGORY_LABELS[job.category] : null;
   const host = applyHost(job.apply_url);
   const identifier = sourceJobIdFromDedupeKey(job.dedupe_key);
   const role = roleOf(job.title);
@@ -201,7 +193,9 @@ export default async function JobPage(props: PageProps<'/jobs/[slug]'>) {
     ...(isEmploymentType(job.employment_type)
       ? { employmentType: SCHEMA_EMPLOYMENT_TYPE[job.employment_type] }
       : {}),
-    ...(job.salary_min && job.salary_max
+    // Only the two periods Google's unitText can express exactly; anything else
+    // would be published as a misleading annual figure.
+    ...(job.salary_min && job.salary_max && (job.salary_period === 'hour' || job.salary_period === 'year')
       ? {
           baseSalary: {
             '@type': 'MonetaryAmount',
@@ -217,25 +211,15 @@ export default async function JobPage(props: PageProps<'/jobs/[slug]'>) {
       : {}),
   };
 
-  // Mirrors the visible breadcrumb trail above the title.
-  const breadcrumbLd = {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'All jobs', item: `${SITE.url}/jobs` },
-      ...(categoryLabel
-        ? [
-            {
-              '@type': 'ListItem',
-              position: 2,
-              name: categoryLabel,
-              item: `${SITE.url}${buildJobsQuery({ category: [job.category as Category] })}`,
-            },
-          ]
-        : []),
-      { '@type': 'ListItem', position: categoryLabel ? 3 : 2, name: job.title },
-    ],
-  };
+  // The visible trail above the title, and its BreadcrumbList. It runs through the
+  // landing pages (discipline nationwide, then the role in this province) rather than
+  // filtered searches, so every job page links up to the pages meant to rank.
+  const crumbs: Array<{ name: string; path?: string }> = [
+    { name: 'All jobs', path: '/jobs' },
+    ...(isCategory(job.category) ? [{ name: CATEGORY_LABELS[job.category], path: paths.nationalDiscipline(job.category) }] : []),
+    ...(role ? [{ name: `${role.label} · ${provinceName(job.province)}`, path: paths.roleProvince(role.slug, job.province) }] : []),
+    { name: job.title },
+  ];
 
   return (
     <>
@@ -247,22 +231,19 @@ export default async function JobPage(props: PageProps<'/jobs/[slug]'>) {
       <script
         nonce={nonce ?? undefined}
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbLd(crumbs)) }}
       />
 
-      <div className="border-b border-[var(--color-rule)] bg-[var(--color-surface)]">
+      <nav aria-label="Breadcrumb" className="border-b border-[var(--color-rule)] bg-[var(--color-surface)]">
         <div className={`${CONTAINER} flex flex-wrap items-center py-[11px] text-sm text-[var(--color-slate)]`}>
-          <Link href="/jobs">All jobs</Link>
-          {categoryLabel && (
-            <>
-              <span className="px-[7px]">›</span>
-              <Link href={buildJobsQuery({ category: [job.category as Category] })}>{categoryLabel}</Link>
-            </>
-          )}
-          <span className="px-[7px]">›</span>
-          <span className="text-[var(--color-ink)]">{job.title}</span>
+          {crumbs.map((c, i) => (
+            <span key={i} className="contents">
+              {i > 0 && <span className="px-[7px]">›</span>}
+              {c.path ? <Link href={c.path}>{c.name}</Link> : <span className="text-[var(--color-ink)]">{c.name}</span>}
+            </span>
+          ))}
         </div>
-      </div>
+      </nav>
 
       <div className={`${CONTAINER} flex flex-wrap items-start gap-8 pb-20 pt-8`}>
         <article className="min-w-0 flex-[3_1_400px]">

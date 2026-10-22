@@ -6,6 +6,7 @@ import { categorySlug, type Category } from '@/lib/taxonomy/categories';
 export const paths = {
   city: (city: string) => `/browse/${slugifyCity(city)}`,
   cityDiscipline: (city: string, category: Category) => `/browse/${slugifyCity(city)}/${categorySlug(category)}`,
+  nationalDiscipline: (category: Category) => `/canada/${categorySlug(category)}`,
   province: (code: string) => `/province/${provinceSlug(code)}`,
   provinceDiscipline: (code: string, category: Category) => `/province/${provinceSlug(code)}/${categorySlug(category)}`,
   roles: () => '/roles',

@@ -1,5 +1,6 @@
 import { notFound, permanentRedirect } from 'next/navigation';
 import type { Metadata } from 'next';
+import { lowerFirst } from '@/lib/format';
 import { loadCatalog, newest, countBy } from '@/lib/jobs/catalog';
 import { buildGlance } from '@/lib/jobs/glance';
 import { paths } from '@/lib/jobs/links';
@@ -39,7 +40,7 @@ export async function generateMetadata(props: PageProps<'/province/[province]/[d
   return pageMeta({
     title: `${label} jobs in ${name} | ${SITE.name}`,
     description:
-      `${jobs.length} active ${label.toLowerCase()} ${jobs.length === 1 ? 'listing' : 'listings'} in ${name}, ` +
+      `${jobs.length} active ${lowerFirst(label)} ${jobs.length === 1 ? 'listing' : 'listings'} in ${name}, ` +
       'pulled from hospital and health authority career sites and refreshed every six hours.',
     path: paths.provinceDiscipline(code, category),
     noindex: jobs.length < INDEX_THRESHOLD,
@@ -77,7 +78,7 @@ export default async function ProvinceDisciplinePage(props: PageProps<'/province
       <div className={`${CONTAINER} flex flex-wrap items-start gap-8 pb-20 pt-8`}>
         <main className="min-w-0 flex-[3_1_400px]">
           <h2 className={`m-0 ${H2}`}>
-            {jobs.length} open {label.toLowerCase()} {jobs.length === 1 ? 'role' : 'roles'} in {name}
+            {jobs.length} open {lowerFirst(label)} {jobs.length === 1 ? 'role' : 'roles'} in {name}
           </h2>
           <LandingJobList jobs={newest(jobs, LIST_LIMIT)} />
           <GlancePanel rows={buildGlance(jobs)} />

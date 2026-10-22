@@ -61,3 +61,50 @@ export const INDEX_THRESHOLD = LINK_THRESHOLD;
 export function isIndexableLanding(city: string, count: number): boolean {
   return isIndexableCity(city) && count >= INDEX_THRESHOLD;
 }
+
+/** JSON.stringify alone lets a "</script>" inside a job title or description
+ * close the tag early; escaping "<" keeps the JSON identical once parsed. */
+export function jsonLdString(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
+type Crumb = { name: string; path?: string };
+
+/** BreadcrumbList for a visible trail. The last crumb is the page itself and carries no item. */
+export function breadcrumbLd(crumbs: Crumb[]) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: crumbs.map((c, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: c.name,
+      ...(c.path ? { item: `${SITE.url}${c.path}` } : {}),
+    })),
+  };
+}
+
+/** The job links a landing page lists, as an ItemList of URLs. Each job page carries its
+ * own JobPosting markup; this only tells crawlers which postings the page summarises. */
+export function jobListLd(name: string, jobs: Array<{ slug: string }>) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name,
+    numberOfItems: jobs.length,
+    itemListElement: jobs.map((j, i) => ({ '@type': 'ListItem', position: i + 1, url: `${SITE.url}/jobs/${j.slug}` })),
+  };
+}
+
+/** FAQPage for questions and answers that are visible on the page, word for word. */
+export function faqLd(faqs: Array<{ question: string; answer: string }>) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((f) => ({
+      '@type': 'Question',
+      name: f.question,
+      acceptedAnswer: { '@type': 'Answer', text: f.answer },
+    })),
+  };
+}

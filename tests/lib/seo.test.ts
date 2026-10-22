@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isIndexableCity, isIndexableLanding, pageMeta, INDEX_THRESHOLD } from '@/lib/seo';
+import { breadcrumbLd, faqLd, isIndexableCity, isIndexableLanding, jobListLd, jsonLdString, pageMeta, INDEX_THRESHOLD } from '@/lib/seo';
 
 describe('isIndexableCity', () => {
   it('accepts ordinary city names', () => {
@@ -40,5 +40,25 @@ describe('pageMeta', () => {
   it('noindexes but still follows when asked', () => {
     const meta = pageMeta({ title: 'T', description: 'D', path: '/x', noindex: true });
     expect(meta.robots).toEqual({ index: false, follow: true });
+  });
+});
+
+describe('JSON-LD helpers', () => {
+  it('escapes "<" so a value cannot close the script tag', () => {
+    const out = jsonLdString({ title: '</script><b>' });
+    expect(out).not.toContain('<');
+    expect(JSON.parse(out).title).toBe('</script><b>');
+  });
+
+  it('numbers breadcrumbs and leaves the current page without an item', () => {
+    const ld = breadcrumbLd([{ name: 'Home', path: '/' }, { name: 'PSW jobs in Canada' }]);
+    expect(ld.itemListElement.map((c) => c.position)).toEqual([1, 2]);
+    expect(ld.itemListElement[0]).toHaveProperty('item');
+    expect(ld.itemListElement[1]).not.toHaveProperty('item');
+  });
+
+  it('lists job URLs and FAQ answers', () => {
+    expect(jobListLd('x', [{ slug: 'a' }, { slug: 'b' }]).itemListElement[1]).toMatchObject({ position: 2, url: expect.stringMatching(/\/jobs\/b$/) });
+    expect(faqLd([{ question: 'Q?', answer: 'A.' }]).mainEntity[0]).toMatchObject({ name: 'Q?', acceptedAnswer: { text: 'A.' } });
   });
 });

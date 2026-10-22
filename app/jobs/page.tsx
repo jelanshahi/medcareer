@@ -44,20 +44,22 @@ export async function generateMetadata(props: PageProps<'/jobs'>): Promise<Metad
     ? `Search results for “${params.q}” across active healthcare job listings in ${region}, pulled from hospital career systems and refreshed every six hours.`
     : `Browse ${subject.toLowerCase()} ${location}, pulled from hospital career systems and refreshed every six hours.`;
 
-  // Only two shapes of /jobs are indexable: the plain list, and a single
-  // discipline nationwide (/jobs?category=nursing), which has no /browse
-  // equivalent. Everything else is thin or a near-duplicate of a better page —
-  // a keyword search, a page past the first, a salary sort, or any city /
-  // employer / employment-type filter (the city views duplicate the /browse
-  // landing pages, and the combinations are effectively unbounded). Those stay
-  // out of the index while Google still follows the job links on them.
-  const isPlainOrSingleDiscipline =
+  // Only the plain list is indexable. Everything else is thin or a
+  // near-duplicate of a better page — a keyword search, a page past the first,
+  // a salary sort, or any city / employer / employment-type filter (the city
+  // views duplicate the /browse landing pages, and the combinations are
+  // effectively unbounded). A single discipline nationwide
+  // (/jobs?category=nursing) used to be indexed too, having no landing page;
+  // /canada/[discipline] is that page now, with intro copy and role links, and
+  // two indexed URLs for "nursing jobs in Canada" would compete with each other.
+  // Those stay out of the index while Google still follows the job links on them.
+  const isPlain =
     !params.city?.length &&
     !params.employer?.length &&
     !params.employment_type?.length &&
-    (params.category?.length ?? 0) <= 1 &&
+    !params.category?.length &&
     params.sort === 'newest';
-  const noindex = Boolean(params.q) || params.page > 1 || !isPlainOrSingleDiscipline;
+  const noindex = Boolean(params.q) || params.page > 1 || !isPlain;
 
   return pageMeta({ title, description, path: buildJobsQuery(params), noindex });
 }

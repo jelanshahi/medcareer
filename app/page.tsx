@@ -15,6 +15,11 @@ import { NearMeButton } from '@/components/NearMeButton';
 import { EYEBROW, FIELD, H2, PILL_OUTLINE, PILL_PRIMARY, SECTION } from '@/lib/ui/styles';
 import { SITE } from '@/lib/site';
 import { HOME_DESCRIPTION, pageMeta } from '@/lib/seo';
+import { paths } from '@/lib/jobs/links';
+import { LINK_THRESHOLD } from '@/lib/jobs/landing';
+import { countBy } from '@/lib/jobs/catalog';
+import { provinceName } from '@/lib/provinces';
+import { JsonLd } from '@/components/JsonLd';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,7 +68,6 @@ export default async function HomePage() {
   const region = regionName(rows.map((r) => r.province));
   const totalActive = rows.length;
   const employerNames = [...new Set(rows.map((r) => r.employer_name))].sort();
-  const cities = [...new Set(rows.map((r) => r.city))].sort();
   const citiesByProvince = groupCitiesByProvince(rows);
   const categoryCounts = tally(rows, 'category');
   const typeCounts = tally(rows, 'employment_type');
@@ -93,11 +97,21 @@ export default async function HomePage() {
     .filter((t) => (typeCounts[t] ?? 0) > 0)
     .sort((a, b) => (typeCounts[b] ?? 0) - (typeCounts[a] ?? 0))[0];
 
+  // The searches this site most wants to rank for, linked from the most-linked page, so the
+  // role and discipline pages that answer them carry the home page's weight.
   const popularSearches = [
-    ...topCategories.map((c) => ({ label: CATEGORY_LABELS[c], href: buildJobsQuery({ category: [c] }) })),
-    cities[0] ? { label: cities[0], href: buildJobsQuery({ city: [cities[0]] }) } : null,
+    { label: 'Nurse jobs', href: paths.nationalDiscipline('nursing') },
+    { label: 'RN jobs', href: paths.role('registered-nurse') },
+    { label: 'LPN / RPN jobs', href: paths.role('practical-nurse') },
+    { label: 'PSW jobs', href: paths.role('personal-support-worker') },
+    { label: 'NP jobs', href: paths.role('nurse-practitioner') },
+    ...topCategories
+      .filter((c) => c !== 'nursing' && c !== 'support_care')
+      .map((c) => ({ label: CATEGORY_LABELS[c], href: paths.nationalDiscipline(c) })),
     topType ? { label: EMPLOYMENT_LABELS[topType], href: buildJobsQuery({ employment_type: [topType] }) } : null,
   ].filter((x): x is { label: string; href: string } => x !== null);
+
+  const provinceTiles = countBy(rows, (r) => r.province).filter(([, n]) => n >= LINK_THRESHOLD);
 
   const disciplineTiles = [...CATEGORIES]
     .filter((c) => (categoryCounts[c] ?? 0) > 0)
@@ -113,13 +127,22 @@ export default async function HomePage() {
 
   return (
     <>
+      <JsonLd
+        data={[
+          { '@context': 'https://schema.org', '@type': 'Organization', name: SITE.name, url: SITE.url, logo: `${SITE.url}/icon.svg` },
+          { '@context': 'https://schema.org', '@type': 'WebSite', name: SITE.name, url: SITE.url },
+        ]}
+      />
       <section className="bg-[var(--color-surface)] text-center">
         <div className="mx-auto max-w-[820px] px-[22px] pb-[clamp(40px,6vw,64px)] pt-[clamp(56px,9vw,96px)]">
           <div className={EYEBROW}>{region} · updated every 6 hours</div>
           <h1 className="mt-1.5 text-balance text-[clamp(38px,6.4vw,64px)] font-semibold leading-[1.06] tracking-[-0.025em]">
             Healthcare jobs across Canada.
           </h1>
-
+          <p className="mx-auto mt-3.5 max-w-[34em] text-[clamp(18px,2.2vw,21px)] leading-[1.4] text-[var(--color-slate)]">
+            Nurse, PSW, allied health and physician jobs from hospitals, health authorities and care homes, each
+            linked to the employer’s own application page.
+          </p>
 
           <div className="mt-5.5 flex flex-wrap items-center justify-center gap-3">
             <Link href="/jobs" className={PILL_PRIMARY}>Browse {totalActive} open jobs</Link>
@@ -200,19 +223,30 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className={`${SECTION} pb-[clamp(48px,7vw,80px)]`}>
+      <section className={SECTION}>
         <h2 className={`m-0 ${H2}`}>Browse by discipline</h2>
         <div className="reveal-group mt-4.5 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
           {disciplineTiles.map((tile) => (
             <DisciplineTile
               key={tile.category}
-              href={buildJobsQuery({ category: [tile.category] })}
+              href={paths.nationalDiscipline(tile.category)}
               label={tile.label}
               count={tile.count}
             />
           ))}
         </div>
       </section>
+
+      {provinceTiles.length > 0 && (
+        <section className={`${SECTION} pb-[clamp(48px,7vw,80px)]`}>
+          <h2 className={`m-0 ${H2}`}>Browse by province</h2>
+          <div className="reveal-group mt-4.5 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
+            {provinceTiles.map(([code, count]) => (
+              <DisciplineTile key={code} href={paths.province(code)} label={provinceName(code)} count={count} />
+            ))}
+          </div>
+        </section>
+      )}
 
       <section id="job-alerts" className="mx-auto w-full max-w-[1240px] px-[22px] pb-[clamp(48px,7vw,80px)] pt-[clamp(36px,5vw,56px)]">
         <div className="reveal rounded-[26px] border border-[var(--color-rule)] bg-[var(--color-surface)] px-[clamp(20px,4vw,44px)] py-[clamp(24px,4vw,42px)] shadow-[0_1px_0_rgba(15,23,42,0.02)]">

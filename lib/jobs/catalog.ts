@@ -33,12 +33,35 @@ export type CatalogJob = CatalogRow & { role: string | null; employerSlug: strin
 const COLUMNS =
   'slug,title,employer_name,facility_name,city,province,category,employment_type,salary_min,salary_max,salary_period,posted_at';
 
-export const loadCatalog = cache(async (): Promise<CatalogJob[]> => {
+/**
+ * Reading the whole active set is a dozen paged round trips, and was most of a ~1.1s TTFB
+ * on every province, role, employer and pay page. Ingest only changes the set every six
+ * hours, so a warm server instance keeps its last read for a few minutes and shares one
+ * in-flight read between concurrent requests. In memory rather than unstable_cache: the
+ * set is several MB serialised, past what the data cache will store per entry. A failed
+ * read is never kept, so the next request retries.
+ */
+const CATALOG_TTL_MS = 5 * 60 * 1000;
+let memo: { at: number; jobs: Promise<CatalogJob[]> } | null = null;
+
+async function readCatalog(): Promise<CatalogJob[]> {
   const db = createServerClient();
   const rows = await selectAll<CatalogRow>((from, to) =>
     db.from('jobs').select(COLUMNS).eq('is_active', true).order('id').range(from, to),
   );
   return rows.map((r) => ({ ...r, role: roleOf(r.title)?.slug ?? null, employerSlug: slugifyCity(r.employer_name) }));
+}
+
+export const loadCatalog = cache(async (): Promise<CatalogJob[]> => {
+  if (!memo || Date.now() - memo.at > CATALOG_TTL_MS) {
+    const jobs = readCatalog();
+    const entry = { at: Date.now(), jobs };
+    memo = entry;
+    jobs.catch(() => {
+      if (memo === entry) memo = null;
+    });
+  }
+  return memo.jobs;
 });
 
 /** Newest first, capped — the list a landing page shows. */

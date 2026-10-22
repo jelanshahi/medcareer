@@ -1,4 +1,16 @@
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+/** Every canonical, sitemap <loc>, Open Graph URL and JSON-LD url is built from this, so it
+ * must be the exact origin the site answers on. Production once carried
+ * "http://medcareer.ca", which 308s to https and then to www: every canonical pointed at a
+ * redirect. Anything but a local host is forced to https here and any trailing slash is
+ * dropped; the host itself (www or not) still has to be right in the env var. */
+export function normalizeSiteUrl(raw: string): string {
+  const url = new URL(raw.trim());
+  const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname.endsWith('.localhost');
+  if (!local) url.protocol = 'https:';
+  return url.origin;
+}
+
+const SITE_URL = normalizeSiteUrl(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000');
 
 // Deliberately NOT a NEXT_PUBLIC_* var: this is a real person's address, and a
 // NEXT_PUBLIC_ prefix would inline it into the client bundle for scrapers to harvest.

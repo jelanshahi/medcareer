@@ -43,3 +43,10 @@ export function employerLine(
   if (head === city.trim().toLowerCase()) return employer;
   return `${employer} · ${trimmed}`;
 }
+
+/** Lower-cases a sentence-case label for use mid-sentence without flattening acronyms:
+ * "Personal support worker (PSW / HCA)" → "personal support worker (PSW / HCA)", and
+ * "PSW jobs" stays as it is. */
+export function lowerFirst(label: string): string {
+  return label.replace(/^[A-Z](?=[a-z])/, (c) => c.toLowerCase());
+}

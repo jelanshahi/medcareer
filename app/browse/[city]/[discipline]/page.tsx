@@ -1,5 +1,6 @@
 import { notFound, permanentRedirect } from 'next/navigation';
 import type { Metadata } from 'next';
+import { lowerFirst } from '@/lib/format';
 import { createServerClient } from '@/lib/db/server';
 import { CATEGORIES, CATEGORY_LABELS, categoryFromSlug, categorySlug } from '@/lib/taxonomy/categories';
 import { categoryBlurb } from '@/lib/taxonomy/blurbs';
@@ -40,7 +41,7 @@ export async function generateMetadata(
   const label = CATEGORY_LABELS[category];
   return pageMeta({
     title: `${label} jobs in ${province ? `${city}, ${provinceName(province)}` : city} | ${SITE.name}`,
-    description: `${count} active ${label.toLowerCase()} ${count === 1 ? 'listing' : 'listings'} in ${city}, pulled from hospital career systems and refreshed every six hours.`,
+    description: `${count} active ${lowerFirst(label)} ${count === 1 ? 'listing' : 'listings'} in ${city}, pulled from hospital career systems and refreshed every six hours.`,
     path: `/browse/${slugifyCity(city)}/${categorySlug(category)}`,
     // Thin or placeholder-city pages still render but stay out of the index.
     noindex: !isIndexableLanding(city, count),
@@ -119,7 +120,7 @@ export default async function PairLandingPage(props: PageProps<'/browse/[city]/[
 
       <div className={`${CONTAINER} flex flex-wrap items-start gap-8 pb-20 pt-8`}>
         <main className="min-w-0 flex-[3_1_400px]">
-          <h2 className={`m-0 ${H2}`}>Open {label.toLowerCase()} roles in {city}</h2>
+          <h2 className={`m-0 ${H2}`}>Open {lowerFirst(label)} roles in {city}</h2>
           <LandingJobList
             jobs={jobs}
             city={city}

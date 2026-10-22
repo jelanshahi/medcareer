@@ -1,5 +1,6 @@
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import type { Metadata } from 'next';
+import { lowerFirst } from '@/lib/format';
 import { loadCatalog, newest, countBy } from '@/lib/jobs/catalog';
 import { buildGlance } from '@/lib/jobs/glance';
 import { buildJobsQuery } from '@/lib/jobs/query-string';
@@ -8,12 +9,14 @@ import { LINK_THRESHOLD } from '@/lib/jobs/landing';
 import { formatPay, summarizePay } from '@/lib/jobs/pay';
 import { provinceFromSlug, provinceName } from '@/lib/provinces';
 import { roleBySlug } from '@/lib/taxonomy/roles';
-import { INDEX_THRESHOLD, isIndexableCity, pageMeta } from '@/lib/seo';
+import { roleAliasTarget, roleHeading, roleTitle } from '@/lib/taxonomy/role-content';
+import { INDEX_THRESHOLD, breadcrumbLd, isIndexableCity, jobListLd, pageMeta } from '@/lib/seo';
 import { SITE } from '@/lib/site';
 import { LandingHero } from '@/components/LandingHero';
 import { LandingJobList } from '@/components/LandingJobList';
 import { LinkCountCard, type CountLink } from '@/components/LinkCountCard';
 import { GlancePanel } from '@/components/GlancePanel';
+import { JsonLd } from '@/components/JsonLd';
 import { CONTAINER, H2 } from '@/lib/ui/styles';
 
 // Nonce-based CSP needs every page rendered per request (see proxy.ts).
@@ -35,9 +38,9 @@ export async function generateMetadata(props: PageProps<'/roles/[role]/[province
   const name = provinceName(code);
   const pay = summarizePay(jobs);
   return pageMeta({
-    title: `${role.label} jobs in ${name} | ${SITE.name}`,
+    title: `${roleTitle(role, name)} | ${SITE.name}`,
     description:
-      `${jobs.length} open ${role.label.toLowerCase()} ${jobs.length === 1 ? 'job' : 'jobs'} in ${name}` +
+      `${jobs.length} open ${lowerFirst(role.label)} ${jobs.length === 1 ? 'job' : 'jobs'} in ${name}` +
       (pay ? `, with posted pay typically around ${formatPay(pay.median, pay.period)}` : '') +
       '. Refreshed every six hours from employer career sites.',
     path: paths.roleProvince(role.slug, code),
@@ -47,11 +50,16 @@ export async function generateMetadata(props: PageProps<'/roles/[role]/[province
 
 export default async function RoleProvincePage(props: PageProps<'/roles/[role]/[province]'>) {
   const { role: roleSlug, province } = await props.params;
+  const alias = roleAliasTarget(roleSlug);
+  const aliasProvince = alias ? provinceFromSlug(province) : null;
+  if (alias && aliasProvince) permanentRedirect(paths.roleProvince(alias, aliasProvince));
   const { role, code, all, jobs } = await resolve(roleSlug, province);
   if (!role || !code || jobs.length === 0) notFound();
 
   const name = provinceName(code);
   const pay = summarizePay(jobs);
+  const heading = roleHeading(role, name);
+  const listed = newest(jobs, LIST_LIMIT);
 
   const cityLinks: CountLink[] = countBy(jobs, (j) => j.city)
     .filter(([city]) => isIndexableCity(city))
@@ -65,19 +73,29 @@ export default async function RoleProvincePage(props: PageProps<'/roles/[role]/[
     .map(([employer, count]) => ({ href: paths.employer(jobs.find((j) => j.employer_name === employer)!.employerSlug), label: employer, count }));
 
   const intro =
-    `${jobs.length} open ${role.label.toLowerCase()} ${jobs.length === 1 ? 'posting' : 'postings'} in ${name}` +
+    `${jobs.length} open ${lowerFirst(role.label)} ${jobs.length === 1 ? 'posting' : 'postings'} in ${name}` +
     (pay
       ? `. Where employers publish a pay band (${pay.count} of ${jobs.length}), the midpoint is typically ${formatPay(pay.median, pay.period)}.`
       : ', refreshed every six hours.');
 
   return (
     <>
-      <LandingHero eyebrow={`${name} · ${role.label}`} title={`${role.label} jobs in ${name}`} intro={intro} />
+      <JsonLd
+        data={[
+          breadcrumbLd([
+            { name: 'Home', path: '/' },
+            { name: roleHeading(role, 'Canada'), path: paths.role(role.slug) },
+            { name: heading },
+          ]),
+          jobListLd(heading, listed),
+        ]}
+      />
+      <LandingHero eyebrow={`${name} · ${role.label}`} title={heading} intro={intro} />
 
       <div className={`${CONTAINER} flex flex-wrap items-start gap-8 pb-20 pt-8`}>
         <main className="min-w-0 flex-[3_1_400px]">
-          <h2 className={`m-0 ${H2}`}>Newest {role.label.toLowerCase()} openings in {name}</h2>
-          <LandingJobList jobs={newest(jobs, LIST_LIMIT)} />
+          <h2 className={`m-0 ${H2}`}>Newest {lowerFirst(role.label)} openings in {name}</h2>
+          <LandingJobList jobs={listed} />
           <GlancePanel rows={buildGlance(jobs).filter((r) => r.label !== 'Hiring here')} />
         </main>
 
@@ -88,7 +106,7 @@ export default async function RoleProvincePage(props: PageProps<'/roles/[role]/[
           <LinkCountCard
             title="More"
             items={[
-              { href: paths.role(role.slug), label: `${role.label} jobs across Canada`, count: all.length },
+              { href: paths.role(role.slug), label: roleHeading(role, 'Canada'), count: all.length },
               ...(summarizePay(all) ? [{ href: paths.salary(role.slug), label: `${role.label} pay guide`, count: summarizePay(all)!.count }] : []),
             ]}
           />
