@@ -16,7 +16,13 @@ import { SITE } from '@/lib/site';
 import { isIndexableCity, isIndexableLanding, pageMeta } from '@/lib/seo';
 import { CONTAINER, EYEBROW, H1, H2 } from '@/lib/ui/styles';
 
-export const dynamic = 'force-dynamic';
+// ISR, same as /browse/[city]: generated on first request, served from cache for an
+// hour. See that page for why /browse can drop the nonce CSP.
+export const revalidate = 3600;
+
+export async function generateStaticParams() {
+  return [];
+}
 
 const LIST_LIMIT = 10;
 const JOB_COLUMNS =

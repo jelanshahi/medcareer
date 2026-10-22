@@ -18,10 +18,9 @@ import { countBy } from '@/lib/jobs/catalog';
 import { TileGrid } from '@/components/TileGrid';
 import { EYEBROW, H2, SECTION, TILE } from '@/lib/ui/styles';
 
-// Nonce-based CSP requires dynamic rendering — a prerendered route bakes its
-// bootstrap <script> tags before any per-request nonce exists and the CSP then
-// blocks them. Same reasoning as app/about/page.tsx.
-export const dynamic = 'force-dynamic';
+// ISR, revalidated hourly. /browse is outside the nonce CSP (see app/browse/[city]/page.tsx),
+// so it can be cached like the city and pair pages under it.
+export const revalidate = 3600;
 
 export async function generateMetadata(): Promise<Metadata> {
   const region = regionName((await loadLandingRows()).map((r) => r.province));

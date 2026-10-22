@@ -146,7 +146,12 @@ export const config = {
       // bootstrap script needs it everywhere, not just on /jobs/:slug).
       // Static assets and Next internals are excluded since they carry no
       // inline scripts and don't need a nonce.
-      source: '/((?!api|_next/static|_next/image|favicon.ico).*)',
+      //
+      // /browse is excluded too: those pages are ISR-cached (see
+      // app/browse/[city]/page.tsx), so a nonce would be stale on every
+      // cached hit. They get a static CSP from next.config.ts instead.
+      // Neither of this proxy's other jobs applies there (both are /jobs only).
+      source: '/((?!api|_next/static|_next/image|favicon.ico|browse).*)',
       missing: [
         { type: 'header', key: 'next-router-prefetch' },
         { type: 'header', key: 'purpose', value: 'prefetch' },
