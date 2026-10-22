@@ -49,6 +49,8 @@ export type PhenomDetail = z.infer<typeof DetailSchema>;
 
 /** Runaway guard: Sienna, the only tenant so far, lists ~490 postings. */
 const MAX_JOBS = 5000;
+/** Runaway guard on a sitemap index: Sienna's names two. */
+const MAX_SITEMAPS = 20;
 
 function requireHost(url: string, host: string): URL {
   const parsed = new URL(url);
@@ -94,6 +96,21 @@ export function parsePhenomSitemap(xml: string, host: string): JobStub[] {
     if (stubs.length >= MAX_JOBS) break;
   }
   return stubs;
+}
+
+/**
+ * Sienna moved to a sitemap index in Oct 2026: /sitemap.xml now redirects to
+ * /sitemap_index.xml, which names /sitemap1.xml, /sitemap2.xml and so on. Returns the child
+ * sitemaps, or an empty list when the document is an ordinary sitemap.
+ */
+export function parsePhenomSitemapIndex(xml: string, host: string): string[] {
+  if (!/<sitemapindex[\s>]/.test(xml)) return [];
+  const children: string[] = [];
+  for (const block of xml.split('</sitemap>')) {
+    const loc = block.match(/<loc>\s*([^<\s]+)\s*<\/loc>/)?.[1];
+    if (loc) children.push(requireHost(loc, host).toString());
+  }
+  return children.slice(0, MAX_SITEMAPS);
 }
 
 export function extractPhenomDetail(html: string, url: string): PhenomDetail {
@@ -172,13 +189,24 @@ export function createPhenomConnector(employer: PhenomEmployer, ctx: LogContext)
     async fetchPage(cursor?: string) {
       if (cursor) return { items: [] };
 
-      const url = `https://${host}/sitemap.xml`;
-      const res = await limit(host, () => fetchWithBackoff(url, { headers }));
-      if (!res.ok) throw new Error(`Sitemap fetch failed ${res.status} for ${url}`);
+      const fetchXml = async (url: string) => {
+        const res = await limit(host, () => fetchWithBackoff(url, { headers }));
+        if (!res.ok) throw new Error(`Sitemap fetch failed ${res.status} for ${url}`);
+        return res.text();
+      };
 
-      const items = parsePhenomSitemap(await res.text(), host);
-      log(ctx, 'info', 'fetched sitemap', { returned: items.length });
-      return { items };
+      const root = await fetchXml(`https://${host}/sitemap.xml`);
+      const children = parsePhenomSitemapIndex(root, host);
+      const items: JobStub[] = [];
+      if (children.length === 0) items.push(...parsePhenomSitemap(root, host));
+      for (const child of children) items.push(...parsePhenomSitemap(await fetchXml(child), host));
+
+      // An empty sitemap is a changed site, not an employer with no jobs. Reported as success,
+      // it went unnoticed while every posting aged towards expiry (Sienna, Oct 2026).
+      if (items.length === 0) throw new Error(`No postings found in the sitemap for ${host}`);
+
+      log(ctx, 'info', 'fetched sitemap', { sitemaps: children.length || 1, returned: items.length });
+      return { items: items.slice(0, MAX_JOBS) };
     },
 
     async hydrate(stub) {

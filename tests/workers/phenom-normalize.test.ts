@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import {
   parsePhenomSitemap,
+  parsePhenomSitemapIndex,
   extractPhenomDetail,
   normalizePhenom,
   employmentTypeFromPhenom,
@@ -52,6 +53,24 @@ describe('parsePhenomSitemap', () => {
   it('rejects an entry that leaves the registry host', () => {
     const tampered = fixture('sienna-sitemap.xml').replace(`https://${HOST}/job/`, 'https://evil.example/job/');
     expect(() => parsePhenomSitemap(tampered, HOST)).toThrow(/not on registry host/);
+  });
+});
+
+describe('parsePhenomSitemapIndex', () => {
+  it('names the child sitemaps of a sitemap index', () => {
+    expect(parsePhenomSitemapIndex(fixture('sienna-sitemap-index.xml'), HOST)).toEqual([
+      `https://${HOST}/sitemap1.xml`,
+      `https://${HOST}/sitemap2.xml`,
+    ]);
+  });
+
+  it('returns nothing for an ordinary sitemap', () => {
+    expect(parsePhenomSitemapIndex(fixture('sienna-sitemap.xml'), HOST)).toEqual([]);
+  });
+
+  it('rejects a child sitemap on another host', () => {
+    const xml = '<sitemapindex><sitemap><loc>https://evil.example/sitemap1.xml</loc></sitemap></sitemapindex>';
+    expect(() => parsePhenomSitemapIndex(xml, HOST)).toThrow(/registry host/);
   });
 });
 

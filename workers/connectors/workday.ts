@@ -293,17 +293,51 @@ export function normalizeWorkday(detail: unknown, employer: WorkdayEmployer): No
 
 const PAGE_SIZE = 20;
 /**
- * Runaway guard. Pagination stops on a short page rather than on `total` (see fetchPage),
- * so a tenant that always returned a full page would loop forever. No Ontario hospital
- * posts anywhere near this many roles at once; hitting it means something is wrong.
+ * Runaway guard, for when every end condition in `nextWorkdayPage` fails. Extendicare, the
+ * largest tenant, lists ~470; hitting this means something is wrong.
  */
 const MAX_OFFSET = 2000;
 const limit = createHostLimiter();
+
+export type WorkdayCrawlState = { firstTotal?: number; seen: Set<string> };
+
+/**
+ * What one list page adds, and where the next one starts. Three ways a crawl ends:
+ *
+ * - A short page.
+ * - The first page's `total` is reached. Only the first page's: SHN and Oak Valley report
+ *   total 0 on every later page (observed 2026-09-10), so a later total is ignored.
+ * - A page that brings nothing new. Past the end, Workday does not return an empty page, it
+ *   serves page one again (SHN, 120 postings: offset 200 returns the first page). Read
+ *   naively, every request was a full page, so SHN was crawled to MAX_OFFSET -- 100 list pages
+ *   and 2,000 detail fetches, 34 minutes of an ingest job with a 60-minute limit -- and every
+ *   run from 21 Oct 2026 was cancelled before the jobs table was rebuilt.
+ */
+export function nextWorkdayPage(
+  state: WorkdayCrawlState,
+  offset: number,
+  total: number,
+  stubs: JobStub[],
+): { fresh: JobStub[]; nextOffset?: number } {
+  if (offset === 0 && total > 0) state.firstTotal = total;
+
+  const fresh = stubs.filter((s) => !state.seen.has(s.sourceJobId));
+  for (const s of fresh) state.seen.add(s.sourceJobId);
+
+  const nextOffset = offset + PAGE_SIZE;
+  const hasMore = stubs.length === PAGE_SIZE
+    && fresh.length > 0
+    && (state.firstTotal === undefined || nextOffset < state.firstTotal)
+    && nextOffset < MAX_OFFSET;
+  return { fresh, nextOffset: hasMore ? nextOffset : undefined };
+}
 
 export function createWorkdayConnector(employer: WorkdayEmployer, ctx: LogContext): Connector {
   const { tenant, site, host } = employer.config;
   const base = `https://${host}/wday/cxs/${tenant}/${site}`;
   const headers = { 'Content-Type': 'application/json', 'User-Agent': SITE.userAgent };
+  // One connector per ingest run, so this is one crawl's worth of state.
+  const crawl: WorkdayCrawlState = { seen: new Set() };
 
   return {
     id: workdaySourceId(employer.config),
@@ -319,14 +353,9 @@ export function createWorkdayConnector(employer: WorkdayEmployer, ctx: LogContex
       }));
       if (!res.ok) throw new Error(`List fetch failed ${res.status} for ${base}/jobs`);
       const { total, stubs } = parseWorkdayList(await res.json());
-      const nextOffset = offset + PAGE_SIZE;
-      log(ctx, 'info', 'fetched list page', { offset, returned: stubs.length, total });
-      // Paginate on a SHORT PAGE, not on `total`. Observed live on 2026-09-10: shn and
-      // oakvalleyhealth return total:0 on every page after the first (cheo does not), so
-      // `nextOffset < total` stopped both crawls at 40 of 114 and 40 of 70 respectively.
-      // A full page means "ask again"; a short page is the only reliable end-of-list signal.
-      const hasMore = stubs.length === PAGE_SIZE && nextOffset < MAX_OFFSET;
-      return { items: stubs, nextCursor: hasMore ? String(nextOffset) : undefined };
+      const { fresh, nextOffset } = nextWorkdayPage(crawl, offset, total, stubs);
+      log(ctx, 'info', 'fetched list page', { offset, returned: stubs.length, fresh: fresh.length, total });
+      return { items: fresh, nextCursor: nextOffset === undefined ? undefined : String(nextOffset) };
     },
 
     async hydrate(stub) {

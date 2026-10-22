@@ -14,6 +14,8 @@ import {
   stripDescriptionHeader,
   resolveWorkdayLocation,
   postedAtFromPostedOn,
+  nextWorkdayPage,
+  type WorkdayCrawlState,
 } from '@/workers/connectors/workday';
 import { isTooOld } from '@/workers/run';
 import type { WorkdayEmployer } from '@/workers/connectors/workday';
@@ -371,5 +373,39 @@ describe('postedAtFromPostedOn', () => {
     const { stubs } = parseWorkdayList(extendicareList, now);
     expect(stubs.length).toBe(20);
     expect(stubs.every((s) => s.postedAt instanceof Date)).toBe(true);
+  });
+});
+
+describe('nextWorkdayPage', () => {
+  const page = (from: number, n = 20) =>
+    Array.from({ length: n }, (_, i) => ({ sourceJobId: `JR${from + i}`, externalPath: '/job/x', title: '', locationsText: '' }));
+
+  it('stops when the list wraps back to its first page', () => {
+    // SHN: 120 postings, total 0 after page one, and page one again past the end.
+    const state: WorkdayCrawlState = { seen: new Set() };
+    expect(nextWorkdayPage(state, 0, 0, page(0)).nextOffset).toBe(20);
+    expect(nextWorkdayPage(state, 20, 0, page(20)).nextOffset).toBe(40);
+    const wrapped = nextWorkdayPage(state, 40, 0, page(0));
+    expect(wrapped.fresh).toEqual([]);
+    expect(wrapped.nextOffset).toBeUndefined();
+  });
+
+  it('stops at the first page’s total and ignores the 0 later pages report', () => {
+    const state: WorkdayCrawlState = { seen: new Set() };
+    expect(nextWorkdayPage(state, 0, 60, page(0)).nextOffset).toBe(20);
+    expect(nextWorkdayPage(state, 20, 0, page(20)).nextOffset).toBe(40);
+    expect(nextWorkdayPage(state, 40, 0, page(40)).nextOffset).toBeUndefined();
+  });
+
+  it('still stops on a short page', () => {
+    const state: WorkdayCrawlState = { seen: new Set() };
+    expect(nextWorkdayPage(state, 0, 0, page(0, 7)).nextOffset).toBeUndefined();
+  });
+
+  it('passes on only postings not already seen in this crawl', () => {
+    const state: WorkdayCrawlState = { seen: new Set() };
+    nextWorkdayPage(state, 0, 0, page(0));
+    const { fresh } = nextWorkdayPage(state, 20, 0, [...page(15, 5), ...page(20, 15)]);
+    expect(fresh.map((s) => s.sourceJobId)).toEqual(page(20, 15).map((s) => s.sourceJobId));
   });
 });
