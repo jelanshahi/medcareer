@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { sanitizeDescription } from '@/lib/normalize/sanitize';
+import { provinceCodeFromName } from '@/lib/provinces';
 import type { EmploymentType, JobStub, NormalizedPosting, ProvinceCode, ShiftType } from '@/lib/types';
 import { SITE } from '@/lib/site';
 import { createHostLimiter, fetchWithBackoff } from '@/workers/ratelimit';
@@ -11,13 +12,36 @@ export type WorkdayEmployer = {
   name: string;
   province: ProvinceCode;
   defaultCity: string;
-  config: { tenant: string; site: string; host: string; parseDescriptionHeader: boolean };
+  config: {
+    tenant: string;
+    site: string;
+    host: string;
+    parseDescriptionHeader: boolean;
+    /**
+     * Source id suffix when one tenant carries several employers (Extendicare and ParaMed share
+     * `extendicare`). Defaults to the tenant, which is what every older row's source id is.
+     */
+    key?: string;
+    /**
+     * Read city and province from each posting's location instead of the registry. For employers
+     * spread over many towns and provinces; see `resolveWorkdayLocation`.
+     */
+    locationFromPosting?: boolean;
+    /** Location strings that name a home but no town, mapped to "City, PR". */
+    locationAliases?: Record<string, string>;
+  };
 };
+
+/** The source id prefix-and-key for an employer's raw postings. */
+export function workdaySourceId(config: WorkdayEmployer['config']): string {
+  return `workday:${config.key ?? config.tenant}`;
+}
 
 const ListItemSchema = z.object({
   title: z.string(),
   externalPath: z.string().startsWith('/job/'),
   locationsText: z.string().default(''),
+  postedOn: z.string().optional(),
   bulletFields: z.array(z.string()).default([]),
 });
 
@@ -39,7 +63,29 @@ const DetailSchema = z.object({
   hiringOrganization: z.object({ name: z.string() }).optional(),
 });
 
-export function parseWorkdayList(payload: unknown): { total: number; stubs: JobStub[] } {
+const DAY_MS = 86_400_000;
+
+/**
+ * "Posted Today", "Posted Yesterday", "Posted 8 Days Ago", "Posted 30+ Days Ago" → an
+ * approximate date, so the runner can skip a posting that is past the 30-day cutoff without
+ * fetching it. "30+" is placed just past the cutoff: it says no more than that. Extendicare
+ * keeps hundreds of evergreen postings open, and fetching each one every run to learn its
+ * date would cost a request per posting for nothing.
+ */
+export function postedAtFromPostedOn(postedOn: string | undefined, now: Date = new Date()): Date | undefined {
+  const text = (postedOn ?? '').toLowerCase();
+  let days: number | undefined;
+  if (/\btoday\b/.test(text)) days = 0;
+  else if (/\byesterday\b/.test(text)) days = 1;
+  else if (/30\+\s*days/.test(text)) days = 31;
+  else {
+    const match = text.match(/(\d+)\s*days?\s+ago/);
+    if (match) days = Number(match[1]);
+  }
+  return days === undefined ? undefined : new Date(now.getTime() - days * DAY_MS);
+}
+
+export function parseWorkdayList(payload: unknown, now: Date = new Date()): { total: number; stubs: JobStub[] } {
   const parsed = ListSchema.parse(payload);
   return {
     total: parsed.total,
@@ -48,8 +94,43 @@ export function parseWorkdayList(payload: unknown): { total: number; stubs: JobS
       externalPath: item.externalPath,
       title: item.title,
       locationsText: item.locationsText,
+      postedAt: postedAtFromPostedOn(item.postedOn, now),
     })),
   };
+}
+
+const collapse = (value: string) => value.replace(/\s+/g, ' ').trim();
+
+/**
+ * City and province from a Workday location string. Extendicare and ParaMed write these by
+ * hand, and they come in three shapes:
+ *
+ *   "LTC - Viking - 5020 - 57th Ave, P.O. Box 430, Viking, Alberta"   → Viking, AB
+ *   "LTC - York (York St.) 333 York Street \nSudbury, ON"            → Sudbury, ON
+ *   "LTC - Athabasca (53rd St.)"                                     → only via the alias map
+ *
+ * The town is the part before a trailing province, on the last line, after any "Name - "
+ * prefix. A trailing note in brackets is dropped ("Lindsay, Ontario (Kent St Job Posting)").
+ * A candidate with a digit in it is a street address, not a town, and is refused.
+ *
+ * Returns null rather than guessing: a care-home job filed under the wrong province is worse
+ * than one left out, and the caller says which string needs an alias.
+ */
+export function resolveWorkdayLocation(
+  location: string,
+  aliases: Record<string, string> = {},
+): { city: string; province: ProvinceCode } | null {
+  const aliased = aliases[collapse(location)];
+  const source = aliased ?? collapse(location.split('\n').pop() ?? '').replace(/\s*\([^)]*\)$/, '');
+
+  const parts = source.split(',').map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+  const province = provinceCodeFromName(parts[parts.length - 1]);
+  if (!province) return null;
+
+  const city = (parts[parts.length - 2].split(' - ').pop() ?? '').trim();
+  if (!city || /\d/.test(city)) return null;
+  return { city, province };
 }
 
 /**
@@ -174,8 +255,18 @@ export function normalizeWorkday(detail: unknown, employer: WorkdayEmployer): No
     throw new Error(`Unparseable startDate "${info.startDate}" for ${info.jobReqId}`);
   }
 
+  let place = { city: employer.defaultCity, province: employer.province };
+  if (employer.config.locationFromPosting) {
+    const resolved = resolveWorkdayLocation(info.location ?? '', employer.config.locationAliases);
+    // Thrown, so the runner logs the string and skips this one posting.
+    if (!resolved) {
+      throw new Error(`No town in Workday location "${collapse(info.location ?? '')}" for ${info.jobReqId}; add it to locationAliases`);
+    }
+    place = resolved;
+  }
+
   return {
-    sourceId: `workday:${employer.config.tenant}`,
+    sourceId: workdaySourceId(employer.config),
     sourceJobId: info.jobReqId,
     sourceUrl: info.externalUrl,
     title: info.title,
@@ -186,9 +277,10 @@ export function normalizeWorkday(detail: unknown, employer: WorkdayEmployer): No
         ? stripDescriptionHeader(info.jobDescription)
         : info.jobDescription,
     ),
-    // Workday exposes no city; location is a facility string. City comes from the registry.
-    city: employer.defaultCity,
-    province: employer.province,
+    // Workday exposes no city field; location is a facility string. City comes from the
+    // registry, unless the employer opts into reading it from that string.
+    city: place.city,
+    province: place.province,
     postedAt,
     employmentType: header.employmentType ?? employmentTypeFromTimeType(info.timeType),
     shiftType: header.shiftType,
@@ -214,7 +306,7 @@ export function createWorkdayConnector(employer: WorkdayEmployer, ctx: LogContex
   const headers = { 'Content-Type': 'application/json', 'User-Agent': SITE.userAgent };
 
   return {
-    id: `workday:${tenant}`,
+    id: workdaySourceId(employer.config),
     kind: 'ats',
     refreshKnown: true,
 

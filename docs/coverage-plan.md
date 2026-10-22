@@ -39,8 +39,8 @@ Effort: **seed** = a registry row only · **small** = a row plus a connector twe
 |---|---|---|---|---|---:|---|---|---|
 | 1 | **Trillium Health Partners** | ON | Oracle Cloud (`iadyup.fa.ocs.oraclecloud.com`, CX_4001) | existing `oraclecloud` | ~37 (53 open) | small | none | **done** — seeded in 0027 |
 | 2 | **Ontario Health atHome** | ON | iCIMS (`healthcareathomejobs-en.icims.com`) | existing `icims` | ~50 (80 open) | small | none | **done** — seeded in 0027 |
-| 3 | **Extendicare** (LTC, ~100 homes) | ON, AB, MB | Workday (`extendicare.wd10`, site `Extendicare2023`) | existing `workday` | ~250 (472 open) | small–medium | Workday has no city per posting | next |
-| 4 | **ParaMed** (home care, Extendicare's) | ON, AB, NS | Workday (same tenant, `Paramed2023`) | existing `workday` | ~120 (203 open) | with #3 | same | next |
+| 3 | **Extendicare** (LTC, ~100 homes) | ON, AB, MB | Workday (`extendicare.wd10`, site `Extendicare2023`) | existing `workday` | ~250 (472 open) | small–medium | Workday has no city per posting | **done** — location parsing + 0028 |
+| 4 | **ParaMed** (home care, Extendicare's) | ON, AB, NS | Workday (same tenant, `Paramed2023`) | existing `workday` | ~120 (203 open) | with #3 | same | **done** — 0028 |
 | 5 | Santé Québec regions + CHU de Québec | QC | WP Job Manager | existing, rows seeded inactive | ~500 | ask | Quebec government copyright licence; French taxonomy | waiting on Santé Québec |
 | 6 | Alberta Health Services, Covenant | AB | Taleo/SelectMinds | existing, rows seeded inactive | ~1,500+ | ask | WAF 403s any "bot" User-Agent | asked 17 Sep, no reply |
 | 7 | SE Health | ON, AB, BC | own Kentico site | existing `sehc`, seeded inactive | ~150 | ask | F5 WAF challenge after ~350 requests | ask SE Health to allowlist |
@@ -54,7 +54,13 @@ Effort: **seed** = a registry row only · **small** = a row plus a connector twe
 
 ### Notes on the "next" items
 
-**3–4. Extendicare and ParaMed** are the single biggest reachable win left: ~675 open
+**3–4. Extendicare and ParaMed — built 21 Oct 2026.** The Workday config gained `key` (both sites
+share one tenant), `locationFromPosting` and `locationAliases`; the list's "Posted N Days Ago"
+now dates each stub, so the ~300 evergreen "30+ Days Ago" postings are skipped without a
+fetch. 311 of 312 location strings resolve; "CTG - Elgin" is logged and skipped. A posting
+that cannot be placed is never filed under the default. The original notes follow.
+
+Extendicare and ParaMed are the single biggest reachable win left: ~675 open
 long-term-care and home-care postings, robots.txt explicitly `Allow`s both sites, and the
 Workday API answered our User-Agent normally (checked 21 Oct 2026). Alberta would go from 17
 jobs to well over 100. The catch is the one recorded in `workday.ts`: Workday gives no city,

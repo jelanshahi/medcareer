@@ -17,7 +17,7 @@ import { createTalentPoolBuilderConnector, type TalentPoolBuilderEmployer } from
 import { createTaleoConnector, type TaleoEmployer } from '@/workers/connectors/taleo';
 import { createWpJobManagerConnector, type WpJobManagerEmployer } from '@/workers/connectors/wpjobmanager';
 import type { Connector } from '@/workers/connectors/types';
-import { createWorkdayConnector, type WorkdayEmployer } from '@/workers/connectors/workday';
+import { createWorkdayConnector, workdaySourceId, type WorkdayEmployer } from '@/workers/connectors/workday';
 import { fingerprint } from '@/lib/normalize/fingerprint';
 import { log, type LogContext } from '@/workers/logger';
 import { PROVINCE_CODES, type NormalizedPosting } from '@/lib/types';
@@ -41,6 +41,9 @@ const WorkdayAtsConfigSchema = z.object({
   site: z.string().min(1),
   host: z.string().min(1),
   parseDescriptionHeader: z.boolean(),
+  key: z.string().min(1).optional(),
+  locationFromPosting: z.boolean().optional(),
+  locationAliases: z.record(z.string(), z.string()).optional(),
 });
 
 const TaleoAtsConfigSchema = z.object({
@@ -370,7 +373,7 @@ async function main() {
     let createConnector: (ctx: LogContext) => Connector;
     if (parsed.data.ats_platform === 'workday') {
       const employer: WorkdayEmployer = { ...base, config: parsed.data.ats_config };
-      sourceId = `workday:${employer.config.tenant}`;
+      sourceId = workdaySourceId(employer.config);
       createConnector = (ctx) => createWorkdayConnector(employer, ctx);
     } else if (parsed.data.ats_platform === 'taleo') {
       const employer: TaleoEmployer = { ...base, config: parsed.data.ats_config };

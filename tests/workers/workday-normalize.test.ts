@@ -3,7 +3,19 @@ import shnList from '@/fixtures/workday/shn-list.json';
 import shnDetail from '@/fixtures/workday/shn-detail.json';
 import cheoDetail from '@/fixtures/workday/cheo-detail.json';
 import oakvalleyDetail from '@/fixtures/workday/oakvalley-detail.json';
-import { parseWorkdayList, normalizeWorkday, parseDescriptionHeader, stripDescriptionHeader } from '@/workers/connectors/workday';
+import paramedDetail from '@/fixtures/workday/paramed-detail.json';
+import extendicareAliasDetail from '@/fixtures/workday/extendicare-detail-alias.json';
+import extendicareStreetDetail from '@/fixtures/workday/extendicare-detail-street.json';
+import extendicareList from '@/fixtures/workday/extendicare-list.json';
+import {
+  parseWorkdayList,
+  normalizeWorkday,
+  parseDescriptionHeader,
+  stripDescriptionHeader,
+  resolveWorkdayLocation,
+  postedAtFromPostedOn,
+} from '@/workers/connectors/workday';
+import { isTooOld } from '@/workers/run';
 import type { WorkdayEmployer } from '@/workers/connectors/workday';
 
 const shn: WorkdayEmployer = {
@@ -257,5 +269,107 @@ describe('parseDescriptionHeader salary anchoring', () => {
     expect(fields.salaryMin).toBe(35.753);
     expect(fields.salaryMax).toBe(39.019);
     expect(fields.salaryPeriod).toBe('hour');
+  });
+});
+
+const extendicare: WorkdayEmployer = {
+  slug: 'extendicare',
+  name: 'Extendicare',
+  province: 'ON',
+  defaultCity: 'Markham',
+  config: {
+    tenant: 'extendicare',
+    site: 'Extendicare2023',
+    host: 'extendicare.wd10.myworkdayjobs.com',
+    parseDescriptionHeader: false,
+    key: 'extendicare',
+    locationFromPosting: true,
+    locationAliases: { 'LTC - Athabasca (53rd St.)': 'Athabasca, AB' },
+  },
+};
+
+const paramed: WorkdayEmployer = {
+  ...extendicare,
+  slug: 'paramed',
+  name: 'ParaMed',
+  config: { ...extendicare.config, site: 'Paramed2023', key: 'paramed', locationAliases: {} },
+};
+
+describe('normalizeWorkday — employers that read location from the posting', () => {
+  it('reads a trailing town and province', () => {
+    // "ParaMed - Windsor, Ontario"
+    expect(normalizeWorkday(paramedDetail, paramed)).toMatchObject({
+      sourceId: 'workday:paramed',
+      sourceJobId: 'R36395',
+      city: 'Windsor',
+      province: 'ON',
+      employerName: 'ParaMed',
+    });
+  });
+
+  it('reads the town from the last line of a street address', () => {
+    // "LTC - York (York St.) 333 York Street \nSudbury, ON"
+    expect(normalizeWorkday(extendicareStreetDetail, extendicare)).toMatchObject({ city: 'Sudbury', province: 'ON' });
+  });
+
+  it('resolves a bare home name through the alias map, into another province', () => {
+    expect(normalizeWorkday(extendicareAliasDetail, extendicare)).toMatchObject({
+      sourceId: 'workday:extendicare',
+      city: 'Athabasca',
+      province: 'AB',
+    });
+  });
+
+  it('refuses a posting it cannot place rather than filing it under the default', () => {
+    expect(() => normalizeWorkday(extendicareAliasDetail, { ...extendicare, config: { ...extendicare.config, locationAliases: {} } }))
+      .toThrow(/No town in Workday location "LTC - Athabasca \(53rd St\.\)".*locationAliases/);
+  });
+});
+
+describe('resolveWorkdayLocation', () => {
+  it('handles each shape the Extendicare tenant writes', () => {
+    expect(resolveWorkdayLocation('LTC - Viking - 5020 - 57th Ave, P.O. Box 430, Viking, Alberta'))
+      .toEqual({ city: 'Viking', province: 'AB' });
+    expect(resolveWorkdayLocation('LTC - Medex (Baseline Rd.) 1865 Baseline Road \nOttawa , ON'))
+      .toEqual({ city: 'Ottawa', province: 'ON' });
+    expect(resolveWorkdayLocation('ParaMed - Lindsay, Ontario (Kent St Job Posting)'))
+      .toEqual({ city: 'Lindsay', province: 'ON' });
+    expect(resolveWorkdayLocation('ParaMed  - Niagara-on-the-Lake, Ontario'))
+      .toEqual({ city: 'Niagara-on-the-Lake', province: 'ON' });
+  });
+
+  it('refuses a street address, a bare name and a multi-site count', () => {
+    expect(resolveWorkdayLocation('LTC - Guildwood Villa (Guildwood Pkwy.) 60 Guildwood Parkway Scarborough, ON')).toBeNull();
+    expect(resolveWorkdayLocation('Beacon Hill Lodge')).toBeNull();
+    expect(resolveWorkdayLocation('3 Locations')).toBeNull();
+  });
+
+  it('matches an alias whatever the whitespace, and lets an alias fix a misspelt town', () => {
+    const aliases = { 'Klienburg, Ontario': 'Kleinburg, ON', 'Beacon Hill Lodge': 'Winnipeg, MB' };
+    expect(resolveWorkdayLocation('Klienburg,  Ontario', aliases)).toEqual({ city: 'Kleinburg', province: 'ON' });
+    expect(resolveWorkdayLocation(' Beacon Hill\nLodge ', aliases)).toEqual({ city: 'Winnipeg', province: 'MB' });
+  });
+});
+
+describe('postedAtFromPostedOn', () => {
+  const now = new Date('2026-10-21T12:00:00Z');
+  const daysAgo = (d: Date | undefined) => d && Math.round((now.getTime() - d.getTime()) / 86_400_000);
+
+  it('reads every phrasing Workday uses', () => {
+    expect(daysAgo(postedAtFromPostedOn('Posted Today', now))).toBe(0);
+    expect(daysAgo(postedAtFromPostedOn('Posted Yesterday', now))).toBe(1);
+    expect(daysAgo(postedAtFromPostedOn('Posted 8 Days Ago', now))).toBe(8);
+    expect(postedAtFromPostedOn(undefined, now)).toBeUndefined();
+  });
+
+  it('puts "30+ Days Ago" past the ingest cutoff, so it is skipped without a fetch', () => {
+    expect(isTooOld(postedAtFromPostedOn('Posted 30+ Days Ago', now)!, now)).toBe(true);
+    expect(isTooOld(postedAtFromPostedOn('Posted 29 Days Ago', now)!, now)).toBe(false);
+  });
+
+  it('dates the stubs of a real list page', () => {
+    const { stubs } = parseWorkdayList(extendicareList, now);
+    expect(stubs.length).toBe(20);
+    expect(stubs.every((s) => s.postedAt instanceof Date)).toBe(true);
   });
 });

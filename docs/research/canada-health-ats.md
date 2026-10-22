@@ -1049,3 +1049,10 @@ Prioritised next steps for all of this file are in [../coverage-plan.md](../cove
   **Shannex** is on Njoyn — blocked. **VON, Ornge, Dynacare** are on Jobvite (no connector).
   **LifeLabs** is on Dayforce. **Closing the Gap** is on HRSmart. **Saskatchewan Cancer Agency**
   posts on SHA's Oracle site, so it is already covered.
+- **Extendicare and ParaMed — built, seeded by migration 0028 (21 Oct 2026).** The Workday connector
+  now reads city and province from the posting when `locationFromPosting` is set, with a
+  `locationAliases` map for strings that name a home but no town. Towns were taken from each
+  home's page on extendicare.com (the JSON-LD there carries the head office first, then the
+  home). The tenant's own typos are aliased too: "Carelon Place", "St. Catherines",
+  "Klienburg", "Haileyburg", "Whitechurch-Stoufville". Unplaceable postings throw and are
+  skipped; the log line names the string to add.
