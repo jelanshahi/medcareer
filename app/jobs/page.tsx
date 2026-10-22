@@ -114,18 +114,25 @@ export default async function JobsPage(props: PageProps<'/jobs'>) {
   const from = (params.page - 1) * PAGE_SIZE;
   const db = createServerClient();
 
-  // Main results: every active filter applies. Sort column is picked with a
-  // ternary rather than reassigning the query across an if/else — chaining
-  // .order() unconditionally here (as the pre-existing query on the old `/`
-  // page did) keeps the builder's inferred row type stable.
-  let resultsQuery = db
-    .from('jobs')
+  // Main results: every active filter applies. Read from jobs_feed
+  // (supabase/migrations/0029) so "newest" can interleave employers within
+  // each day — sorted on posted_at alone, page one was 25 of 25 from the
+  // Saskatchewan Health Authority. The salary sort ignores the extra columns.
+  // The two orders are chained onto one builder rather than reassigned across
+  // an if/else, which keeps the builder's inferred row type stable.
+  const feed = db
+    .from('jobs_feed')
     .select(RESULT_COLUMNS, { count: 'exact' })
-    .eq('is_active', true)
-    .order(params.sort === 'salary' ? 'salary_min' : 'posted_at', {
-      ascending: false,
-      nullsFirst: false,
-    })
+    .eq('is_active', true);
+  let resultsQuery = (
+    params.sort === 'salary'
+      ? feed.order('salary_min', { ascending: false, nullsFirst: false })
+      : feed
+          .order('posted_day', { ascending: false })
+          .order('employer_day_rank', { ascending: true })
+          .order('posted_at', { ascending: false })
+  )
+    .order('id')
     .range(from, from + PAGE_SIZE - 1);
   if (params.q) resultsQuery = resultsQuery.textSearch('search_vector', params.q, { type: 'websearch' });
   if (params.city?.length) resultsQuery = resultsQuery.in('city', params.city);

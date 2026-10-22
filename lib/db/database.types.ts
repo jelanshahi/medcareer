@@ -321,7 +321,50 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      jobs_feed: {
+        Row: {
+          apply_url: string | null
+          canonical_source: string | null
+          category: string | null
+          city: string | null
+          closes_at: string | null
+          created_at: string | null
+          dedupe_key: string | null
+          description: string | null
+          employer_day_rank: number | null
+          employer_id: string | null
+          employer_name: string | null
+          employment_type: string | null
+          expires_at: string | null
+          facility_name: string | null
+          fingerprint: string | null
+          id: string | null
+          is_active: boolean | null
+          latitude: number | null
+          longitude: number | null
+          noc_code: string | null
+          posted_at: string | null
+          posted_day: string | null
+          province: string | null
+          salary_max: number | null
+          salary_min: number | null
+          salary_period: string | null
+          search_vector: unknown
+          shift_type: string | null
+          slug: string | null
+          title: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jobs_employer_id_fkey"
+            columns: ["employer_id"]
+            isOneToOne: false
+            referencedRelation: "employers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       confirm_job_alert: {
