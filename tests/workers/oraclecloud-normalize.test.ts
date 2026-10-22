@@ -62,10 +62,47 @@ describe('normalizeOracleCloud', () => {
   });
 });
 
+const trillium: OracleCloudEmployer = {
+  slug: 'trillium-health-partners',
+  name: 'Trillium Health Partners',
+  province: 'ON',
+  defaultCity: 'Mississauga',
+  config: { key: 'thp', host: 'iadyup.fa.ocs.oraclecloud.com', site: 'CX_4001' },
+};
+
+describe('normalizeOracleCloud — Trillium Health Partners', () => {
+  it('takes city and facility from the structured work site when the location names only a province', () => {
+    // PrimaryLocation is "ON, Canada": read naively that is a city called "ON".
+    const posting = normalizeOracleCloud(detail('thp-detail-8855'), trillium);
+    expect(posting).toMatchObject({
+      sourceId: 'oraclecloud:thp',
+      sourceJobId: '8855',
+      city: 'Mississauga',
+      province: 'ON',
+      facilityName: 'Mississauga Hospital',
+      employmentType: 'full_time',
+      salaryMin: 45.04,
+      salaryMax: 57.26,
+      salaryPeriod: 'hour',
+    });
+    expect(posting.applyUrl).toBe('https://iadyup.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_4001/job/8855');
+  });
+
+  it('reads the pay from "Role Level" when there is no pay band line', () => {
+    const posting = normalizeOracleCloud(detail('thp-detail-8207'), trillium);
+    expect(posting).toMatchObject({ city: 'Mississauga', salaryMin: 44.49, salaryMax: 57.79, salaryPeriod: 'hour' });
+  });
+});
+
 describe('parseLocation', () => {
   it('splits the API’s location string', () => {
     expect(parseLocation('Saskatoon, SK, Canada')).toEqual({ city: 'Saskatoon', province: 'SK' });
     expect(parseLocation('Porcupine Plain, SK, Canada')).toEqual({ city: 'Porcupine Plain', province: 'SK' });
+  });
+
+  it('does not mistake a province or the country for a city', () => {
+    expect(parseLocation('ON, Canada')).toEqual({ city: undefined, province: 'ON' });
+    expect(parseLocation('Canada')).toEqual({ city: undefined, province: null });
   });
 
   it('returns nothing usable for an empty location', () => {

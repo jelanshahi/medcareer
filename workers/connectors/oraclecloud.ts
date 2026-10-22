@@ -9,8 +9,8 @@ import { log, type LogContext } from '@/workers/logger';
 import type { Connector } from './types';
 
 /**
- * Oracle Cloud Recruiting career sites — what the Saskatchewan Health Authority hires
- * through. Its REST API lists 200 requisitions per request with posted dates, so a whole
+ * Oracle Cloud Recruiting career sites — what the Saskatchewan Health Authority and
+ * Trillium Health Partners hire through. Its REST API lists 200 requisitions per request with posted dates, so a whole
  * province's listing costs ~11 requests and only new postings are fetched individually.
  */
 export type OracleCloudEmployer = {
@@ -46,6 +46,11 @@ const DetailSchema = z.object({
   JobSchedule: z.string().nullish(),
   RequisitionType: z.string().nullish(),
   PostingEndDate: z.string().nullish(),
+  // Trillium fills these in where SHA leaves TownOrCity null; see normalizeOracleCloud.
+  workLocation: z.array(z.object({
+    LocationName: z.string().nullish(),
+    TownOrCity: z.string().nullish(),
+  })).nullish(),
 });
 export type OracleCloudDetail = z.infer<typeof DetailSchema>;
 
@@ -65,6 +70,8 @@ const FIELD_LABELS = [
   'Position #', 'Expected Start Date', 'Expected Up To Date', 'Union', 'Facility', 'City/Town',
   'Department', 'Type', 'FTE', 'Shift Information', 'Hours of Work', 'Relief', 'Float',
   'Field Hours', 'Salary or Pay Band', 'Travel Required',
+  // Trillium's equivalent of the pay band: "Role Level: AH10.21 $45.04- $57.26".
+  'Role Level',
 ];
 
 const asText = (html: string) =>
@@ -114,7 +121,7 @@ export function employmentTypeFromOracle(
  * says which period it is; SHA quotes three decimals, which is a real hourly rate.
  */
 export function parseSalary(fields: Record<string, string>, requisitionType: string | null | undefined) {
-  const band = fields['Salary or Pay Band'];
+  const band = fields['Salary or Pay Band'] ?? fields['Role Level'];
   const match = band?.match(/\$\s*([\d,]+\.?\d*)\s*(?:to|-|–)\s*\$?\s*([\d,]+\.?\d*)/);
   if (!match) return {};
   const min = Number(match[1].replace(/,/g, ''));
@@ -125,9 +132,14 @@ export function parseSalary(fields: Record<string, string>, requisitionType: str
   return { salaryMin: min, salaryMax: max, salaryPeriod: hourly ? ('hour' as const) : ('year' as const) };
 }
 
-/** "Saskatoon, SK, Canada" → city and province code. */
+/**
+ * "Saskatoon, SK, Canada" → city and province code. Trillium sends "ON, Canada" for postings
+ * with no single town, so a leading part that is itself a province (or the country) is no city.
+ */
 export function parseLocation(location: string) {
-  const parts = location.split(',').map((p) => p.trim()).filter(Boolean);
+  const parts = location.split(',').map((p) => p.trim()).filter((p) => p && p.toLowerCase() !== 'canada');
+  const leadingProvince = parts[0] ? provinceCodeFromName(parts[0]) : null;
+  if (leadingProvince) return { city: undefined, province: leadingProvince };
   return { city: parts[0] || undefined, province: parts[1] ? provinceCodeFromName(parts[1]) : null };
 }
 
@@ -142,6 +154,8 @@ export function normalizeOracleCloud(raw: unknown, employer: OracleCloudEmployer
   const descriptionText = asText(detail.ExternalDescriptionStr || detail.ShortDescriptionStr);
   const fields = parseDescriptionFields(descriptionText);
   const location = parseLocation(detail.PrimaryLocation);
+  // The structured work site, when the employer fills it in (Trillium does, SHA does not).
+  const site = detail.workLocation?.[0];
 
   const closesAt = detail.PostingEndDate ? new Date(detail.PostingEndDate) : undefined;
   const url = `https://${employer.config.host}/hcmUI/CandidateExperience/en/sites/${employer.config.site}/job/${detail.Id}`;
@@ -153,9 +167,9 @@ export function normalizeOracleCloud(raw: unknown, employer: OracleCloudEmployer
     title: detail.Title,
     employerName: employer.name,
     // "Facility: Red Deer Nursing Home" is the site someone would actually work at.
-    facilityName: fields['Facility'] || undefined,
+    facilityName: fields['Facility'] || site?.LocationName || undefined,
     description: sanitizeDescription(detail.ExternalDescriptionStr || detail.ShortDescriptionStr),
-    city: fields['City/Town'] || location.city || employer.defaultCity,
+    city: fields['City/Town'] || site?.TownOrCity || location.city || employer.defaultCity,
     province: location.province ?? employer.province,
     postedAt,
     closesAt: closesAt && !Number.isNaN(closesAt.getTime()) ? closesAt : undefined,

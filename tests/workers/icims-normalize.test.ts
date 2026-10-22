@@ -6,6 +6,7 @@ import {
   parseIcimsSitemap,
   resolvePostedAt,
   employmentTypeFromIcims,
+  primaryLocality,
   type IcimsDetail,
   type IcimsEmployer,
 } from '@/workers/connectors/icims';
@@ -39,6 +40,14 @@ const mackenzie: IcimsEmployer = {
   province: 'ON',
   defaultCity: 'Richmond Hill',
   config: { key: 'mackenzie', host: 'employment-mackenziehealth.icims.com' },
+};
+
+const ohah: IcimsEmployer = {
+  slug: 'ontario-health-athome',
+  name: 'Ontario Health atHome',
+  province: 'ON',
+  defaultCity: 'Toronto',
+  config: { key: 'ohah', host: 'healthcareathomejobs-en.icims.com', cityAliases: { Niagara: 'St. Catharines' } },
 };
 
 const detail = (name: string) => extractIcimsDetail(fixture(name), LAST_MODIFIED);
@@ -121,6 +130,31 @@ describe('normalizeIcims', () => {
 
   it('refuses a posting served from another employer’s portal', () => {
     expect(() => normalizeIcims(detail('vch-job.html'), humber)).toThrow(/registry host/);
+  });
+
+  it('maps an Ontario Health atHome posting, aliasing its branch name to a city', () => {
+    const posting = normalizeIcims(detail('ohah-job-niagara.html'), ohah);
+    expect(posting).toMatchObject({ sourceId: 'icims:ohah', sourceJobId: '12257', city: 'St. Catharines', province: 'ON' });
+    // Its datePosted is the two-year-old placeholder, so the sitemap date stands in.
+    expect(posting.postedAt.toISOString()).toBe(LAST_MODIFIED.toISOString());
+  });
+
+  it('takes the first site of a posting open at several', () => {
+    const posting = normalizeIcims(detail('ohah-job-multi.html'), ohah);
+    expect(posting.city).toBe('Ottawa');
+    expect(posting.province).toBe('ON');
+  });
+});
+
+describe('primaryLocality', () => {
+  it('keeps a plain locality as it is', () => {
+    expect(primaryLocality('Parry Sound')).toBe('Parry Sound');
+    expect(primaryLocality(' Toronto ')).toBe('Toronto');
+  });
+
+  it('takes the first line and drops its region prefix', () => {
+    expect(primaryLocality('ON-Pembroke\nCA-ON-Ottawa')).toBe('Pembroke');
+    expect(primaryLocality('CA-ON-Greater Toronto Area\nCA-ON-Barrie')).toBe('Greater Toronto Area');
   });
 });
 

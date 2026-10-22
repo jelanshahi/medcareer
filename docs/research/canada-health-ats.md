@@ -1027,3 +1027,25 @@ the same static analysis:
 dev tools open, watch the Network tab while the job list loads, and copy the real request
 (method, URL, headers, body). That single piece of information is what static `curl`/`grep`
 analysis couldn't produce for either platform.
+
+## Trillium, Ontario Health atHome, Extendicare/ParaMed — checked 21 Oct 2026
+
+Prioritised next steps for all of this file are in [../coverage-plan.md](../coverage-plan.md).
+
+- **Trillium Health Partners** left iCIMS (`careersen-trilliumhealthpartners.icims.com` now
+  serves an iCIMS "gone" page) for **Oracle Cloud Recruiting** — `iadyup.fa.ocs.oraclecloud.com`,
+  site `CX_4001`, the same API as SHA. robots.txt 404, list and detail served to our User-Agent.
+  53 open. `PrimaryLocation` is often only "ON, Canada", so the connector now reads city and
+  facility from `workLocation`, and pay from "Role Level". Seeded in 0027.
+- **Ontario Health atHome** runs **iCIMS** (`healthcareathomejobs-en.icims.com`), robots.txt the
+  same as CarePartners'. 80 postings. Fake two-year-old `datePosted` like VCH. Multi-site postings
+  give `addressLocality` as `"ON-Ottawa\nCA-ON-Greater Toronto Area\n…"`; the connector takes the
+  first site. Seeded in 0027.
+- **Extendicare** (`Extendicare2023`, 472 open) and **ParaMed** (`Paramed2023`, 203 open) share
+  the Workday tenant `extendicare.wd10.myworkdayjobs.com`; robots.txt `Allow`s both sites by name.
+  Not seeded: Workday gives no structured city or province, and these postings span ON, AB, MB and
+  NS, so the registry default would misfile them. Needs location parsing first (plan item 3).
+- **Schlegel Villages** is on UKG UltiPro (`SCH5000SVIA`) — blocked like the other UltiPro tenants.
+  **Shannex** is on Njoyn — blocked. **VON, Ornge, Dynacare** are on Jobvite (no connector).
+  **LifeLabs** is on Dayforce. **Closing the Gap** is on HRSmart. **Saskatchewan Cancer Agency**
+  posts on SHA's Oracle site, so it is already covered.

@@ -157,6 +157,16 @@ export function extractIcimsDetail(html: string, lastModified: Date): IcimsDetai
   });
 }
 
+/**
+ * A posting open at several sites lists them one per line, each prefixed with its region code:
+ * "ON-Ottawa\nCA-ON-Greater Toronto Area\nCA-ON-Sudbury" (Ontario Health atHome). The first
+ * site stands for the posting; left whole, the run of names would become a junk city.
+ */
+export function primaryLocality(locality: string): string {
+  const first = locality.split('\n')[0] ?? '';
+  return first.replace(/^(?:[A-Z]{2}-)?[A-Z]{2}-(?=\S)/, '').trim();
+}
+
 export function normalizeIcims(raw: unknown, employer: IcimsEmployer): NormalizedPosting {
   const detail = DetailSchema.parse(raw);
   const { posting } = detail;
@@ -166,7 +176,7 @@ export function normalizeIcims(raw: unknown, employer: IcimsEmployer): Normalize
   if (!sourceJobId) throw new Error(`No job id in "${posting.url}"`);
 
   const address = posting.jobLocation?.[0]?.address;
-  const locality = (address?.addressLocality ?? '').trim();
+  const locality = primaryLocality(address?.addressLocality ?? '');
   const city = employer.config.cityAliases?.[locality] ?? (locality || employer.defaultCity);
 
   const workLocationKey = Object.keys(detail.fields).find((k) => /work location|facility|site$/i.test(k));
