@@ -23,7 +23,7 @@ export const FIELD =
 
 /** Primary action. Brand green, 980px pill. */
 export const PILL_PRIMARY =
-  'inline-flex min-h-[46px] cursor-pointer items-center justify-center rounded-full border-0 bg-[var(--color-signal)] px-[23px] py-3 text-[17px] text-white no-underline hover:bg-[var(--color-signal-hover)] hover:text-white hover:no-underline';
+  'pill-fx inline-flex min-h-[46px] cursor-pointer items-center justify-center rounded-full border-0 bg-[var(--color-signal)] px-[23px] py-3 text-[17px] text-white no-underline hover:bg-[var(--color-signal-hover)] hover:text-white hover:no-underline';
 
 /** Secondary action — white pill with a hairline. */
 export const PILL_OUTLINE =

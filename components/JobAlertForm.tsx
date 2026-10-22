@@ -8,6 +8,7 @@ import { JOB_ALERT_INITIAL, MAX_EMAIL_LENGTH } from '@/lib/schemas/job-alert';
 import { CATEGORIES, CATEGORY_LABELS } from '@/lib/taxonomy/categories';
 import { ProvinceCitySelect } from '@/components/ProvinceCitySelect';
 import { FIELD, PILL_PRIMARY } from '@/lib/ui/styles';
+import { LoadingDots } from '@/components/LoadingDots';
 
 /** The homepage alert signup. A real <form action={...}> rather than an
  *  onSubmit handler, so it still posts if hydration has not finished (or never
@@ -119,7 +120,7 @@ export function JobAlertForm({
         disabled={pending}
         className={`${PILL_PRIMARY} mt-6 w-full rounded-full text-[clamp(20px,2vw,26px)] font-semibold disabled:opacity-60`}
       >
-        {pending ? 'Creating alert…' : 'Create alert'}
+        {pending ? <>Creating alert<LoadingDots /></> : 'Create alert'}
       </button>
 
       {/* aria-live so the reply is announced: it replaces no visible content

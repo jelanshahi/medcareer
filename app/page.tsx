@@ -2,7 +2,10 @@ import Link from 'next/link';
 import { createServerClient } from '@/lib/db/server';
 import { selectAll } from '@/lib/db/select-all';
 import { groupCitiesByProvince, regionName } from '@/lib/provinces';
-import { CATEGORIES, CATEGORY_LABELS } from '@/lib/taxonomy/categories';
+import { CATEGORIES, CATEGORY_LABELS, type Category } from '@/lib/taxonomy/categories';
+import { formatSalary, postedAgo } from '@/lib/format';
+import { HeroJobShowcase, type ShowcaseJob } from '@/components/HeroJobShowcase';
+import { RecentTicker } from '@/components/RecentTicker';
 import { EMPLOYMENT_TYPES, EMPLOYMENT_LABELS } from '@/lib/taxonomy/employment';
 import { tally, type FacetRow } from '@/lib/jobs/facets';
 import { buildJobsQuery } from '@/lib/jobs/query-string';
@@ -61,9 +64,29 @@ export default async function HomePage() {
   // supabase-js resolves { data, error } rather than rejecting on failure;
   // both calls are checked so a real database failure never renders as a
   // quiet "0 jobs" home page. selectAll throws on its own.
-  const [rows, { data: todayRows, count: todayCount, error: todayError }] =
-    await Promise.all([overview, today]);
+  const recent = db
+    .from('jobs')
+    .select(`${TODAY_COLUMNS},posted_at`)
+    .eq('is_active', true)
+    .order('posted_at', { ascending: false })
+    .limit(12);
+
+  const [rows, { data: todayRows, count: todayCount, error: todayError }, { data: recentRows, error: recentError }] =
+    await Promise.all([overview, today, recent]);
   if (todayError) throw todayError;
+  if (recentError) throw recentError;
+
+  // Real recent postings feed the hero card and the ticker; nothing is invented.
+  const recentJobs = (recentRows ?? []) as (PostedTodayJob & { posted_at: string })[];
+  const showcaseJobs: ShowcaseJob[] = recentJobs.slice(0, 5).map((j) => ({
+    slug: j.slug,
+    title: j.title,
+    employer: j.employer_name,
+    city: j.city,
+    category: j.category && j.category in CATEGORY_LABELS ? CATEGORY_LABELS[j.category as Category] : null,
+    salary: formatSalary(j.salary_min, j.salary_max, j.salary_period),
+    posted: postedAgo(j.posted_at),
+  }));
 
   const region = regionName(rows.map((r) => r.province));
   const totalActive = rows.length;
@@ -185,8 +208,12 @@ export default async function HomePage() {
               ))}
             </div>
           )}
+
+          <HeroJobShowcase jobs={showcaseJobs} />
         </div>
       </section>
+
+      <RecentTicker jobs={recentJobs} />
 
       <section className={SECTION}>
         <div className="flex flex-wrap items-baseline justify-between gap-x-5 gap-y-3.5">

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { resolveNearestCity } from '@/app/actions/near-me';
 import { buildJobsQuery } from '@/lib/jobs/query-string';
 import { PILL_PRIMARY } from '@/lib/ui/styles';
+import { LoadingDots } from '@/components/LoadingDots';
 
 type Status = 'idle' | 'locating' | 'error';
 
@@ -49,7 +50,7 @@ export function NearMeButton({ className = PILL_PRIMARY }: { className?: string 
   return (
     <div className="flex flex-shrink-0 flex-col items-start gap-1.5">
       <button type="button" onClick={handleClick} disabled={status === 'locating'} className={className}>
-        {status === 'locating' ? 'Locating…' : 'Near me'}
+        {status === 'locating' ? <>Locating<LoadingDots /></> : 'Near me'}
       </button>
       {status === 'error' && (
         <p className="text-[13px] text-[var(--color-slate)]">
