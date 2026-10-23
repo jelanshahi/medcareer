@@ -18,12 +18,12 @@ import { CONTAINER, EYEBROW, H1, H2 } from '@/lib/ui/styles';
 // times, and rendering each hit used up the Fluid CPU allowance within days. An
 // empty generateStaticParams prerenders nothing at build (cities come and go with
 // every ingest) but caches each city on its first request, unknown slugs' 404s
-// included. An hour matches the sitemap and lib/jobs/landing.ts.
+// included. Six hours matches the ingest cadence and lib/jobs/landing.ts.
 //
 // Caching is possible because /browse is excluded from the nonce CSP in proxy.ts
 // and gets a static policy from next.config.ts instead: a cached page would carry a
 // stale nonce and the CSP would block its scripts.
-export const revalidate = 3600;
+export const revalidate = 21600;
 
 export async function generateStaticParams() {
   return [];

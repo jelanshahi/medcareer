@@ -19,11 +19,11 @@ async function readLandingRows(): Promise<LandingRow[]> {
  * The read is eight paged round trips (~7.9K jobs), and it ran twice per request
  * (metadata and page) on routes that crawlers hit tens of thousands of times, which
  * used up the Fluid CPU allowance in days. It is now held in the shared data cache
- * for an hour, the same window as the sitemap (ingest runs every six hours). The
+ * for six hours, the ingest cadence, so a refresh never lags ingest by more than one run. The
  * value is ~350KB, well under the data cache's per-entry limit. React's cache()
  * dedupes the metadata and page calls within one render. A failed read throws
  * and is not cached. */
-const cachedLandingRows = unstable_cache(readLandingRows, ['landing-rows'], { revalidate: 3600 });
+const cachedLandingRows = unstable_cache(readLandingRows, ['landing-rows'], { revalidate: 21600 });
 
 export const loadLandingRows = cache((): Promise<LandingRow[]> => cachedLandingRows());
 

@@ -3,14 +3,16 @@ import type { NextConfig } from "next";
 // Content-Security-Policy is set per request with a fresh nonce (see proxy.ts)
 // so App Router's inline RSC bootstrap scripts can run without 'unsafe-inline'.
 //
-// The one exception is /browse, which proxy.ts skips. Those pages are
-// ISR-cached because crawler traffic rendering them per request used up the
+// The exceptions are /browse and /jobs/:slug, which proxy.ts skips. Those pages
+// are ISR-cached because crawler traffic rendering them per request used up the
 // Fluid CPU allowance, and a cached page cannot carry a per-request nonce, so
-// they fall back to 'unsafe-inline'. That is acceptable there because /browse
-// renders no raw HTML: every feed string goes through React escaping, and
-// there is no JsonLd or dangerouslySetInnerHTML. /jobs/[slug], which does render
-// employer HTML, stays on the nonce policy.
-const BROWSE_CSP = `
+// they fall back to 'unsafe-inline'. That is acceptable there because neither
+// renders unescaped feed content:
+// - /browse renders no raw HTML; every feed string goes through React escaping.
+// - /jobs/:slug's one raw-HTML block, the description, is sanitized at ingest to
+//   a tag allow-list with no attributes (lib/normalize/sanitize.ts). Its other
+//   inline scripts are JSON-LD, which browsers never execute.
+const CACHED_PAGE_CSP = `
   default-src 'self';
   script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""};
   style-src 'self' 'unsafe-inline';
@@ -43,9 +45,9 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-      ...["/browse", "/browse/:path*"].map((source) => ({
+      ...["/browse", "/browse/:path*", "/jobs/:slug"].map((source) => ({
         source,
-        headers: [{ key: "Content-Security-Policy", value: BROWSE_CSP }],
+        headers: [{ key: "Content-Security-Policy", value: CACHED_PAGE_CSP }],
       })),
     ];
   },

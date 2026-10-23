@@ -1,6 +1,6 @@
 import Link from 'next/link';
+import { cache } from 'react';
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { createServerClient } from '@/lib/db/server';
 import { postedAgo, formatSalary, employerLine } from '@/lib/format';
@@ -16,7 +16,20 @@ import { roleOf } from '@/lib/taxonomy/roles';
 import { SaveButton } from '@/components/SaveButton';
 import { CARD, CONTAINER, H3, PILL_PRIMARY } from '@/lib/ui/styles';
 
-export const dynamic = 'force-dynamic';
+// ISR rather than force-dynamic: crawlers walk the sitemap's ~8K job URLs, and
+// rendering each hit was the largest remaining Fluid CPU cost after /browse moved
+// to ISR. Each job is generated on its first request and cached for six hours,
+// matching the ingest cadence. A job that closes 404s on its next regeneration.
+//
+// Caching means no per-request nonce, so /jobs/:slug is excluded from proxy.ts and
+// gets the static CSP in next.config.ts. That is acceptable here because the one
+// raw-HTML block, the description, is sanitized at ingest to a tag allow-list with
+// no attributes, so 'unsafe-inline' has no injection point to amplify.
+export const revalidate = 21600;
+
+export async function generateStaticParams() {
+  return [];
+}
 
 // Explicit columns rather than '*': '*' would also pull search_vector, a
 // large generated tsvector column that is never rendered on this page.
@@ -73,7 +86,8 @@ function applyHost(url: string): string | null {
   }
 }
 
-async function loadJob(slug: string): Promise<JobDetail | null> {
+// cache(): generateMetadata and the page share one read per render.
+const loadJob = cache(async (slug: string): Promise<JobDetail | null> => {
   const db = createServerClient();
 
   // supabase-js resolves { data, error } rather than rejecting on failure. An
@@ -88,7 +102,7 @@ async function loadJob(slug: string): Promise<JobDetail | null> {
   if (error) throw error;
 
   return data as JobDetail | null;
-}
+});
 
 export async function generateMetadata(props: PageProps<'/jobs/[slug]'>): Promise<Metadata> {
   const { slug } = await props.params;
@@ -152,7 +166,6 @@ export default async function JobPage(props: PageProps<'/jobs/[slug]'>) {
     }
   }
 
-  const nonce = (await headers()).get('x-nonce');
   const salary = formatSalary(job.salary_min, job.salary_max, job.salary_period);
   const employmentLabel = isEmploymentType(job.employment_type) ? EMPLOYMENT_LABELS[job.employment_type] : null;
   const host = applyHost(job.apply_url);
@@ -224,12 +237,10 @@ export default async function JobPage(props: PageProps<'/jobs/[slug]'>) {
   return (
     <>
       <script
-        nonce={nonce ?? undefined}
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdString(jsonLd) }}
       />
       <script
-        nonce={nonce ?? undefined}
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbLd(crumbs)) }}
       />

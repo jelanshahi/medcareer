@@ -41,67 +41,6 @@ function buildCsp(nonce: string): string {
 }
 
 /**
- * 410 Gone for job detail URLs whose slug has no visible row.
- *
- * App Router pages cannot set an arbitrary status code, so this is handled
- * here before the page renders. Gated to /jobs/ paths only — this issues a
- * live Supabase fetch, and running that on every request to every route
- * (static assets included, if they ever hit proxy) would be wasteful and
- * slow down the whole site for a check only job pages need.
- *
- * RLS hides inactive jobs from the anon key (tests/db/rls.test.ts), so a
- * closed job and a slug that never existed both come back as zero rows here
- * and both get 410. That is a deliberate, accepted tradeoff from the task
- * plan, not a bug: sharpening it would require the service-role key, which
- * must never reach the web runtime.
- *
- * If the existence check itself fails (network error, non-OK response,
- * unparsable body) this deliberately does NOT 410 — an ambiguous check must
- * not manufacture a false "gone". It falls through and lets the page's own
- * (error-checked) query decide, surfacing a real error instead of a wrong
- * 410 if the database is actually broken.
- */
-async function checkJobGone(request: NextRequest): Promise<NextResponse | null> {
-  const { pathname } = request.nextUrl;
-  if (!pathname.startsWith('/jobs/')) return null;
-
-  const slug = pathname.split('/')[2];
-  if (!slug) return null;
-
-  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!base || !key) return null;
-
-  let res: Response;
-  try {
-    res = await fetch(
-      `${base}/rest/v1/jobs?slug=eq.${encodeURIComponent(slug)}&select=slug&limit=1`,
-      {
-        headers: { apikey: key, Authorization: `Bearer ${key}` },
-        // Without a bound, a slow/hanging Supabase response stalls every
-        // /jobs/:slug request indefinitely — this runs in middleware, in
-        // front of the page's own (separately timed) query. A timeout here
-        // is an "ambiguous check" per the comment above and falls through
-        // the same as a network error or non-OK response.
-        signal: AbortSignal.timeout(3000),
-      },
-    );
-  } catch {
-    return null;
-  }
-  if (!res.ok) return null;
-
-  const rows: unknown = await res.json().catch(() => null);
-  if (Array.isArray(rows) && rows.length === 0) {
-    return new NextResponse('This job posting has closed.', {
-      status: 410,
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-    });
-  }
-  return null;
-}
-
-/**
  * Category slugs in URLs switched from snake_case to hyphens (lib/taxonomy/categories.ts
  * categorySlug). /jobs?category=allied_health still parses, but is permanently redirected
  * to /jobs?category=allied-health so search engines consolidate on one URL. The
@@ -124,9 +63,6 @@ export async function proxy(request: NextRequest) {
   const legacy = redirectLegacyCategoryQuery(request);
   if (legacy) return legacy;
 
-  const gone = await checkJobGone(request);
-  if (gone) return gone;
-
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
   const csp = buildCsp(nonce);
 
@@ -147,11 +83,16 @@ export const config = {
       // Static assets and Next internals are excluded since they carry no
       // inline scripts and don't need a nonce.
       //
-      // /browse is excluded too: those pages are ISR-cached (see
-      // app/browse/[city]/page.tsx), so a nonce would be stale on every
-      // cached hit. They get a static CSP from next.config.ts instead.
-      // Neither of this proxy's other jobs applies there (both are /jobs only).
-      source: '/((?!api|_next/static|_next/image|favicon.ico|browse).*)',
+      // /browse and /jobs/:slug are excluded too: those pages are ISR-cached
+      // (see app/browse/[city]/page.tsx and app/jobs/[slug]/page.tsx), so a
+      // nonce would be stale on every cached hit. They get a static CSP from
+      // next.config.ts instead. `jobs/` (with the slash) leaves /jobs itself
+      // here, where the legacy category redirect below still applies.
+      //
+      // Closed jobs used to get a 410 from a Supabase lookup here on every job
+      // request. They now 404 from the cached page itself: Google drops both,
+      // and the lookup was a function invocation per crawler hit.
+      source: '/((?!api|_next/static|_next/image|favicon.ico|browse|jobs/).*)',
       missing: [
         { type: 'header', key: 'next-router-prefetch' },
         { type: 'header', key: 'purpose', value: 'prefetch' },

@@ -18,9 +18,10 @@ import { countBy } from '@/lib/jobs/catalog';
 import { TileGrid } from '@/components/TileGrid';
 import { EYEBROW, H2, SECTION, TILE } from '@/lib/ui/styles';
 
-// ISR, revalidated hourly. /browse is outside the nonce CSP (see app/browse/[city]/page.tsx),
-// so it can be cached like the city and pair pages under it.
-export const revalidate = 3600;
+// ISR, revalidated every six hours (the ingest cadence). /browse is outside the
+// nonce CSP (see app/browse/[city]/page.tsx), so it can be cached like the city and
+// pair pages under it.
+export const revalidate = 21600;
 
 export async function generateMetadata(): Promise<Metadata> {
   const region = regionName((await loadLandingRows()).map((r) => r.province));
