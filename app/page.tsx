@@ -157,7 +157,7 @@ export default async function HomePage() {
         ]}
       />
       <section className="bg-[var(--color-surface)] text-center">
-        <div className="mx-auto max-w-[820px] px-[22px] pb-[clamp(40px,6vw,64px)] pt-[clamp(56px,9vw,96px)]">
+        <div className="mx-auto max-w-[820px] px-[22px] pt-[clamp(56px,9vw,96px)]">
           <div className={EYEBROW}>{region} · updated every 6 hours</div>
           <h1 className="mt-1.5 text-balance text-[clamp(38px,6.4vw,64px)] font-semibold leading-[1.06] tracking-[-0.025em]">
             Healthcare jobs across Canada.
@@ -170,11 +170,16 @@ export default async function HomePage() {
           <div className="mt-5.5 flex flex-wrap items-center justify-center gap-3">
             <Link href="/jobs" className={PILL_PRIMARY}>Browse {totalActive} open jobs</Link>
           </div>
+        </div>
 
+        {/* From lg the search block and the rotating job card sit side by side;
+            below lg it is one column, with the card under the chips. */}
+        <div className="mx-auto grid max-w-[1000px] px-[22px] pb-[clamp(40px,6vw,64px)] lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-8">
+          <div>
           <form
             method="get"
             action="/jobs"
-            className="mx-auto mt-8.5 flex max-w-[660px] flex-wrap gap-2 rounded-[18px] bg-[var(--color-canvas)] p-2.5 text-left"
+            className="mx-auto mt-8.5 flex max-w-[660px] flex-wrap lg:mx-0 lg:max-w-none gap-2 rounded-[18px] bg-[var(--color-canvas)] p-2.5 text-left"
           >
             <div className={`${FIELD} flex basis-full items-center gap-2.5 py-0`}>
               <span aria-hidden="true" className="text-[15px] text-[var(--color-meta)]">⌕</span>
@@ -208,6 +213,7 @@ export default async function HomePage() {
               ))}
             </div>
           )}
+          </div>
 
           <HeroJobShowcase jobs={showcaseJobs} />
         </div>
