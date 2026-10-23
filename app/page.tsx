@@ -172,14 +172,14 @@ export default async function HomePage() {
           </div>
         </div>
 
-        {/* From lg the search block and the rotating job card sit side by side;
-            below lg it is one column, with the card under the chips. */}
-        <div className="mx-auto grid max-w-[1000px] px-[22px] pb-[clamp(40px,6vw,64px)] lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-8">
-          <div>
+        {/* From md the search block and the rotating job card sit side by side;
+            below md it is one column, with the card under the chips. */}
+        <div className="mx-auto grid max-w-[1000px] px-[22px] pb-[clamp(40px,6vw,64px)] md:grid-cols-[minmax(0,1fr)_260px] md:items-start md:gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-12">
+          <div className="lg:-translate-x-5">
           <form
             method="get"
             action="/jobs"
-            className="mx-auto mt-8.5 flex max-w-[660px] flex-wrap lg:mx-0 lg:max-w-none gap-2 rounded-[18px] bg-[var(--color-canvas)] p-2.5 text-left"
+            className="mx-auto mt-8.5 flex max-w-[660px] flex-wrap md:mx-0 md:max-w-none gap-2 rounded-[18px] bg-[var(--color-canvas)] p-2.5 text-left"
           >
             <div className={`${FIELD} flex basis-full items-center gap-2.5 py-0`}>
               <span aria-hidden="true" className="text-[15px] text-[var(--color-meta)]">⌕</span>

@@ -48,7 +48,7 @@ export function HeroJobShowcase({ jobs }: { jobs: ShowcaseJob[] }) {
 
   return (
     <div
-      className="mx-auto mt-9 w-full max-w-[420px] text-left lg:mx-0 lg:mt-8.5 lg:max-w-none"
+      className="mx-auto mt-9 w-full max-w-[420px] text-left md:mx-0 md:mt-8.5 md:max-w-none"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}
