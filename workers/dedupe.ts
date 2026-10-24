@@ -181,6 +181,54 @@ export function buildJobRow(
 
 type WrittenJob = { id: string; dedupe_key: string };
 
+/** A jobs row as read back for comparison: the columns dedupe writes, plus its id. */
+export type ExistingJob = Omit<JobRow, 'updated_at'> & { id: string };
+
+const TIMESTAMP_COLUMNS = new Set<keyof JobRow>(['posted_at', 'closes_at', 'expires_at']);
+// A Record rather than an array so that adding a column to JobRow fails to compile until it is
+// listed here, instead of silently never counting as a change.
+const COMPARED: Record<Exclude<keyof JobRow, 'updated_at'>, true> = {
+  slug: true, fingerprint: true, dedupe_key: true, title: true, employer_id: true,
+  employer_name: true, facility_name: true, description: true, city: true, province: true,
+  category: true, employment_type: true, shift_type: true, salary_min: true, salary_max: true,
+  salary_period: true, apply_url: true, canonical_source: true, posted_at: true, closes_at: true,
+  expires_at: true, is_active: true,
+};
+const COMPARED_COLUMNS = Object.keys(COMPARED) as (keyof typeof COMPARED)[];
+
+/**
+ * Whether `row` differs from what the table already holds. `updated_at` is ignored: it is
+ * stamped fresh on every build, so comparing it would make every row look changed.
+ *
+ * Timestamps are compared as instants because PostgREST returns `+00:00` where
+ * `toISOString()` writes `.000Z`. `is_active` is compared like any other column, so a job
+ * expire deactivated is still written back to active, exactly as before.
+ */
+export function jobRowChanged(existing: ExistingJob, row: JobRow): boolean {
+  return COMPARED_COLUMNS.some((column) => {
+    const before = existing[column];
+    const after = row[column];
+    if (before === null || after === null) return before !== after;
+    if (TIMESTAMP_COLUMNS.has(column)) return Date.parse(String(before)) !== Date.parse(String(after));
+    // salary_* are Postgres numeric; compare by value in case one comes back as a string.
+    if (typeof after === 'number') return Number(before) !== after;
+    return before !== after;
+  });
+}
+
+/** Reads every row of a select, paging past PostgREST's per-response cap. */
+async function selectAll<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: unknown }>,
+): Promise<T[]> {
+  const all: T[] = [];
+  for (let from = 0; ; from += SELECT_PAGE_SIZE) {
+    const { data, error } = await page(from, from + SELECT_PAGE_SIZE - 1);
+    if (error) throw error;
+    all.push(...((data ?? []) as T[]));
+    if (!data || data.length < SELECT_PAGE_SIZE) return all;
+  }
+}
+
 /**
  * Upserts a chunk of jobs, halving and retrying on failure instead of skipping it.
  *
@@ -294,38 +342,66 @@ async function main() {
     sourceIdsByDedupeKey.set(dedupeKey, rows.map((row) => row.id));
   }
 
+  // Only new and changed jobs are written. Rewriting all ~8,500 every run dirtied most of the
+  // table each time, and the checkpoint flushing it overlapped expire, which then hit the 8s
+  // statement timeout (ingest runs #154 and #157).
+  const existingJobs = await selectAll<ExistingJob>((from, to) => admin
+    .from('jobs')
+    .select(['id', ...COMPARED_COLUMNS].join(','))
+    .order('id')
+    .range(from, to));
+  const existingByKey = new Map(existingJobs.map((job) => [job.dedupe_key, job]));
+  const existingLinks = await selectAll<{ job_id: string; raw_posting_id: string }>((from, to) => admin
+    .from('job_sources')
+    .select('job_id,raw_posting_id')
+    .order('job_id')
+    .order('raw_posting_id')
+    .range(from, to));
+  const linkKeys = new Set(existingLinks.map((link) => `${link.job_id}:${link.raw_posting_id}`));
+
+  const changedRows = jobRows.filter((row) => {
+    const existing = existingByKey.get(row.dedupe_key);
+    return !existing || jobRowChanged(existing, row);
+  });
+  const jobsUnchanged = jobRows.length - changedRows.length;
+
   // Chunked rather than one statement: a single upsert of every job would be a multi-megabyte
   // request (descriptions included) and one failure would lose the whole run's writes.
+  const jobIdByKey = new Map(existingJobs.map((job) => [job.dedupe_key, job.id]));
   let jobsWritten = 0;
-  let linksWritten = 0;
-  for (let i = 0; i < jobRows.length; i += WRITE_CHUNK_SIZE) {
-    const chunk = jobRows.slice(i, i + WRITE_CHUNK_SIZE);
-    const written = await upsertJobChunk(admin, chunk, ctx);
+  for (let i = 0; i < changedRows.length; i += WRITE_CHUNK_SIZE) {
+    const written = await upsertJobChunk(admin, changedRows.slice(i, i + WRITE_CHUNK_SIZE), ctx);
     jobsWritten += written.length;
+    for (const job of written) jobIdByKey.set(job.dedupe_key, job.id);
+  }
 
-    const links = written.flatMap((job) =>
-      (sourceIdsByDedupeKey.get(job.dedupe_key) ?? []).map((rawPostingId) => ({
-        job_id: job.id as string,
-        raw_posting_id: rawPostingId,
-      })),
-    );
-    for (let j = 0; j < links.length; j += WRITE_CHUNK_SIZE) {
-      const { error: sourceError } = await admin
-        .from('job_sources')
-        .upsert(links.slice(j, j + WRITE_CHUNK_SIZE), { onConflict: 'job_id,raw_posting_id' });
-      if (sourceError) {
-        // A missing job_sources link is a lesser failure than losing the rest of the run —
-        // but it does matter: expire_stale_jobs reads these links to tell a live job from a
-        // delisted one, so it is logged at error level.
-        log(ctx, 'error', 'job_sources upsert chunk failed', { size: links.length, error: sourceError.message });
-      } else {
-        linksWritten += links.slice(j, j + WRITE_CHUNK_SIZE).length;
-      }
+  // Links are checked for every job, unchanged ones included: an unchanged job can still have
+  // gained a source, or lost its link to a failed upsert on an earlier run.
+  const links = [...sourceIdsByDedupeKey].flatMap(([dedupeKey, rawPostingIds]) => {
+    const jobId = jobIdByKey.get(dedupeKey);
+    if (!jobId) return [];
+    return rawPostingIds
+      .filter((rawPostingId) => !linkKeys.has(`${jobId}:${rawPostingId}`))
+      .map((rawPostingId) => ({ job_id: jobId, raw_posting_id: rawPostingId }));
+  });
+  let linksWritten = 0;
+  for (let j = 0; j < links.length; j += WRITE_CHUNK_SIZE) {
+    const chunk = links.slice(j, j + WRITE_CHUNK_SIZE);
+    const { error: sourceError } = await admin
+      .from('job_sources')
+      .upsert(chunk, { onConflict: 'job_id,raw_posting_id' });
+    if (sourceError) {
+      // A missing job_sources link is a lesser failure than losing the rest of the run —
+      // but it does matter: expire_stale_jobs reads these links to tell a live job from a
+      // delisted one, so it is logged at error level.
+      log(ctx, 'error', 'job_sources upsert chunk failed', { size: chunk.length, error: sourceError.message });
+    } else {
+      linksWritten += chunk.length;
     }
   }
 
   log(ctx, 'info', 'dedupe complete', {
-    jobs: jobGroups.length, crossSourceMerges, jobsWritten, linksWritten,
+    jobs: jobGroups.length, crossSourceMerges, jobsUnchanged, jobsWritten, linksWritten,
   });
 }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sourcePriority, pickCanonical, buildJobRow, groupIntoJobs, upsertJobChunk, type RawRow, type JobRow } from '@/workers/dedupe';
+import { sourcePriority, pickCanonical, buildJobRow, groupIntoJobs, upsertJobChunk, jobRowChanged, type ExistingJob, type RawRow, type JobRow } from '@/workers/dedupe';
 
 /**
  * A stand-in for the Supabase client that fails any upsert larger than `maxRows` with the
@@ -181,5 +181,38 @@ describe('upsertJobChunk', () => {
     // than looping forever.
     const { client } = fakeAdmin(0);
     expect(await upsertJobChunk(client as never, rows(8), ctx)).toEqual([]);
+  });
+});
+
+describe('jobRowChanged', () => {
+  const built = buildJobRow(row(), 'emp-1', 'fp:JR1');
+  // As PostgREST returns it: timestamps as +00:00, no updated_at, plus the id.
+  const columns: Partial<JobRow> = { ...built };
+  delete columns.updated_at;
+  const stored: ExistingJob = {
+    ...(columns as Omit<JobRow, 'updated_at'>),
+    id: 'job-1',
+    posted_at: built.posted_at.replace('.000Z', '+00:00'),
+    expires_at: built.expires_at.replace('.000Z', '+00:00'),
+  };
+
+  it('treats a row that only differs in timestamp format and updated_at as unchanged', () => {
+    expect(jobRowChanged(stored, { ...built, updated_at: '2030-01-01T00:00:00.000Z' })).toBe(false);
+  });
+
+  it('sees a changed column', () => {
+    expect(jobRowChanged(stored, { ...built, title: 'RN - ICU' })).toBe(true);
+  });
+
+  it('sees a moved timestamp', () => {
+    expect(jobRowChanged(stored, { ...built, expires_at: '2026-12-01T00:00:00.000Z' })).toBe(true);
+  });
+
+  it('rewrites a job expire deactivated, so it comes back active as before', () => {
+    expect(jobRowChanged({ ...stored, is_active: false }, built)).toBe(true);
+  });
+
+  it('sees closes_at appearing', () => {
+    expect(jobRowChanged(stored, { ...built, closes_at: '2026-10-01T00:00:00.000Z' })).toBe(true);
   });
 });
