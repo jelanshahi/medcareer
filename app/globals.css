@@ -22,11 +22,29 @@
   --color-header-bg: rgba(251, 251, 253, 0.82);
   --color-header-rule: rgba(0, 0, 0, 0.08);
 
+  /* Home hero ("Every healthcare job…" design): warm paper ground, a deep
+     forest panel for the latest postings, mint for badges and icon tiles,
+     and a softer pine for the headline accent and search button. Scoped to
+     the hero; the rest of the site keeps the palette above. */
+  --color-paper: #f5f3ee;
+  --color-paper-chip: #f1efea;
+  --color-forest: #1c3b34;
+  --color-pine: #2d5f51;
+  --color-pine-hover: #224a3f;
+  --color-mint: #dfede6;
+  --color-coral: #e07a5f;
+
   /* The canvas asks for -apple-system/SF Pro. On Windows that chain falls
      through to Arial, which is what the design was reviewed and approved in,
      so the approved rendering wins over the canvas's stated intent (spec 2.1).
      No webfont is loaded; font-src 'self' stays trivially met. */
   --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+  /* Condensed display face for the home hero headline. Still system fonts
+     only (no webfont, see above): each platform's own condensed cut, falling
+     back to the regular stack with font-stretch asking for the narrow width. */
+  --font-display: "Helvetica Neue Condensed", "HelveticaNeue-CondensedBold", "Roboto Condensed", "Arial Narrow",
+    "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 /* These MUST stay inside @layer base. Unlayered CSS outranks every layered
@@ -211,26 +229,6 @@ html {
   }
 }
 
-@keyframes check-draw {
-  from {
-    stroke-dashoffset: 24;
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes card-swap-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px) scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
 @keyframes dot-wave {
   0%,
   60%,
@@ -260,16 +258,6 @@ html {
   .ticker:hover .ticker-track,
   .ticker:focus-within .ticker-track {
     animation-play-state: paused;
-  }
-
-  .check-draw {
-    stroke-dasharray: 24;
-    stroke-dashoffset: 24;
-    animation: check-draw 0.32s ease-out forwards;
-  }
-
-  .card-swap-in {
-    animation: card-swap-in 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
   }
 
   .dot-wave > span {
@@ -313,9 +301,5 @@ html {
   }
   .ticker {
     overflow-x: auto;
-  }
-  .check-draw {
-    stroke-dashoffset: 0;
-    animation: none;
   }
 }

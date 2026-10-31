@@ -4,18 +4,16 @@ import { selectAll } from '@/lib/db/select-all';
 import { groupCitiesByProvince, regionName } from '@/lib/provinces';
 import { CATEGORIES, CATEGORY_LABELS, type Category } from '@/lib/taxonomy/categories';
 import { formatSalary, postedAgo } from '@/lib/format';
-import { HeroJobShowcase, type ShowcaseJob } from '@/components/HeroJobShowcase';
+import { HeroLatestPostings, PinIcon, type HeroPosting } from '@/components/HeroLatestPostings';
 import { RecentTicker } from '@/components/RecentTicker';
-import { EMPLOYMENT_TYPES, EMPLOYMENT_LABELS } from '@/lib/taxonomy/employment';
+import { EMPLOYMENT_TYPES, EMPLOYMENT_LABELS, type EmploymentType } from '@/lib/taxonomy/employment';
 import { tally, type FacetRow } from '@/lib/jobs/facets';
 import { buildJobsQuery } from '@/lib/jobs/query-string';
 import { PostedTodayCard, type PostedTodayJob } from '@/components/PostedTodayCard';
 import { Stat } from '@/components/Stat';
 import { DisciplineTile } from '@/components/DisciplineTile';
 import { JobAlertForm } from '@/components/JobAlertForm';
-import { ProvinceCitySelect } from '@/components/ProvinceCitySelect';
-import { NearMeButton } from '@/components/NearMeButton';
-import { EYEBROW, FIELD, H2, PILL_OUTLINE, PILL_PRIMARY, SECTION } from '@/lib/ui/styles';
+import { H2, SECTION } from '@/lib/ui/styles';
 import { SITE } from '@/lib/site';
 import { HOME_DESCRIPTION, pageMeta } from '@/lib/seo';
 import { paths } from '@/lib/jobs/links';
@@ -66,7 +64,7 @@ export default async function HomePage() {
   // quiet "0 jobs" home page. selectAll throws on its own.
   const recent = db
     .from('jobs')
-    .select(`${TODAY_COLUMNS},posted_at`)
+    .select(`${TODAY_COLUMNS},province,employment_type,posted_at`)
     .eq('is_active', true)
     .order('posted_at', { ascending: false })
     .limit(12);
@@ -76,13 +74,14 @@ export default async function HomePage() {
   if (todayError) throw todayError;
   if (recentError) throw recentError;
 
-  // Real recent postings feed the hero card and the ticker; nothing is invented.
-  const recentJobs = (recentRows ?? []) as (PostedTodayJob & { posted_at: string })[];
-  const showcaseJobs: ShowcaseJob[] = recentJobs.slice(0, 5).map((j) => ({
+  // Real recent postings feed the hero panel and the ticker; nothing is invented.
+  const recentJobs = (recentRows ?? []) as (PostedTodayJob & { posted_at: string; province: string; employment_type: string | null })[];
+  const latestPostings: HeroPosting[] = recentJobs.slice(0, 3).map((j) => ({
     slug: j.slug,
     title: j.title,
     employer: j.employer_name,
-    city: j.city,
+    location: `${j.city}, ${j.province}`,
+    employmentType: j.employment_type && j.employment_type in EMPLOYMENT_LABELS ? EMPLOYMENT_LABELS[j.employment_type as EmploymentType] : null,
     category: j.category && j.category in CATEGORY_LABELS ? CATEGORY_LABELS[j.category as Category] : null,
     salary: formatSalary(j.salary_min, j.salary_max, j.salary_period),
     posted: postedAgo(j.posted_at),
@@ -92,6 +91,9 @@ export default async function HomePage() {
   const totalActive = rows.length;
   const employerNames = [...new Set(rows.map((r) => r.employer_name))].sort();
   const citiesByProvince = groupCitiesByProvince(rows);
+  const provinceGroups = (Object.entries(citiesByProvince) as [string, string[]][]).sort(([a], [b]) =>
+    provinceName(a).localeCompare(provinceName(b)),
+  );
   const categoryCounts = tally(rows, 'category');
   const typeCounts = tally(rows, 'employment_type');
 
@@ -156,66 +158,88 @@ export default async function HomePage() {
           { '@context': 'https://schema.org', '@type': 'WebSite', name: SITE.name, url: SITE.url },
         ]}
       />
-      <section className="bg-[var(--color-surface)] text-center">
-        <div className="mx-auto max-w-[820px] px-[22px] pt-[clamp(56px,9vw,96px)]">
-          <div className={EYEBROW}>{region} · updated every 6 hours</div>
-          <h1 className="mt-1.5 text-balance text-[clamp(38px,6.4vw,64px)] font-semibold leading-[1.06] tracking-[-0.025em]">
-            Healthcare jobs across Canada.
-          </h1>
-          <p className="mx-auto mt-3.5 max-w-[34em] text-[clamp(18px,2.2vw,21px)] leading-[1.4] text-[var(--color-slate)]">
-            Nurse, PSW, allied health and physician jobs from hospitals, health authorities and care homes, each
-            linked to the employer’s own application page.
-          </p>
-
-          <div className="mt-5.5 flex flex-wrap items-center justify-center gap-3">
-            <Link href="/jobs" className={PILL_PRIMARY}>Browse {totalActive} open jobs</Link>
-          </div>
-        </div>
-
-        {/* From md the search block and the rotating job card sit side by side;
-            below md it is one column, with the card under the chips. */}
-        <div className="mx-auto grid max-w-[1000px] px-[22px] pb-[clamp(40px,6vw,64px)] md:grid-cols-[minmax(0,1fr)_260px] md:items-start md:gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-12">
-          <div className="lg:-translate-x-5">
-          <form
-            method="get"
-            action="/jobs"
-            className="mx-auto mt-8.5 flex max-w-[660px] flex-wrap md:mx-0 md:max-w-none gap-2 rounded-[18px] bg-[var(--color-canvas)] p-2.5 text-left"
-          >
-            <div className={`${FIELD} flex basis-full items-center gap-2.5 py-0`}>
-              <span aria-hidden="true" className="text-[15px] text-[var(--color-meta)]">⌕</span>
-              <label htmlFor="hero-q" className="sr-only">Role or keyword</label>
-              <input
-                id="hero-q"
-                name="q"
-                type="search"
-                placeholder="Registered nurse, PSW, MLT…"
-                className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[17px] outline-offset-[6px]"
-              />
+      <section className="bg-[var(--color-paper)]">
+        <div className="mx-auto grid max-w-[1240px] gap-[clamp(36px,5vw,72px)] grid-cols-[minmax(0,1fr)] px-[22px] pb-[clamp(48px,7vw,96px)] pt-[clamp(40px,6vw,80px)] lg:grid-cols-[minmax(0,1fr)_minmax(380px,500px)] lg:items-center">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-[var(--color-mint)] px-3.5 py-1.5 text-[14px] font-medium text-[var(--color-forest)]">
+              <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[var(--color-coral)]" />
+              {region === 'Canada' ? 'Canada’s' : `${region}’s`} healthcare-only job search
             </div>
-            <ProvinceCitySelect
-              citiesByProvince={citiesByProvince}
-              cityName="city"
-              idPrefix="hero-city"
-              allCityLabel={`All of ${region}`}
-              selectClassName={`${FIELD} min-w-0 flex-1 basis-[130px]`}
-            />
-            <NearMeButton />
-            <button type="submit" className={`${PILL_PRIMARY} flex-1 basis-[130px] rounded-xl`}>
-              Search
-            </button>
-          </form>
+            <h1 className="mt-6 text-balance font-display text-[clamp(44px,6.2vw,72px)] font-bold leading-[1.02] tracking-[-0.035em] [font-stretch:condensed]">
+              Every healthcare job in {region},{' '}
+              <span className="text-[var(--color-pine)]">in one search.</span>
+            </h1>
+            <p className="mt-6 max-w-[34em] text-[clamp(17px,1.6vw,20px)] leading-[1.55] text-[var(--color-slate)]">
+              Nursing, PSW, allied health and physician roles straight from hospital, health authority and care-home
+              career sites — gathered in one place, so you don’t have to check twenty.
+            </p>
 
-          {popularSearches.length > 0 && (
-            <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2">
-              <span className="text-sm text-[var(--color-meta)]">Popular:</span>
-              {popularSearches.map((p) => (
-                <Link key={p.label} href={p.href} className={PILL_OUTLINE}>{p.label}</Link>
-              ))}
-            </div>
-          )}
+            <form
+              method="get"
+              action="/jobs"
+              className="mt-8 flex flex-col gap-1 rounded-[18px] border border-[var(--color-divider)] bg-[var(--color-surface)] p-2 shadow-[0_18px_40px_-24px_rgba(28,59,52,0.35)] sm:flex-row sm:items-center"
+            >
+              <div className="flex min-h-[52px] min-w-0 flex-[1.4] items-center gap-3 px-4">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-[18px] w-[18px] shrink-0 text-[var(--color-slate)]" aria-hidden="true">
+                  <circle cx="11" cy="11" r="7" />
+                  <path strokeLinecap="round" d="m20 20-3.5-3.5" />
+                </svg>
+                <label htmlFor="hero-q" className="sr-only">Job title or profession</label>
+                <input
+                  id="hero-q"
+                  name="q"
+                  type="search"
+                  placeholder="Job title or profession"
+                  className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[17px] outline-offset-[6px] placeholder:text-[var(--color-slate)]"
+                />
+              </div>
+              <span aria-hidden="true" className="mx-4 h-px bg-[var(--color-divider)] sm:mx-0 sm:h-9 sm:w-px" />
+              <div className="flex min-h-[52px] min-w-0 flex-1 items-center gap-3 px-4">
+                <PinIcon className="h-[18px] w-[18px] shrink-0 text-[var(--color-slate)]" />
+                <label htmlFor="hero-city" className="sr-only">City</label>
+                {/* One select, cities grouped by province: /jobs filters on city, so a
+                    free-text "city or province" box would accept places it can't match. */}
+                <select
+                  id="hero-city"
+                  name="city"
+                  defaultValue=""
+                  className="min-w-0 flex-1 cursor-pointer appearance-none border-0 bg-transparent p-0 text-[17px] text-[var(--color-ink)] outline-offset-[6px]"
+                >
+                  <option value="">All of {region}</option>
+                  {provinceGroups.map(([code, cities]) => (
+                    <optgroup key={code} label={provinceName(code)}>
+                      {cities.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="submit"
+                className="pill-fx mt-1 min-h-[52px] shrink-0 cursor-pointer whitespace-nowrap rounded-xl border-0 bg-[var(--color-pine)] px-7 text-[17px] font-medium text-white hover:bg-[var(--color-pine-hover)] sm:mt-0"
+              >
+                Search jobs
+              </button>
+            </form>
+
+            {popularSearches.length > 0 && (
+              <div className="mt-5 flex flex-wrap items-center gap-2.5">
+                <span className="text-[15px] text-[var(--color-slate)]">Popular:</span>
+                {popularSearches.map((p) => (
+                  <Link
+                    key={p.label}
+                    href={p.href}
+                    className="inline-flex min-h-[38px] items-center rounded-full border border-[var(--color-rule)] bg-[var(--color-surface)] px-4 text-[15px] text-[var(--color-ink)] no-underline hover:border-[var(--color-pine)] hover:text-[var(--color-pine)] hover:no-underline"
+                  >
+                    {p.label}
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
 
-          <HeroJobShowcase jobs={showcaseJobs} />
+          <HeroLatestPostings jobs={latestPostings} />
         </div>
       </section>
 
