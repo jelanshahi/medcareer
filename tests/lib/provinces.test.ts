@@ -90,6 +90,19 @@ describe('groupCitiesByProvince', () => {
     expect(groupCitiesByProvince(rows)).not.toHaveProperty('BC');
   });
 
+  it('never lists a placeholder as a city', () => {
+    const withPlaceholders = [
+      ...rows,
+      { city: 'To Be Determined', province: 'ON' },
+      { city: 'UNAVAILABLE', province: 'ON' },
+      { city: 'To be determined', province: 'SK' },
+    ];
+    expect(groupCitiesByProvince(withPlaceholders)).toEqual({
+      ON: ['Hamilton', 'Toronto'],
+      AB: ['Calgary'],
+    });
+  });
+
   it('returns an empty object for no rows, not a thrown error', () => {
     expect(groupCitiesByProvince([])).toEqual({});
   });

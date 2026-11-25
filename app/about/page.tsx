@@ -1,6 +1,7 @@
 import { createServerClient } from '@/lib/db/server';
 import { selectAll } from '@/lib/db/select-all';
 import { regionName } from '@/lib/provinces';
+import { isPlausibleCity } from '@/lib/normalize/city';
 import { SITE } from '@/lib/site';
 import { pageMeta } from '@/lib/seo';
 import { CARD } from '@/lib/ui/styles';
@@ -41,7 +42,7 @@ export default async function AboutPage() {
   for (const row of rows) {
     const entry = byEmployer.get(row.employer_name) ?? { count: 0, cities: new Set<string>() };
     entry.count += 1;
-    entry.cities.add(row.city);
+    if (isPlausibleCity(row.city)) entry.cities.add(row.city);
     byEmployer.set(row.employer_name, entry);
   }
   const employers: Employer[] = [...byEmployer.entries()]

@@ -108,8 +108,13 @@ describe('buildJobRow', () => {
     expect(buildJobRow(row(), null, key).dedupe_key).toBe(key);
   });
 
-  it('replaces a placeholder city with the employer default city', () => {
+  it('stores a placeholder city unchanged, even with an employer default city', () => {
     const r = row({ normalized: { ...posting, city: 'TBD' } });
+    expect(buildJobRow(r, null, dedupeKeyFor(r), 'Regina').city).toBe('TBD');
+  });
+
+  it('replaces a feed artefact with the employer default city', () => {
+    const r = row({ normalized: { ...posting, city: '-' } });
     expect(buildJobRow(r, null, dedupeKeyFor(r), 'Regina').city).toBe('Regina');
   });
 
@@ -120,6 +125,19 @@ describe('buildJobRow', () => {
 
   it('keeps a real city untouched', () => {
     expect(buildJobRow(row(), null, dedupeKeyFor(row()), 'Regina').city).toBe('Toronto');
+  });
+});
+
+describe('buildJobRow employer name', () => {
+  // raw_postings keeps the feed's spelling; every dedupe run rebuilds jobs through this, so
+  // cleaning here also corrects rows already stored.
+  it('stores the cleaned name without changing the dedupe key or slug', () => {
+    const dirty = row({ normalized: { ...posting, employerName: '[[Golden Links Lodge]]' } });
+    const built = buildJobRow(dirty, null, 'k1');
+
+    expect(built.employer_name).toBe('Golden Links Lodge');
+    expect(built.dedupe_key).toBe('k1');
+    expect(built.slug).toBe(buildJobRow(row(), null, 'k1').slug);
   });
 });
 

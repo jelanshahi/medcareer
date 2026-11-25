@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/db/database.types';
 import type { ProvinceCode } from '@/lib/types';
+import { isPlausibleCity } from '@/lib/normalize/city';
 
 export const PROVINCE_NAMES: Record<ProvinceCode, string> = {
   AB: 'Alberta',
@@ -81,15 +82,15 @@ export function provinceOfCity(rows: ReadonlyArray<{ city: string; province: str
 }
 
 /** Every active city, grouped by province, for the two-step province-then-city
- *  picker (components/ProvinceCitySelect.tsx). Only provinces with at least
- *  one active job appear as keys, and each city list is deduplicated and
- *  sorted — the same shape a flat `[...new Set(rows.map(r => r.city))].sort()`
- *  already produced, just partitioned first. */
+ *  picker (components/ProvinceCitySelect.tsx). Placeholder values ("To be
+ *  determined") are never listed. Only provinces with at least one listable
+ *  city appear as keys, and each city list is deduplicated and sorted. */
 export function groupCitiesByProvince(
   rows: ReadonlyArray<{ city: string; province: string }>,
 ): Partial<Record<ProvinceCode, string[]>> {
   const out: Partial<Record<ProvinceCode, string[]>> = {};
   for (const r of rows) {
+    if (!isPlausibleCity(r.city)) continue;
     const code = r.province as ProvinceCode;
     (out[code] ??= []).push(r.city);
   }

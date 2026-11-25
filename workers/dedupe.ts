@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/db/admin';
 import { classify } from '@/lib/taxonomy/classify';
 import { deaccent } from '@/lib/normalize/title';
 import { cleanCity } from '@/lib/normalize/city';
+import { cleanEmployerName } from '@/lib/normalize/employer';
 import { log } from '@/workers/logger';
 import type { NormalizedPosting } from '@/lib/types';
 
@@ -133,8 +134,8 @@ function slugify(title: string): string {
 
 /**
  * `fallbackCity` is the employer's registered default city, used when the feed's own city
- * value is not a place ("TBD", a sentence) and none can be salvaged from it — see
- * lib/normalize/city.ts.
+ * value is an artefact no place can be salvaged from. Placeholders ("TBD") are stored as
+ * written — see lib/normalize/city.ts.
  */
 export function buildJobRow(
   row: RawRow,
@@ -158,7 +159,7 @@ export function buildJobRow(
     dedupe_key: dedupeKey,
     title: n.title,
     employer_id: employerId,
-    employer_name: n.employerName,
+    employer_name: cleanEmployerName(n.employerName),
     facility_name: n.facilityName ?? null,
     description: n.description,
     city: cleanCity(n.city, fallbackCity),
@@ -331,11 +332,12 @@ async function main() {
     }
 
     const dedupeKey = `${fp}:${sourceJobId}`;
+    const employerName = cleanEmployerName(canonical.normalized.employerName);
     const jobRow = buildJobRow(
       canonical,
-      employerIdByName.get(canonical.normalized.employerName) ?? null,
+      employerIdByName.get(employerName) ?? null,
       dedupeKey,
-      defaultCityByName.get(canonical.normalized.employerName) ?? null,
+      defaultCityByName.get(employerName) ?? null,
     );
 
     jobRows.push(jobRow);
