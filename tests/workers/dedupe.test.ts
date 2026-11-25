@@ -126,6 +126,15 @@ describe('buildJobRow', () => {
   it('keeps a real city untouched', () => {
     expect(buildJobRow(row(), null, dedupeKeyFor(row()), 'Regina').city).toBe('Toronto');
   });
+
+  it('stores a city variant under one spelling without changing the fingerprint or slug', () => {
+    const variant = row({ normalized: { ...posting, city: 'GTA' } });
+    const built = buildJobRow(variant, null, 'k1');
+
+    expect(built.city).toBe('Greater Toronto Area');
+    expect(built.fingerprint).toBe(variant.fingerprint);
+    expect(built.slug).toBe(buildJobRow(row(), null, 'k1').slug);
+  });
 });
 
 describe('buildJobRow employer name', () => {

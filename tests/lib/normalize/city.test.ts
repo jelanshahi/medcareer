@@ -49,6 +49,81 @@ describe('feed placeholders', () => {
   });
 });
 
+// Also seen in the live data on 2026-11-25: one place listed as two or more entries.
+describe('city variants', () => {
+  const expectCleaned = (pairs: [string, string][]) => {
+    for (const [raw, city] of pairs) expect(cleanCity(raw, 'Markham'), raw).toBe(city);
+  };
+
+  it('drops a province code repeated after the city', () => {
+    expectCleaned([['Prince Albert, SK', 'Prince Albert']]);
+  });
+
+  it('writes apostrophes one way', () => {
+    expectCleaned([['Fort Qu’Appelle', "Fort Qu'Appelle"], ["Fort Qu'Appelle", "Fort Qu'Appelle"]]);
+  });
+
+  it('merges confirmed capitalisation and spelling variants', () => {
+    expectCleaned([
+      ['Moose jaw', 'Moose Jaw'],
+      ['Meadow lake', 'Meadow Lake'],
+      ['St Catherines', 'St. Catharines'],
+      ['St. Catherines', 'St. Catharines'],
+      ['St Catharines', 'St. Catharines'],
+      ['Elliott Lake', 'Elliot Lake'],
+    ]);
+  });
+
+  it('lists a facility under the town it is in', () => {
+    expectCleaned([['Selkirk Regional Health Centre', 'Selkirk']]);
+  });
+
+  it('takes the first town when a posting names more than one', () => {
+    expectCleaned([
+      ['Regina or Saskatoon', 'Regina'],
+      ['Saskatoon or Regina', 'Saskatoon'],
+      ['Beauval or Buffalo Narrows', 'Beauval'],
+      ['Minnedosa and Neepawa', 'Minnedosa'],
+      ['Winkler / Morden', 'Winkler'],
+      ['Winkler or area', 'Winkler'],
+      ['Steinbach/Ste-Anne', 'Steinbach'],
+      ['Geraldton Longlac', 'Geraldton'],
+    ]);
+  });
+
+  it('lists the Toronto region under one name', () => {
+    expectCleaned([
+      ['GTA', 'Greater Toronto Area'],
+      ['Greater Toronto', 'Greater Toronto Area'],
+      ['Greater Toronto Area', 'Greater Toronto Area'],
+    ]);
+  });
+
+  it('keeps a region as its own listable entry', () => {
+    for (const c of ['Greater Toronto Area', 'Niagara Region', 'Simcoe County', 'Timiskaming']) {
+      expect(cleanCity(c, 'Markham'), c).toBe(c);
+      expect(isPlausibleCity(c), c).toBe(true);
+    }
+  });
+
+  it('also applies to a place salvaged from a longer value', () => {
+    expectCleaned([['Moose jaw (various sites across the region)', 'Moose Jaw']]);
+  });
+
+  it('leaves a placeholder as written, whatever follows it', () => {
+    expectCleaned([['Remote, SK', 'Remote, SK'], ['Remote / Hybrid', 'Remote / Hybrid']]);
+  });
+
+  it('leaves real places that look similar alone', () => {
+    for (const c of [
+      'Grand Forks', 'Portage la Prairie', 'Sault Ste. Marie', "Burk's Falls", 'Orillia',
+      'Niagara-on-the-Lake', 'Prince Edward County', 'West Kelowna', 'Anderson', 'Sandy Bay',
+    ]) {
+      expect(cleanCity(c), c).toBe(c);
+    }
+  });
+});
+
 describe('salvageCity', () => {
   it('takes the leading place name from a sentence', () => {
     expect(salvageCity('Killarney service will be provided to Boissevain, Cartwright, Deloraine and Glenboro')).toBe('Killarney');
